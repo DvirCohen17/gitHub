@@ -175,6 +175,24 @@ int callback_Friend(void* data, int argc, char** argv, char** azColName)
 	return 0;
 }
 
+int callback_FriendReq(void* data, int argc, char** argv, char** azColName)
+{
+	std::list<FriendReq>* list_friends = (std::list<FriendReq>*)data;
+	FriendReq friends;
+
+	for (int i = 0; i < argc; i++) {
+		if (std::string(azColName[i]) == "userId") {
+			friends.userId = std::stoi(argv[i]);
+		}
+		else if (std::string(azColName[i]) == "friendReqId") {
+			friends.friendReqId = std::stoi(argv[i]);
+		}
+
+	}
+	list_friends->push_back(friends);
+	return 0;
+
+}
 bool SqliteDataBase::send(sqlite3* db, std::string msg)
 {
 	const char* sqlStatement = msg.c_str();
@@ -268,6 +286,17 @@ bool SqliteDataBase::send_Friends(sqlite3* db, std::string msg, std::list<Friend
 	const char* sqlStatement = msg.c_str();
 	char* errMessage = nullptr;
 	int res = sqlite3_exec(db, sqlStatement, callback_Friend, data, &errMessage);
+	if (res != SQLITE_OK)
+		return false;
+
+	return true;
+}
+
+bool SqliteDataBase::send_FriendReq(sqlite3* db, std::string msg, std::list<FriendReq>* data)
+{
+	const char* sqlStatement = msg.c_str();
+	char* errMessage = nullptr;
+	int res = sqlite3_exec(db, sqlStatement, callback_FriendReq, data, &errMessage);
 	if (res != SQLITE_OK)
 		return false;
 
@@ -707,13 +736,18 @@ ProfileInfo SqliteDataBase::getUsersInfo(int userId)
 	}
 }
 
-std::list<ProfileInfo> SqliteDataBase::searchUsersInfo(std::string searchCommand)
+std::list<std::string> SqliteDataBase::searchUsers(std::string searchCommand)
 {
-	std::string msg = "SELECT * FROM ProfileInfo WHERE name LIKE /'" + searchCommand + "%/';";
+	std::string msg = "SELECT * FROM ProfileInfo WHERE name LIKE \'" + searchCommand + "%\';";
 	std::list<ProfileInfo> infoList;
 	send_profInfo(_db, msg, &infoList);
-
-	return infoList;
+	
+	std::list<std::string> result;
+	for (auto user : infoList)
+	{
+		result.push_back(user.name);
+	}
+	return result;
 }
 
 void SqliteDataBase::createProfile(std::string username, std::string email, std::string bio, int userId)
@@ -849,11 +883,20 @@ Friends SqliteDataBase::getUserFriends(int userId)
 	return empty;
 }
 
+std::list<FriendReq> SqliteDataBase::getUserFriendReq(int userId)
+{
+	std::string msg = "SELECT * from FriendReq WHERE friendReqId = " + std::to_string(userId) + ";";
+	std::list<FriendReq> friendsList;
+	send_FriendReq(_db, msg, &friendsList);
+
+	return friendsList;
+}
+
 void SqliteDataBase::addFriend(int userId, std::string friendsList)
 {
 	std::string msg;
 
-	msg = "UPDATE UserFriends SET friendsList = /'" + friendsList + "/' WHERE userId = " + std::to_string(userId) + ";";
+	msg = "UPDATE UserFriends SET friendsList = \'" + friendsList + "\' WHERE userId = " + std::to_string(userId) + ";";
 
 	send(_db, msg);
 }
@@ -862,7 +905,38 @@ void SqliteDataBase::removeFriend(int userId, std::string friendsList)
 {
 	std::string msg;
 
-	msg = "UPDATE UserFriends SET friendsList = /'" + friendsList + "/' WHERE userId = " + std::to_string(userId) + ";";
+	msg = "UPDATE UserFriends SET friendsList = \'" + friendsList + "\' WHERE userId = " + std::to_string(userId) + ";";
 
+	send(_db, msg);
+}
+
+void SqliteDataBase::approveFriendReq(int userId, int friendRequsetId)
+{
+	std::string msg = "DELETE FROM FriendReq WHERE friendReqId = " + std::to_string(friendRequsetId) +
+		" AND userId" + std::to_string(userId) + ";";
+	send(_db, msg);
+
+	Friends userFriend1 = getUserFriends(friendRequsetId);
+	Friends userFriend2 = getUserFriends(userId);
+
+	std::string name1 = getUserName("", friendRequsetId);
+	std::string name2 = getUserName("", userId);
+
+	std::string lengthString = std::to_string(name1.length());
+	lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
+	userFriend1.fiendsList += lengthString + name1;
+
+	addFriend(friendRequsetId, userFriend1.fiendsList);
+
+	lengthString = std::to_string(name2.length());
+	lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
+	userFriend2.fiendsList += lengthString + name2;
+
+	addFriend(userId, userFriend2.fiendsList);
+}
+void SqliteDataBase::rejectFriendReq(int userId, int friendRequsetId)
+{
+	std::string msg = "DELETE FROM FriendReq WHERE friendReqId = " + std::to_string(friendRequsetId) +
+		" AND userId" + std::to_string(userId) + ";";
 	send(_db, msg);
 }

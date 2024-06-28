@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <windows.h>
 
+
 class FileOperation
 {
 public:
@@ -17,4 +18,6 @@ public:
     void getFilesInDirectory(const std::string& directoryPath, std::map<std::string, int>& files);
     std::string readFromFile(const std::string& filePath);
     void updateFile(const std::string& filename, const std::string& data);
+    size_t getImageSize(const std::string& filename);
+    std::vector<unsigned char> ReadImageFile(const std::string& filename);
 };

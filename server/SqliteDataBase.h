@@ -29,11 +29,12 @@ public:
 	std::string getFileName(const int fileId) override;
 	std::map<std::string, int> getUserPermissionDetails(int userId) override;
 	ProfileInfo getUsersInfo(int userId) override;
-	std::list<ProfileInfo> searchUsersInfo(std::string searchCommand) override;
+	std::list<std::string> searchUsers(std::string searchCommand) override;
 	std::list<Project> getAllProjects(int userId) override;
 	Project getProject(std::string projectName) override;
 	std::list<FileDetail> getProjectFiles(int projectId) override;
 	Friends getUserFriends(int userId) override;
+	std::list<FriendReq> getUserFriendReq(int userId) override;
 	
 	void UpdateChat(const std::string& fileName, const std::string& data) override;
 	void createChat(const std::string& fileName) override;
@@ -56,6 +57,8 @@ public:
 	void deleteProjectPermission(int projectId, int userId) override;
 	void addFriend(int userId, std::string friendsList) override;
 	void removeFriend(int userId, std::string friendsList) override;
+	void approveFriendReq(int userId, int friendRequsetId) override;
+	void rejectFriendReq(int userId, int friendRequsetId) override;
 	void renameFile(int projectId, std::string newFileName, std::string oldFileName) override;
 private:
 	sqlite3* _db;
@@ -70,5 +73,6 @@ private:
 	bool send_profInfo(sqlite3* db, std::string msg, std::list<ProfileInfo>* data);
 	bool send_Projects(sqlite3* db, std::string msg, std::list<Project>* data);
 	bool send_Friends(sqlite3* db, std::string msg, std::list<Friends>* data);
+	bool send_FriendReq(sqlite3* db, std::string msg, std::list<FriendReq>* data);
 };
 

@@ -113,3 +113,47 @@ void FileOperation::updateFile(const std::string& filename, const std::string& d
     // Close the file
     file.close();
 }
+
+size_t FileOperation::getImageSize(const std::string& filename) {
+    std::ifstream file(filename, std::ios::binary | std::ios::ate); // Open file at the end
+
+    if (!file.is_open()) {
+        throw std::runtime_error("Failed to open file: " + filename);
+    }
+
+    std::streamsize fileSize = file.tellg(); // Get file size
+    file.seekg(0, std::ios::beg); // Move file pointer back to the beginning
+
+    if (fileSize < 0) {
+        throw std::runtime_error("Failed to determine file size: " + filename);
+    }
+
+    file.close(); // Close the file
+
+    return static_cast<size_t>(fileSize);
+}
+
+std::vector<unsigned char> FileOperation::ReadImageFile(const std::string& filename) {
+    std::ifstream file(filename, std::ios::binary | std::ios::ate); // Open file at the end
+
+    if (!file.is_open()) {
+        throw std::runtime_error("Failed to open file: " + filename);
+    }
+
+    std::streamsize fileSize = file.tellg(); // Get file size
+    file.seekg(0, std::ios::beg); // Move file pointer back to the beginning
+
+    if (fileSize < 0) {
+        throw std::runtime_error("Failed to determine file size: " + filename);
+    }
+
+    // Read the file into a vector
+    std::vector<unsigned char> buffer(fileSize);
+    if (!file.read(reinterpret_cast<char*>(buffer.data()), fileSize)) {
+        throw std::runtime_error("Failed to read file: " + filename);
+    }
+
+    file.close(); // Close the file
+
+    return buffer;
+}

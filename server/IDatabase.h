@@ -56,6 +56,12 @@ struct Friends
 	int userId;
 };
 
+struct FriendReq
+{
+	int friendReqId;
+	int userId;
+};
+
 class IDatabase
 {
 public:
@@ -80,11 +86,12 @@ public:
 	virtual FileDetail getFileDetails(const std::string& fileName, const int projectId) = 0;
 	virtual std::map<std::string, int> getUserPermissionDetails(int userId) = 0;
 	virtual ProfileInfo getUsersInfo(int userId) = 0;
-	virtual std::list<ProfileInfo> searchUsersInfo(std::string searchCommand) = 0;
+	virtual std::list<std::string> searchUsers(std::string searchCommand) = 0;
 	virtual std::list<Project> getAllProjects(int userId) = 0;
 	virtual Project getProject(std::string projectName) = 0;
 	virtual std::list<FileDetail> getProjectFiles(int projectId) = 0;
 	virtual Friends getUserFriends(int userId) = 0;
+	virtual std::list<FriendReq> getUserFriendReq(int userId) = 0;
 
 	virtual void UpdateChat(const std::string& fileName, const std::string& data) = 0;
 	virtual void createChat(const std::string& ProjectName) = 0;
@@ -107,5 +114,7 @@ public:
 	virtual void deleteProjectPermission(int projectId, int userId) = 0;
 	virtual void addFriend(int userId, std::string friendsList) = 0;
 	virtual void removeFriend(int userId, std::string friendsList) = 0;
+	virtual void approveFriendReq(int userId, int friendRequsetId) = 0;
+	virtual void rejectFriendReq(int userId, int friendRequsetId) = 0;
 	virtual void renameFile(int projectId, std::string newFileName, std::string oldFileName) = 0;
 };

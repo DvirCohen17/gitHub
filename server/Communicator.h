@@ -73,6 +73,9 @@ struct Action
     std::string firendsList;
     int firendsListLength;
 
+    std::string searchCommand;
+    int searchCommandLength;
+
     std::string modeStr;
     bool mode;
 
@@ -152,7 +155,11 @@ public:
     void rejectPermissionReq(SOCKET client_sock, std::string username, std::string filename);
     void permissionFileReq(SOCKET client_sock, std::string username, std::string filename, std::string fileNameLen);
     void getProfileInfo(SOCKET client_sock, std::string userName);
+    void getProfileImage(SOCKET client_sock, std::string userName);
     void getUserFriends(SOCKET client_sock, std::string userName);
+    void approveFriendReq(SOCKET client_sock, std::string userName);
+    void rejectFriendReq(SOCKET client_sock, std::string userName);
+    void addFriend(SOCKET client_sock, std::string userName);
     void getProjectsList(SOCKET client_sock, std::string userName);
     void getProjectFiles(SOCKET client_sock, std::string projectName);
     void removeFriend(SOCKET client_sock, std::string userName, std::string userNameToRemove);
@@ -160,5 +167,6 @@ public:
     void createProject(SOCKET client_sock, std::string projectName, std::string friendList, std::string codeLan, int mode);
     void deleteProject(SOCKET client_sock, std::string projectName);
     void renameFile(SOCKET client_sock, std::string fileName, std::string oldFileName, std::string projectName);
+    void searchUsers(SOCKET client_sock, std::string searchCommand);
 
 };
