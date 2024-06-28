@@ -15,7 +15,9 @@ using System.Windows.Data;
 using System.Globalization;
 using static client_side.ProjectDirectory;
 using System.Collections.Generic;
-
+using Microsoft.Win32;
+using System.IO;
+using static client_side.HomePage;
 
 
 namespace client_side
@@ -28,7 +30,12 @@ namespace client_side
         private bool isListeningToServer = true;
         private UserProfile loggedUserProfile;
         private UserProfile displayedUserProfile;
-        private bool _isAddProjectPopupOpen;
+
+        private bool waitingForImage = false;
+        private int imageSize;
+
+        private bool inSearch = false;
+        private bool first = true;
 
         public event PropertyChangedEventHandler PropertyChanged;
         public HomePage(Communicator communicator)
@@ -92,31 +99,62 @@ namespace client_side
                 int bioLenPos = emailLenPos + 5 + emailLen;
                 int bioLen = int.Parse(profileRep.Substring(bioLenPos, 5));
                 string bio = profileRep.Substring(bioLenPos + 5, bioLen);
+                BitmapImage receivedImage = null;
+
+                /*
+                int imageLenPos = bioLenPos + 5 + bioLen;
+                int imageSize = int.Parse(profileRep.Substring(imageLenPos, 6));
+
+                if (imageSize > 0)
+                {
+                    if (profileRep.Length >= imageLenPos + 6 + imageSize)
+                    {
+                        string imageDataString = profileRep.Substring(imageLenPos + 6, imageSize);
+                        byte[] imageData = Convert.FromBase64String(imageDataString);
+                        receivedImage = communicator.ByteArrayToImage(imageData);
+                    }
+                }
+                */
 
                 displayedUserProfile = new UserProfile
                 {
-                    ProfileImage = "C:\\Users\\test0\\OneDrive\\Documents\\cyber\\cloud\\client\\client_side\\profile_picture.jpg",
+                    ProfileImage = receivedImage,
                     UserName = userName,
                     Email = email,
-                    Bio = bio
+                    Bio = bio,
+                    IsCurrentUserProfile = (userName == communicator.UserName)
                 };
-                loggedUserProfile = displayedUserProfile;
-                // Check if it's the current user's profile
-                if (userName == communicator.UserName)
+
+                // Set visibility of controls based on whether it's the current user's profile and if there's an image
+                if (displayedUserProfile.IsCurrentUserProfile)
                 {
-                    displayedUserProfile.IsCurrentUserProfile = true;
+                    editButton.Visibility = Visibility.Visible;
+                    BioTextBox.Visibility = Visibility.Visible;
+                    BioTextBlock.Visibility = Visibility.Collapsed;
+                    addFriendBtn.Visibility = Visibility.Collapsed;
+                    addFriendText.Visibility = Visibility.Collapsed;
+                    closeSerachBtn.Visibility = Visibility.Collapsed;
+
+                    /* Show "Upload Picture" button only if no profile image exists
+                    if (displayedUserProfile.ProfileImage == null)
+                    {
+                        displayedUserProfile.RaisePropertyChanged(nameof(displayedUserProfile.ProfileImage));
+                    }
+                    */
+                    loggedUserProfile = displayedUserProfile;
                 }
                 else
                 {
-                    displayedUserProfile.IsCurrentUserProfile = false;
+                    editButton.Visibility = Visibility.Collapsed;
+                    BioTextBox.Visibility = Visibility.Collapsed;
+                    BioTextBlock.Visibility = Visibility.Visible;
+                    addFriendBtn.Visibility = Visibility.Collapsed;
+                    addFriendText.Visibility = Visibility.Collapsed;
+                    closeSerachBtn.Visibility = Visibility.Collapsed;
                 }
 
                 DataContext = displayedUserProfile;
-
                 backButton.Visibility = Visibility.Collapsed;
-                editButton.Visibility = Visibility.Visible; // Always show edit button for current user's profile
-                BioTextBox.Visibility = Visibility.Visible;
-                BioTextBlock.Visibility = Visibility.Collapsed;
             }
         }
 
@@ -126,28 +164,108 @@ namespace client_side
             communicator.SendData($"{friendsListCode}{communicator.UserName.Length:D5}{communicator.UserName}");
 
             string friendsRep = communicator.ReceiveData();
-            string friendsRepCode = friendsRep.Substring(0, 3);
-
-            if (friendsRepCode == ((int)MessageCodes.MC_FRIENDS_LIST_RESP).ToString() && friendsRep.Length > 3)
-            {
-                int index = 3;
-                ObservableCollection<User> friends = new ObservableCollection<User>();
-                while (index < friendsRep.Length)
-                {
-                    int friendNameLen = int.Parse(friendsRep.Substring(index, 5));
-                    index += 5;
-                    string friendName = friendsRep.Substring(index, friendNameLen);
-                    index += friendNameLen;
-                    string onlineStatus = friendsRep.Substring(index, 1);
-                    index += 1;
-
-                    friends.Add(new User { Name = friendName, Status = ParseStatus(onlineStatus).ToString() });
-                }
-
-                SortFriendsList(friends);
-            }
+            HandleLoadFriendsList(friendsRep);
         }
 
+        private void HandleLoadFriendsList(string update)
+        {
+            string friendsRepCode = update.Substring(0, 3);
+
+            Dispatcher.Invoke(() =>
+            {
+                if (lstFriends.ItemsSource is ObservableCollection<User> friends)
+                {
+                    friends.Clear();
+                }
+            });
+
+            if (friendsRepCode == ((int)MessageCodes.MC_FRIENDS_LIST_RESP).ToString() && update.Length > 3)
+            {
+                bool friendCheck = true;
+                bool friendRequsetCheck = false;
+
+                int index = 3;
+                if (first)
+                {
+                    ObservableCollection<User> friends = new ObservableCollection<User>();
+                    while (index < update.Length)
+                    {
+                        int friendNameLen = int.Parse(update.Substring(index, 5));
+                        index += 5;
+                        string friendName = update.Substring(index, friendNameLen);
+                        index += friendNameLen;
+                        string onlineStatus = update.Substring(index, 1);
+                        index += 1;
+
+                        if (onlineStatus == "0" || onlineStatus == "1")
+                        {
+                            friendCheck = true;
+                            friendRequsetCheck = false;
+                        }
+                        else if (onlineStatus == "3")
+                        {
+                            friendCheck = false;
+                            friendRequsetCheck = true;
+                        }
+
+                        friends.Add(new User
+                        {
+                            Name = friendName,
+                            Status = ParseStatus(onlineStatus).ToString(),
+                            IsFriend = friendCheck,
+                            IsFriendRequest = friendRequsetCheck,
+                        });
+
+                    }
+
+                    SortFriendsList(friends);
+                    first = false;
+                }
+                else
+                {
+                    while (index < update.Length)
+                    {
+                        int friendNameLen = int.Parse(update.Substring(index, 5));
+                        index += 5;
+                        string friendName = update.Substring(index, friendNameLen);
+                        index += friendNameLen;
+                        string onlineStatus = update.Substring(index, 1);
+                        index += 1;
+                        Dispatcher.Invoke(() =>
+                        {
+                            if (lstFriends.ItemsSource is ObservableCollection<User> friends)
+                            {
+                                
+                                if (onlineStatus == "0" || onlineStatus == "1")
+                                {
+                                    friendCheck = true;
+                                    friendRequsetCheck = false;
+                                }
+                                else if (onlineStatus == "3")
+                                {
+                                    friendCheck = false;
+                                    friendRequsetCheck = true;
+                                }
+
+                                friends.Add(new User
+                                {
+                                    Name = friendName,
+                                    Status = ParseStatus(onlineStatus).ToString(),
+                                    IsFriend = friendCheck,
+                                    IsFriendRequest = friendRequsetCheck,
+                                });
+                                // Optionally, sort the friends list after adding
+                                SortFriendsList(friends);
+                            }
+                        });
+                        // Move to the next user's data
+                        index += 5 + friendNameLen;
+                    }
+                }
+                
+            }
+            
+        }
 
         private void LoadProjectsList()
         {
@@ -181,6 +299,11 @@ namespace client_side
             {
                 while (isListeningToServer)
                 {
+                    if(waitingForImage)
+                    {
+                        communicator.ReceiveImage(imageSize);
+                    }
+
                     string update = communicator.ReceiveData();
                     string code = update.Substring(0, 3);
 
@@ -195,11 +318,23 @@ namespace client_side
                         case "220":
                             HandleReciveInfo(update);
                             break;
+                        case "221":
+                            HandleLoadFriendsList(update);
+                            break;
                         case "222":
                             HandleReciveProjects(update);
                             break;
+                        case "223":
+
+                            break;
+                        case "236":
+
+                            break;
                         case "224":
                             HandleRemoveUser(update);
+                            break;
+                        case "225":
+                            HandleSerachUsers(update);
                             break;
                         case "406":
                             HandleLogout(update);
@@ -252,6 +387,44 @@ namespace client_side
                 TextEditorWindow.Show();
                 Close();
             });
+        }
+
+        private void HandleSerachUsers(string update)
+        {
+            // Clear existing friends list
+            Dispatcher.Invoke(() =>
+            {
+                if (lstFriends.ItemsSource is ObservableCollection<User> friends)
+                {
+                    friends.Clear();
+                }
+            });
+
+            int startIndex = 3;
+            while (startIndex < update.Length)
+            {
+                int nameLength = int.Parse(update.Substring(startIndex, 5));
+                string userName = update.Substring(startIndex + 5, nameLength);
+
+                Dispatcher.Invoke(() =>
+                {
+                    if (lstFriends.ItemsSource is ObservableCollection<User> friends)
+                    {
+                        // Add the logged-in user with updated status
+                        friends.Add(new User
+                        {
+                            Name = userName,
+                            Status = ParseStatus("2").ToString(),
+                            IsFriend = false,
+                            IsFriendRequest = false,
+                        });
+                        // Optionally, sort the friends list after adding
+                        SortFriendsList(friends);
+                    }
+                });
+                // Move to the next user's data
+                startIndex += 5 + nameLength;
+            }
         }
 
         private void HandleDeleteProject(string update)
@@ -368,6 +541,22 @@ namespace client_side
                         backButton.Visibility = Visibility.Collapsed;
                         BioTextBox.Visibility = Visibility.Visible;
                         BioTextBlock.Visibility = Visibility.Collapsed;
+                        addFriendText.Visibility = Visibility.Collapsed;
+                        addFriendBtn.Visibility = Visibility.Collapsed;
+                        closeSerachBtn.Visibility = Visibility.Collapsed;
+                        return;
+                    }
+                    else if(inSearch)
+                    {
+                        displayedUserProfile.IsCurrentUserProfile = false;
+                        editButton.Visibility = Visibility.Collapsed; // Hide edit button for other users' profiles
+                        backButton.Visibility = Visibility.Visible;
+                        BioTextBox.Visibility = Visibility.Collapsed;
+                        BioTextBlock.Visibility = Visibility.Visible;
+                        addFriendText.Visibility = Visibility.Visible;
+                        addFriendBtn.Visibility = Visibility.Visible;
+                        closeSerachBtn.Visibility = Visibility.Visible;
+                        return;
                     }
                     else
                     {
@@ -376,6 +565,10 @@ namespace client_side
                         backButton.Visibility = Visibility.Visible;
                         BioTextBox.Visibility = Visibility.Collapsed;
                         BioTextBlock.Visibility = Visibility.Visible;
+                        addFriendText.Visibility = Visibility.Collapsed;
+                        addFriendBtn.Visibility = Visibility.Collapsed;
+                        closeSerachBtn.Visibility = Visibility.Collapsed;
+                        return;
                     }
                 });
             }
@@ -455,23 +648,14 @@ namespace client_side
             }
         }
 
-        private void SearchResult_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        private void closeSearch_Click(object sender, RoutedEventArgs e)
         {
-            var selectedUser = (sender as ListView)?.SelectedItem as string;
-            if (selectedUser != null)
-            {
-                ViewUserProfile(selectedUser);
-            }
-        }
+            inSearch = false;
+            searchBarTextBox.Text = "";
+            closeSerachBtn.Visibility = Visibility.Collapsed;
 
-        private void RemoveFriend_Click(object sender, RoutedEventArgs e)
-        {
-            var user = (sender as Button)?.DataContext as User;
-            if (user != null)
-            {
-                string removeFriendCode = ((int)MessageCodes.MC_REMOVE_FRIEND_REQUEST).ToString();
-                communicator.SendData($"{removeFriendCode}{communicator.UserName.Length:D5}{communicator.UserName}{user.Name.Length:D5}{user.Name}");
-            }
+            string friendsListCode = ((int)MessageCodes.MC_FRIENDS_LIST_REQUEST).ToString();
+            communicator.SendData($"{friendsListCode}{communicator.UserName.Length:D5}{communicator.UserName}");
         }
 
         private void LstFriends_MouseDoubleClick(object sender, MouseButtonEventArgs e)
@@ -506,6 +690,15 @@ namespace client_side
             }
         }
 
+        private void TxtSearchUsers_KeyUp(object sender, KeyEventArgs e)
+        {
+            string searchCommand = searchBarTextBox.Text;
+            inSearch = true;
+            closeSerachBtn.Visibility = Visibility.Visible;
+            string joinProjectCode = ((int)MessageCodes.MC_SEARCH_REQUEST).ToString();
+            communicator.SendData($"{joinProjectCode}{searchCommand.Length:D5}{searchCommand}");
+        }
+
         private void deleteProject(object sender, RoutedEventArgs e)
         {
             var selectedProject = lstProjects.SelectedItem as string;
@@ -537,7 +730,7 @@ namespace client_side
                 int bioLen = int.Parse(profileRep.Substring(bioLenPos, 5));
                 string bio = profileRep.Substring(bioLenPos + 5, bioLen);
 
-                displayedUserProfile = new UserProfile { UserName = userNameResp, Email = email, Bio = bio };
+                displayedUserProfile = new UserProfile { ProfileImage = null, UserName = userNameResp, Email = email, Bio = bio };
 
                 // Check if it's the current user's profile
                 if (userNameResp == communicator.UserName)
@@ -547,6 +740,21 @@ namespace client_side
                     backButton.Visibility = Visibility.Collapsed;
                     BioTextBox.Visibility = Visibility.Visible;
                     BioTextBlock.Visibility = Visibility.Collapsed;
+                    addFriendBtn.Visibility = Visibility.Collapsed;
+                    addFriendText.Visibility = Visibility.Collapsed;
+                    closeSerachBtn.Visibility = Visibility.Collapsed;
+                    return;
+                }
+                else if (inSearch)
+                {
+                    displayedUserProfile.IsCurrentUserProfile = false;
+                    editButton.Visibility = Visibility.Collapsed; // Hide edit button for other users' profiles
+                    backButton.Visibility = Visibility.Visible;
+                    BioTextBox.Visibility = Visibility.Collapsed;
+                    BioTextBlock.Visibility = Visibility.Visible;
+                    addFriendBtn.Visibility = Visibility.Visible;
+                    addFriendText.Visibility = Visibility.Visible;
+                    closeSerachBtn.Visibility = Visibility.Visible;
                 }
                 else
                 {
@@ -555,10 +763,12 @@ namespace client_side
                     backButton.Visibility = Visibility.Visible;
                     BioTextBox.Visibility = Visibility.Collapsed;
                     BioTextBlock.Visibility = Visibility.Visible;
+                    addFriendBtn.Visibility = Visibility.Collapsed;
+                    addFriendText.Visibility = Visibility.Collapsed;
+                    closeSerachBtn.Visibility = Visibility.Collapsed;
                 }
 
                 DataContext = displayedUserProfile;
-
                 
             }
         }
@@ -573,6 +783,8 @@ namespace client_side
             editButton.Visibility = Visibility.Visible;
             BioTextBox.Visibility = Visibility.Visible;
             BioTextBlock.Visibility = Visibility.Collapsed;
+            addFriendText.Visibility = Visibility.Collapsed;
+            addFriendBtn.Visibility = Visibility.Collapsed;
         }
         
         private void AddProject_Click(object sender, RoutedEventArgs e)
@@ -597,12 +809,56 @@ namespace client_side
             communicator.SendData($"{code}");
         }
 
-        private void AddFriend(string friendName)
+        private void approveRequest_Click(object sender, RoutedEventArgs e)
+        {
+
+            Button button = sender as Button;
+            if (button != null)
+            {
+                User user = button.CommandParameter as User;
+                if (user != null)
+                {
+                    string addFriendCode = ((int)MessageCodes.MC_APPROVE_FRIEND_REQ_REQUEST).ToString();
+                    communicator.SendData($"{addFriendCode}{user.Name.Length:D5}{user.Name}");
+                }
+            }
+        }
+
+        private void declineRequest_Click(object sender, RoutedEventArgs e)
+        {
+            Button button = sender as Button;
+            if (button != null)
+            {
+                User user = button.CommandParameter as User;
+                if (user != null)
+                {
+                    string rejectFriendCode = ((int)MessageCodes.MC_REJECT_FRIEND_REQ_REQUEST).ToString();
+                    communicator.SendData($"{rejectFriendCode}{user.Name.Length:D5}{user.Name}");
+                }
+            }
+        }
+
+        private void RemoveFriend_Click(object sender, RoutedEventArgs e)
+        {
+            Button button = sender as Button;
+            if (button != null)
+            {
+                User user = button.CommandParameter as User;
+                if (user != null)
+                {
+                    // Handle removing the user (e.g., send request to server, update UI)
+                    string removeFriendCode = ((int)MessageCodes.MC_REMOVE_FRIEND_REQUEST).ToString();
+                    communicator.SendData($"{removeFriendCode}{communicator.UserName.Length:D5}{communicator.UserName}{user.Name.Length:D5}{user.Name}");
+                }
+            }
+        }
+
+        private void AddFriend_Click(object sender, RoutedEventArgs e)
         {
             string addFriendCode = ((int)MessageCodes.MC_ADD_FRIEND_REQUEST).ToString();
-            communicator.SendData($"{addFriendCode}{friendName.Length:D5}{friendName}");
+            communicator.SendData($"{addFriendCode}{displayedUserProfile.UserName.Length:D5}{displayedUserProfile.UserName}");
         }
-        
+
         private void SortFriendsList(ObservableCollection<User> friends)
         {
             var sortedFriends = new ObservableCollection<User>(friends.OrderBy(u => u.Name));
@@ -615,51 +871,83 @@ namespace client_side
             {
                 "0" => Status.Offline,
                 "1" => Status.Online,
+                "2" => Status.search,
+                "3" => Status.search,
                 _ => throw new ArgumentException($"Invalid status code: {statusCode}"),
             };
         }
 
         public class UserProfile : INotifyPropertyChanged
         {
-            private string _profileImage;
+            private BitmapImage _profileImage;
 
-            public string ProfileImage
+            public BitmapImage ProfileImage
             {
                 get { return _profileImage; }
                 set
                 {
                     _profileImage = value;
-                    OnPropertyChanged();
+                    RaisePropertyChanged(nameof(ProfileImage));
                 }
+            }
+
+            // Implement INotifyPropertyChanged
+            public event PropertyChangedEventHandler PropertyChanged;
+
+            public void RaisePropertyChanged(string propertyName)
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
             }
 
             public string UserName { get; set; }
             public string Email { get; set; }
             public string Bio { get; set; }
             public bool IsCurrentUserProfile { get; set; }
+        }
+
+
+        public class User
+        {
+            private bool _isFriend;
+            private bool _isFriendRequest;
+
+            public string Name { get; set; }
+            public string Status { get; set; }
+
+            public bool IsFriend
+            {
+                get { return _isFriend; }
+                set
+                {
+                    _isFriend = value;
+                    OnPropertyChanged(nameof(IsFriend));
+                }
+            }
+
+            public bool IsFriendRequest
+            {
+                get { return _isFriendRequest; }
+                set
+                {
+                    _isFriendRequest = value;
+                    OnPropertyChanged(nameof(IsFriendRequest));
+                }
+            }
 
             public event PropertyChangedEventHandler PropertyChanged;
 
-            // INotifyPropertyChanged implementation
-            protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+            protected virtual void OnPropertyChanged(string propertyName)
             {
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
             }
         }
 
-        public class User
-        {
-            public string Name { get; set; }
-            public string Status { get; set; }
-        }
-
         public enum Status
         {
             Offline,
-            Online
+            Online,
+            search
         }
-
-        
 
     }
 

@@ -1,10 +1,12 @@
 ﻿using System;
 using System.IO;
+using System.Drawing;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
 using System.Security.Cryptography;
+using System.Windows.Media.Imaging;
 
 namespace client_side
 {
@@ -42,6 +44,10 @@ namespace client_side
         MC_LEAVE_PROJECT_REQUEST = 131,
         MC_DELETE_PROJECT_REQUEST = 132,
         MC_RENAME_FILE_REQUEST = 133,
+        MC_GET_PROFILE_IMAGE_REQUEST = 134,
+        MC_UPLOAD_PROFILE_IMAGE_REQUEST = 135,
+        MC_APPROVE_FRIEND_REQ_REQUEST = 136,
+        MC_REJECT_FRIEND_REQ_REQUEST = 137,
 
         MC_ERROR_RESP = 200, //responses
         MC_INITIAL_RESP = 201,
@@ -77,6 +83,10 @@ namespace client_side
         MC_LEAVE_PROJECT_RESP = 231,
         MC_DELETE_PROJECT_RESP = 232,
         MC_RENAME_FILE_RESP = 233,
+        MC_GET_PROFILE_IMAGE_RESP = 234,
+        MC_UPLOAD_PROFILE_IMAGE_RESP = 235,
+        MC_APPROVE_FRIEND_REQ_RESP = 236,
+        MC_REJECT_FRIEND_REQ_RESP = 237,
 
         MC_DISCONNECT = 300, //user
         MC_LOGIN_REQUEST = 301,
@@ -137,13 +147,54 @@ namespace client_side
             m_socket.Send(data);
         }
 
+        public void SendImage(byte[] message)
+        {
+            //LogAction(message);
+            m_socket.Send(message);
+        }
+
         public string ReceiveData()
         {
-            byte[] buffer = new byte[1024];  // Adjust the buffer size as needed
+            byte[] buffer = new byte[1048];  // Adjust the buffer size as needed
             int bytesRead = m_socket.Receive(buffer);
             string rep = Encoding.UTF8.GetString(buffer, 0, bytesRead);
             //LogAction(rep);
             return rep;
+        }
+
+        public byte[] ReceiveImage(int imageSize)
+        {
+            byte[] buffer = new byte[imageSize];  // Adjust the buffer size as needed
+            int totalBytesReceived = 0;
+
+            while (totalBytesReceived < imageSize)
+            {
+                int bytesReceived = m_socket.Receive(buffer, totalBytesReceived, imageSize - totalBytesReceived, SocketFlags.None);
+                if (bytesReceived == 0)
+                {
+                    throw new IOException("Connection closed unexpectedly while receiving image.");
+                }
+                totalBytesReceived += bytesReceived;
+            }
+
+            return buffer;
+        }
+
+        public BitmapImage ByteArrayToImage(byte[] imageData)
+        {
+            if (imageData == null || imageData.Length == 0)
+                return null;
+
+            using (MemoryStream ms = new MemoryStream(imageData))
+            {
+                BitmapImage image = new BitmapImage();
+                image.BeginInit();
+                image.StreamSource = ms;
+                image.CacheOption = BitmapCacheOption.OnLoad;
+                image.EndInit();
+                image.Freeze(); // Ensure the image can be used across threads
+                return image;
+            }
         }
 
         /*
