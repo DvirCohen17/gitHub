@@ -31,11 +31,15 @@ public:
 	ProfileInfo getUsersInfo(int userId) override;
 	std::list<std::string> searchUsers(std::string searchCommand) override;
 	std::list<Project> getAllProjects(int userId) override;
-	Project getProject(std::string projectName) override;
+	Project getProject(std::string projectName, int projectId) override;
 	std::list<FileDetail> getProjectFiles(int projectId) override;
 	Friends getUserFriends(int userId) override;
 	std::list<FriendReq> getUserFriendReq(int userId) override;
-	
+	std::list<FriendReq> getCurrentUserReqSent(int userId) override;
+	std::string getUserRoleInProject(int userId, int projectId) override;
+	std::list<ProjectJoinInvite> getUserProjectInvite(int userId) override;
+	std::list<ProjectPermission> getUserProjectPermission(int userId) override;
+
 	void UpdateChat(const std::string& fileName, const std::string& data) override;
 	void createChat(const std::string& fileName) override;
 	void DeleteChat(const std::string& fileName) override;
@@ -50,12 +54,14 @@ public:
 	void changePassword(std::string username, std::string opdPass, std::string newPass) override;
 	void createProfile(std::string username, std::string email, std::string bio, int userId) override;
 	void modifyProfile(std::string username, std::string email, std::string bio, int userId) override;
-	void createProject(std::string projectName, std::list<ProfileInfo> addedUsers, std::string codeLan, int creatorId) override;
+	void createProject(std::string projectName, std::map<ProfileInfo, std::string> addedUsers, std::string codeLan, int creatorId) override;
 	void deleteProject(const std::string projectName) override;
-	void createProjectPermission(int projectId, int userId) override;
+	void createProjectPermission(int projectId, int userId, std::string role) override;
+	void createProjectJoinInvite(int projectId, int userId, std::string role) override;
 	void deleteAllProjectPermission(int projectId) override;
 	void deleteProjectPermission(int projectId, int userId) override;
 	void addFriend(int userId, std::string friendsList) override;
+	void addFriendReq(int userId, int friendRequsetId) override;
 	void removeFriend(int userId, std::string friendsList) override;
 	void approveFriendReq(int userId, int friendRequsetId) override;
 	void rejectFriendReq(int userId, int friendRequsetId) override;
@@ -74,5 +80,7 @@ private:
 	bool send_Projects(sqlite3* db, std::string msg, std::list<Project>* data);
 	bool send_Friends(sqlite3* db, std::string msg, std::list<Friends>* data);
 	bool send_FriendReq(sqlite3* db, std::string msg, std::list<FriendReq>* data);
+	bool send_ProjectPermissions(sqlite3* db, std::string msg, std::list<ProjectPermission>* data);
+	bool send_ProjectJoinInvite(sqlite3* db, std::string msg, std::list<ProjectJoinInvite>* data);
 };
 

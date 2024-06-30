@@ -157,6 +157,43 @@ int callback_Project(void* data, int argc, char** argv, char** azColName)
 	return 0;
 }
 
+int callback_ProjectPermission(void* data, int argc, char** argv, char** azColName)
+{
+	std::list<ProjectPermission>* list_permissions = (std::list<ProjectPermission>*)data;
+	ProjectPermission perm;
+
+	for (int i = 0; i < argc; i++) {
+		if (std::string(azColName[i]) == "projectId") {
+			perm.projectId = std::stoi(argv[i]);
+		}
+		else if (std::string(azColName[i]) == "role") {
+			perm.role = argv[i];
+		}
+	}
+	list_permissions->push_back(perm);
+	return 0;
+}
+
+int callback_ProjectJoinInvite(void* data, int argc, char** argv, char** azColName)
+{
+	std::list<ProjectJoinInvite>* list_invites = (std::list<ProjectJoinInvite>*)data;
+	ProjectJoinInvite invite;
+
+	for (int i = 0; i < argc; i++) {
+		if (std::string(azColName[i]) == "projectId") {
+			invite.projectId = std::stoi(argv[i]);
+		}
+		else if (std::string(azColName[i]) == "role") {
+			invite.role = argv[i];
+		}
+		else if (std::string(azColName[i]) == "userId") {
+			invite.userId = std::stoi(argv[i]);
+		}
+	}
+	list_invites->push_back(invite);
+	return 0;
+}
+
 int callback_Friend(void* data, int argc, char** argv, char** azColName)
 {
 	std::list<Friends>* list_friends = (std::list<Friends>*)data;
@@ -193,6 +230,7 @@ int callback_FriendReq(void* data, int argc, char** argv, char** azColName)
 	return 0;
 
 }
+
 bool SqliteDataBase::send(sqlite3* db, std::string msg)
 {
 	const char* sqlStatement = msg.c_str();
@@ -275,6 +313,28 @@ bool SqliteDataBase::send_Projects(sqlite3* db, std::string msg, std::list<Proje
 	const char* sqlStatement = msg.c_str();
 	char* errMessage = nullptr;
 	int res = sqlite3_exec(db, sqlStatement, callback_Project, data, &errMessage);
+	if (res != SQLITE_OK)
+		return false;
+
+	return true;
+}
+
+bool SqliteDataBase::send_ProjectPermissions(sqlite3* db, std::string msg, std::list<ProjectPermission>* data)
+{
+	const char* sqlStatement = msg.c_str();
+	char* errMessage = nullptr;
+	int res = sqlite3_exec(db, sqlStatement, callback_ProjectPermission, data, &errMessage);
+	if (res != SQLITE_OK)
+		return false;
+
+	return true;
+}
+
+bool SqliteDataBase::send_ProjectJoinInvite(sqlite3* db, std::string msg, std::list<ProjectJoinInvite>* data)
+{
+	const char* sqlStatement = msg.c_str();
+	char* errMessage = nullptr;
+	int res = sqlite3_exec(db, sqlStatement, callback_ProjectJoinInvite, data, &errMessage);
 	if (res != SQLITE_OK)
 		return false;
 
@@ -387,6 +447,7 @@ bool SqliteDataBase::open()
 			"id	INTEGER,"
 			"userId	INTEGER,"
 			"projectId	INTEGER,"
+			"role	TEXT,"
 			"FOREIGN KEY(userId) REFERENCES users(id),"
 			"FOREIGN KEY(projectId) REFERENCES UserProjects(Id),"
 			"PRIMARY KEY(id AUTOINCREMENT)"
@@ -399,6 +460,16 @@ bool SqliteDataBase::open()
 			"PRIMARY KEY(id AUTOINCREMENT),"
 			"FOREIGN KEY(userId) REFERENCES users(id)"
 			");";
+		send(_db, msg);
+		msg = "CREATE TABLE ProjectJoinInvite ("
+			"id	INTEGER, "
+			"projectId	INTEGER, "
+			"role	TEXT, "
+			"userId	INTEGER, "
+			"FOREIGN KEY(projectiD) REFERENCES UserProjects(Id), "
+			"FOREIGN KEY(userId) REFERENCES users(id),"
+			"PRIMARY KEY(id AUTOINCREMENT)"
+			"); ";
 		send(_db, msg);
 	}
 	return true;
@@ -740,8 +811,11 @@ std::list<std::string> SqliteDataBase::searchUsers(std::string searchCommand)
 {
 	std::string msg = "SELECT * FROM ProfileInfo WHERE name LIKE \'" + searchCommand + "%\';";
 	std::list<ProfileInfo> infoList;
-	send_profInfo(_db, msg, &infoList);
 	
+	if (!searchCommand.empty())
+	{
+		send_profInfo(_db, msg, &infoList);
+	}
 	std::list<std::string> result;
 	for (auto user : infoList)
 	{
@@ -775,11 +849,44 @@ std::list<Project> SqliteDataBase::getAllProjects(int userId)
 	std::string msg = "SELECT * from UserProjects WHERE creatorId = " + std::to_string(userId) + ";";
 	std::list<Project> projectList;
 	send_Projects(_db, msg, &projectList);
-
+	
 	return projectList;
 }
 
-Project SqliteDataBase::getProject(std::string projectName)
+std::list<ProjectJoinInvite> SqliteDataBase::getUserProjectInvite(int userId)
+{
+	std::string msg = "SELECT * from ProjectJoinInvite WHERE userId = " + std::to_string(userId) + ";";
+	std::list<ProjectJoinInvite> projectList;
+	send_ProjectJoinInvite(_db, msg, &projectList);
+
+	return projectList;
+
+}
+
+std::list<ProjectPermission> SqliteDataBase::getUserProjectPermission(int userId)
+{
+	std::string msg = "SELECT * from ProjectPermission WHERE userId = " + std::to_string(userId) + ";";
+	std::list<ProjectPermission> projectList;
+	send_ProjectPermissions(_db, msg, &projectList);
+
+	return projectList;
+
+}
+
+std::string SqliteDataBase::getUserRoleInProject(int userId, int projectId)
+{
+	std::string msg = "SELECT * from ProjectPermission WHERE userId = " + std::to_string(userId) + " AND projectId = " + std::to_string(projectId) + "; ";
+	std::list<ProjectPermission> projectPermList;
+	send_ProjectPermissions(_db, msg, &projectPermList);
+
+	for (auto role : projectPermList)
+	{
+		return role.role;
+	}
+	return "";
+}
+
+Project SqliteDataBase::getProject(std::string projectName, int projectId)
 {
 	std::string msg = "SELECT * from UserProjects WHERE ProjectName = \'" + projectName + "\';";
 	std::list<Project> projectList;
@@ -788,6 +895,17 @@ Project SqliteDataBase::getProject(std::string projectName)
 	for (auto project : projectList)
 	{
 		if (project.name == projectName)
+		{
+			return project;
+		}
+	}
+
+	msg = "SELECT * from UserProjects WHERE Id = " + std::to_string(projectId) + ";";
+	send_Projects(_db, msg, &projectList);
+
+	for (auto project : projectList)
+	{
+		if (project.projectId == projectId)
 		{
 			return project;
 		}
@@ -805,7 +923,7 @@ std::list<FileDetail> SqliteDataBase::getProjectFiles(int projectId)
 	return fileList;
 }
 
-void SqliteDataBase::createProject(std::string projectName, std::list<ProfileInfo> addedUsers, std::string codeLan, int creatorId)
+void SqliteDataBase::createProject(std::string projectName, std::map<ProfileInfo, std::string> addedUsers, std::string codeLan, int creatorId)
 {
 	std::string msg;
 
@@ -814,11 +932,11 @@ void SqliteDataBase::createProject(std::string projectName, std::list<ProfileInf
 
 	send(_db, msg);
 
-	Project project = getProject(projectName);
+	Project project = getProject(projectName, -1);
 	
 	for (auto user : addedUsers)
 	{
-		createProjectPermission(project.projectId, user.userId);
+		createProjectJoinInvite(project.projectId, user.first.userId, user.second);
 	}
 }
 
@@ -828,12 +946,22 @@ void SqliteDataBase::deleteProject(const std::string projectName)
 	send(_db, msg);
 }
 
-void SqliteDataBase::createProjectPermission(int projectId, int userId)
+void SqliteDataBase::createProjectPermission(int projectId, int userId, std::string role)
 {
 	std::string msg;
 
-	msg = "INSERT INTO ProjectPermission (userId, projectId) "
-		"VALUES (" + std::to_string(userId) + "," + std::to_string(projectId) + ");";
+	msg = "INSERT INTO ProjectPermission (userId, projectId, role) "
+		"VALUES (" + std::to_string(userId) + ", " + std::to_string(projectId) + ", \'" + role + "\' );";
+
+	send(_db, msg);
+}
+
+void SqliteDataBase::createProjectJoinInvite(int projectId, int userId, std::string role)
+{
+	std::string msg;
+
+	msg = "INSERT INTO ProjectJoinInvite (userId, projectId, role) "
+		"VALUES (" + std::to_string(userId) + ", " + std::to_string(projectId) + ", \'" + role + "\');";
 
 	send(_db, msg);
 }
@@ -856,8 +984,8 @@ bool SqliteDataBase::hasPermissionToProject(int projectId, int userId)
 	std::string msg = "SELECT * from ProjectPermission WHERE userId = " + std::to_string(userId) +
 		" AND projectId = " + std::to_string(projectId) + ";";
 
-	std::list<Permission> permissionList;
-	send_Permissions(_db, msg, &permissionList);
+	std::list<ProjectPermission> permissionList;
+	send_ProjectPermissions(_db, msg, &permissionList);
 	if (!permissionList.empty())
 	{
 		return true;
@@ -892,11 +1020,31 @@ std::list<FriendReq> SqliteDataBase::getUserFriendReq(int userId)
 	return friendsList;
 }
 
+std::list<FriendReq> SqliteDataBase::getCurrentUserReqSent(int userId)
+{
+	std::string msg = "SELECT * from FriendReq WHERE userId = " + std::to_string(userId) + ";";
+	std::list<FriendReq> friendsList;
+	send_FriendReq(_db, msg, &friendsList);
+
+	return friendsList;
+}
+
+
 void SqliteDataBase::addFriend(int userId, std::string friendsList)
 {
 	std::string msg;
 
 	msg = "UPDATE UserFriends SET friendsList = \'" + friendsList + "\' WHERE userId = " + std::to_string(userId) + ";";
+
+	send(_db, msg);
+}
+
+void SqliteDataBase::addFriendReq(int userId, int friendRequsetId)
+{
+	std::string msg;
+
+	msg = "INSERT INTO FriendReq (friendReqId, userId) VALUES (" + 
+		std::to_string(friendRequsetId) + ", " + std::to_string(userId) + ");";
 
 	send(_db, msg);
 }
@@ -913,7 +1061,7 @@ void SqliteDataBase::removeFriend(int userId, std::string friendsList)
 void SqliteDataBase::approveFriendReq(int userId, int friendRequsetId)
 {
 	std::string msg = "DELETE FROM FriendReq WHERE friendReqId = " + std::to_string(friendRequsetId) +
-		" AND userId" + std::to_string(userId) + ";";
+		" AND userId = " + std::to_string(userId) + ";";
 	send(_db, msg);
 
 	Friends userFriend1 = getUserFriends(friendRequsetId);
@@ -922,21 +1070,21 @@ void SqliteDataBase::approveFriendReq(int userId, int friendRequsetId)
 	std::string name1 = getUserName("", friendRequsetId);
 	std::string name2 = getUserName("", userId);
 
-	std::string lengthString = std::to_string(name1.length());
+	std::string lengthString = std::to_string(name2.length());
 	lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
-	userFriend1.fiendsList += lengthString + name1;
+	userFriend1.fiendsList += lengthString + name2;
 
 	addFriend(friendRequsetId, userFriend1.fiendsList);
 
-	lengthString = std::to_string(name2.length());
+	lengthString = std::to_string(name1.length());
 	lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
-	userFriend2.fiendsList += lengthString + name2;
+	userFriend2.fiendsList += lengthString + name1;
 
 	addFriend(userId, userFriend2.fiendsList);
 }
 void SqliteDataBase::rejectFriendReq(int userId, int friendRequsetId)
 {
 	std::string msg = "DELETE FROM FriendReq WHERE friendReqId = " + std::to_string(friendRequsetId) +
-		" AND userId" + std::to_string(userId) + ";";
+		" AND userId = " + std::to_string(userId) + ";";
 	send(_db, msg);
 }

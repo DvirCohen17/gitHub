@@ -144,6 +144,7 @@ void Communicator::signUp(SOCKET client_sock,
 		int userId = m_database->getUserId(username);
 		m_database->addNewUser(username, pass, mail);
 		m_database->createProfile(username, mail, "", userId);
+		m_database->addFriend(userId, "");
 		std::string repCode = std::to_string(MC_SIGNUP_RESP);
 		ClientHandler* client_handler = new ClientHandler(userId, username, mail);
 		client_handler->setWindow("HomePage");
@@ -238,7 +239,7 @@ void Communicator::createFile(SOCKET client_sock, std::string fileName, std::str
 {
 	// Check if the file with the specified name exists
 	//if (fileOperationHandler.fileExists(".\\files\\" + reqDetail.data + ".txt"))
-	Project project = m_database->getProject(projectName);
+	Project project = m_database->getProject(projectName, -1);
 	if (m_database->getFileDetails(fileName, project.projectId).fileName != "")
 	{
 		// File already exists, send an appropriate response code
@@ -268,7 +269,7 @@ void Communicator::createFile(SOCKET client_sock, std::string fileName, std::str
 
 void Communicator::deleteFile(SOCKET client_sock, std::string fileName, std::string projectName)
 {
-	Project project = m_database->getProject(projectName);
+	Project project = m_database->getProject(projectName, -1);
 	if (m_usersOnFile.find(".\\" + _dirName + "\\\\" + projectName + "\\" + fileName) != m_usersOnFile.end()
 		&& !m_usersOnFile[".\\" + _dirName + "\\\\" + projectName + "\\" + fileName].empty())
 	{
@@ -359,7 +360,7 @@ void Communicator::getInitialContent(SOCKET client_sock, std::string fileName, s
 		m_filesData[".\\" + _dirName + "\\\\" + projectName + "\\" + fileName] = fileContent;
 		m_FileUpdate[".\\" + _dirName + "\\\\" + projectName + "\\" + fileName] = false;
 
-		Project project = m_database->getProject(projectName);
+		Project project = m_database->getProject(projectName, -1);
 		FileDetail fileList = m_database->getFileDetails(fileName, project.projectId);
 		std::map<std::string, int>& filesMap = m_projects[projectName];
 		filesMap[fileName] = fileList.fileId;
@@ -381,7 +382,7 @@ void Communicator::getInitialContent(SOCKET client_sock, std::string fileName, s
 void Communicator::joinFile(SOCKET client_sock, std::string fileName, std::string fileNameLen)
 {
 	std::string projectName = m_clients[client_sock]->getProjectName();
-	Project project = m_database->getProject(projectName);
+	Project project = m_database->getProject(projectName, -1);
 
 	int fileId = m_database->getFileDetails(fileName, project.projectId).fileId;
 	std::string repCode;
@@ -595,6 +596,32 @@ void Communicator::getProfileInfo(SOCKET client_sock, std::string userName)
 	lengthString = std::to_string(info.bio.length());
 	lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
 	repCode += lengthString + info.bio;
+
+	std::string currentUserName = m_clients[client_sock]->getUsername();
+	if (userName != currentUserName)
+	{
+		Friends friends = m_database->getUserFriends(m_database->getUserId(currentUserName));
+		std::unordered_set<std::string> FriendsList;
+		int index = 0;
+		while (index < friends.fiendsList.length())
+		{
+			std::string nameLenStr = friends.fiendsList.substr(index, 5);
+			int nameLen = std::stoi(nameLenStr);
+			index += 5;
+			std::string friendName = friends.fiendsList.substr(index, nameLen);
+			index += nameLen;
+			FriendsList.insert(friendName);
+		}
+		if (FriendsList.find(userName) != FriendsList.end())
+		{
+			repCode += "0"; // is friend
+		}
+	}
+	else
+	{
+		repCode += "1"; // not friend
+	}
+
 	/*
 	try
 	{
@@ -657,8 +684,6 @@ void Communicator::getUserFriends(SOCKET client_sock, std::string userName)
 		std::string name = friendsList.substr(currentIndex, dataLength);
 		currentIndex += dataLength;
 		
-		m_friends[userName].push_back(name);
-
 		auto it = std::find_if(m_clients.begin(), m_clients.end(), [&name](const auto& pair) {
 			return pair.second->getUsername() == name; // Assuming pair.first is the SOCKET identifier
 			});
@@ -677,7 +702,10 @@ void Communicator::getUserFriends(SOCKET client_sock, std::string userName)
 		}
 	}
 
-	m_clients[client_sock]->setWindow("HomePage");
+	if (m_clients[client_sock]->getWindow() != "project")
+	{
+		m_clients[client_sock]->setWindow("HomePage");
+	}
 	Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
 }
 
@@ -693,16 +721,19 @@ void Communicator::approveFriendReq(SOCKET client_sock, std::string userName)
 	m_friends[currentUserName].push_back(userName);
 
 	auto it = std::find_if(m_clients.begin(), m_clients.end(), [&userName](const auto& pair) {
-		return pair.second->getUsername() == name; // Assuming pair.first is the SOCKET identifier
+		return pair.second->getUsername() == userName; // Assuming pair.first is the SOCKET identifier
 		});
 
 	if (it != m_clients.end()) {
 		// Client handler found, client is online
-		repCode = std::to_string(MC_ADD_FRIEND_RESP);
-		lengthString = std::to_string(currentUserName.length());
-		lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
-		repCode += lengthString + currentUserName + "1"; // Online
-		Helper::sendData(it->first, BUFFER(repCode.begin(), repCode.end()));
+		if (it->second->getWindow() == "HomePage" || it->second->getWindow() == "project" || it->second->getWindow() == "searchUsers")
+		{
+			repCode = std::to_string(MC_ADD_FRIEND_RESP);
+			lengthString = std::to_string(currentUserName.length());
+			lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
+			repCode += lengthString + currentUserName + "1"; // Online
+			Helper::sendData(it->first, BUFFER(repCode.begin(), repCode.end()));
+		}
 
 		repCode = std::to_string(MC_APPROVE_FRIEND_REQ_RESP);
 		lengthString = std::to_string(userName.length());
@@ -721,21 +752,101 @@ void Communicator::approveFriendReq(SOCKET client_sock, std::string userName)
 
 void Communicator::rejectFriendReq(SOCKET client_sock, std::string userName)
 {
+	std::string repCode = std::to_string(MC_REJECT_FRIEND_REQ_RESP);
+
 	m_database->rejectFriendReq(m_database->getUserId(userName), m_clients[client_sock]->getId());
+	
+	std::string lengthString = std::to_string(userName.length());
+	lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
+	repCode += lengthString + userName;
+	Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
+
 }
 
 void Communicator::addFriend(SOCKET client_sock, std::string userName)
 {
+	std::string currUserName = m_clients[client_sock]->getUsername();
+	std::list<FriendReq> friendReq = m_database->getUserFriendReq(m_database->getUserId(userName));
+	
+	std::unordered_set<std::string> FriendsReqList;
 
+	std::string friendName;
+
+	for (auto req : friendReq)
+	{
+		friendName = m_database->getUserName("", req.friendReqId);
+		FriendsReqList.insert(friendName);
+	}
+
+	if (FriendsReqList.find(userName) == FriendsReqList.end())
+	{
+		m_database->addFriendReq(m_database->getUserId(currUserName), m_database->getUserId(userName));
+
+		auto it = std::find_if(m_clients.begin(), m_clients.end(), [&userName](const auto& pair) {
+			return pair.second->getUsername() == userName; // Assuming pair.first is the SOCKET identifier
+			});
+
+		if (it != m_clients.end()) {
+			// Client handler found, client is online
+			if (it->second->getWindow() == "HomePage" || it->second->getWindow() == "project")
+			{
+				std::string repCode = std::to_string(MC_FRIEND_REQ_RESP);
+				std::string lengthString = std::to_string(currUserName.length());
+				lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
+				repCode += lengthString + currUserName + "3"; // defualt
+				Helper::sendData(it->first, BUFFER(repCode.begin(), repCode.end()));
+			}
+		}
+	}
 }
 
 void Communicator::getProjectsList(SOCKET client_sock, std::string userName)
 {
 	std::string repCode = std::to_string(MC_PROJECTS_LIST_RESP);;
+	int userId = m_database->getUserId(userName);
 
-	for (auto project : m_database->getAllProjects(m_database->getUserId(userName)))
+	std::string lengthString;
+	std::string role;
+
+	for (auto detail : m_database->getUserProjectPermission(userId))
 	{
-		std::string lengthString = std::to_string(project.name.length());
+		role = m_database->getUserRoleInProject(userId, detail.projectId);
+		Project project = m_database->getProject("", detail.projectId);
+
+		lengthString = std::to_string(project.name.length());
+		lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
+		repCode += lengthString + project.name;
+
+		lengthString = std::to_string(role.length());
+		lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
+		repCode += lengthString + role ; // has access
+	}
+
+	for (auto invite : m_database->getUserProjectInvite(userId))
+	{
+		Project project = m_database->getProject("", invite.projectId);
+		lengthString = std::to_string(project.name.length());
+		lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
+		repCode += lengthString + project.name;
+
+		repCode += "00006invite"; // invite
+	}
+
+	Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
+}
+
+void Communicator::getUserProjectsList(SOCKET client_sock, std::string userName)
+{
+	std::string repCode = std::to_string(MC_USER_PROJECTS_LIST_RESP);;
+	int userId = m_database->getUserId(userName);
+
+	std::string lengthString;
+
+	for (auto detail : m_database->getUserProjectPermission(userId))
+	{
+		Project project = m_database->getProject("", detail.projectId);
+
+		lengthString = std::to_string(project.name.length());
 		lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
 		repCode += lengthString + project.name;
 	}
@@ -745,7 +856,7 @@ void Communicator::getProjectsList(SOCKET client_sock, std::string userName)
 
 void Communicator::removeFriend(SOCKET client_sock, std::string userName, std::string userNameToRemove)
 {
-	std::string repCode = std::to_string(MC_REMOVE_FRIEND_RESP);;
+	std::string repCode = std::to_string(MC_REMOVE_FRIEND_RESP);
 
 	std::string friendsListCurrUser = m_database->getUserFriends(m_database->getUserId(userName)).fiendsList;
 	std::string friendsListRemovedUser = m_database->getUserFriends(m_database->getUserId(userNameToRemove)).fiendsList;
@@ -793,15 +904,34 @@ void Communicator::removeFriend(SOCKET client_sock, std::string userName, std::s
 		}
 	}
 	m_database->removeFriend(currUserId, updateFriendList);
-	auto it = m_friends.find(userName);
-	if (it != m_friends.end()) {
+
+	auto firstUserFriends = m_friends.find(userName);
+	if (firstUserFriends != m_friends.end()) {
 		// Get reference to the vector of friends
-		std::vector<std::string>& friendsList = it->second;
+		std::vector<std::string>& friendsList = firstUserFriends->second;
 
 		// Remove the specific friend using std::remove and erase idiom
 		friendsList.erase(std::remove(friendsList.begin(), friendsList.end(), userNameToRemove), friendsList.end());
 	}
-	repCode += userNameToRemove;
+	auto secondUserFriends = m_friends.find(userNameToRemove);
+	if (secondUserFriends != m_friends.end()) {
+		// Get reference to the vector of friends
+		std::vector<std::string>& friendsList = secondUserFriends->second;
+
+		// Remove the specific friend using std::remove and erase idiom
+		friendsList.erase(std::remove(friendsList.begin(), friendsList.end(), userName), friendsList.end());
+	}
+
+	
+	auto it = std::find_if(m_clients.begin(), m_clients.end(), [&userNameToRemove](const auto& pair) {
+		return pair.second->getUsername() == userNameToRemove; // Assuming pair.first is the SOCKET identifier
+		});
+	if (it != m_clients.end() && (it->second->getWindow() == "HomePage" || it->second->getWindow() == "project"))
+	{
+		repCode = std::to_string(MC_REMOVE_FRIEND_RESP) + userName;
+		Helper::sendData(it->first, BUFFER(repCode.begin(), repCode.end()));
+	}
+	repCode = std::to_string(MC_REMOVE_FRIEND_RESP) + userNameToRemove;
 	Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
 }
 
@@ -819,37 +949,50 @@ void Communicator::editInfo(SOCKET client_sock, std::string bio)
 
 void Communicator::createProject(SOCKET client_sock, std::string projectName, std::string friendList, std::string codeLan, int mode)
 {
-	std::string repCode = std::to_string(MC_CREATE_PROJECT_RESP);;
+	std::string repCode = std::to_string(MC_CREATE_PROJECT_RESP);
 
 	int userId = m_database->getUserId(m_clients[client_sock]->getUsername());
-	std::list<ProfileInfo> friends;
+	std::map<ProfileInfo, std::string> friends; // info, role
 
 	int index = 0;
 
 	while (index < friendList.length())
 	{
-		int nameLengeth = std::stoi(friendList.substr(index,5));
+		int nameLengeth = std::stoi(friendList.substr(index, 5));
 		index += 5;
 
 		std::string name = friendList.substr(index, nameLengeth);
 		index += nameLengeth;
-		
+
+		std::string roleMsg = friendList.substr(index, 1);
+		index += 1;
+		std::string role;
+		if (roleMsg == "1")
+		{
+			role = "admin";
+		}
+		else
+		{
+			role = "participant";
+		}
+
 		ProfileInfo profile = m_database->getUsersInfo(m_database->getUserId(name));
-		friends.push_back(profile);
+		friends[profile] = role;
 	}
 
 	fileOperationHandler.createDirectory(".\\" + _dirName + "\\\\" + projectName);
 	m_database->createProject(projectName, friends, codeLan, userId);
-	Project project = m_database->getProject(projectName);
-	m_database->createProjectPermission(project.projectId, userId);
+	Project project = m_database->getProject(projectName, -1);
+	m_database->createProjectPermission(project.projectId, userId, "creator");
 	m_database->createChat(projectName);
 
+	// Send to each friend the invite if they are online
 	Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
 }
 
 void Communicator::deleteProject(SOCKET client_sock, std::string projectName)
 {
-	Project project = m_database->getProject(projectName);
+	Project project = m_database->getProject(projectName, -1);
 	if (m_usersOnProject.find(".\\" + _dirName + "\\\\" + projectName) != m_usersOnProject.end()
 		&& !m_usersOnFile[".\\" + _dirName + "\\\\" + projectName].empty())
 	{
@@ -929,7 +1072,7 @@ void Communicator::moveToCreateWindow(SOCKET client_sock)
 
 void Communicator::joinProject(SOCKET client_sock, std::string projectName, std::string projectNameLen)
 {
-	Project project = m_database->getProject(projectName);
+	Project project = m_database->getProject(projectName, -1);
 	int projectId = project.projectId;
 	std::string repCode;
 
@@ -994,7 +1137,7 @@ void Communicator::leaveProject(SOCKET client_sock)
 
 void Communicator::getProjectFiles(SOCKET client_sock, std::string projectName)
 {
-	Project project = m_database->getProject(projectName);
+	Project project = m_database->getProject(projectName, -1);
 	int projectId = project.projectId;
 	std::string repCode = std::to_string(MC_GET_PROJECT_FILES_RESP);
 	
@@ -1012,7 +1155,7 @@ void Communicator::getProjectFiles(SOCKET client_sock, std::string projectName)
 
 void Communicator::renameFile(SOCKET client_sock, std::string newFileName, std::string oldFileName, std::string projectName)
 {
-	Project project = m_database->getProject(projectName);
+	Project project = m_database->getProject(projectName, -1);
 	m_database->renameFile(project.projectId, newFileName, oldFileName);
 
 	std::string repCode = std::to_string(MC_RENAME_FILE_RESP);
@@ -1035,14 +1178,117 @@ void Communicator::searchUsers(SOCKET client_sock, std::string nsearchCommand)
 
 	std::list<std::string> userList = m_database->searchUsers(nsearchCommand);
 	m_clients[client_sock]->setWindow("searchUsers");
+	std::string currentUser = m_clients[client_sock]->getUsername();
+	Friends friends = m_database->getUserFriends(m_database->getUserId(currentUser));
+	std::unordered_set<std::string> FriendsList;
+	
+	std::list<FriendReq> req1 = m_database->getCurrentUserReqSent(m_database->getUserId(currentUser));
+	std::list<FriendReq> req2 = m_database->getUserFriendReq(m_database->getUserId(currentUser));
+	std::unordered_set<std::string> FriendsReqList;
+
+	std::string friendName;
+	std::string lengthString;
+
+	for (auto friendReq : req1)
+	{
+		friendName = m_database->getUserName("", friendReq.friendReqId);
+		FriendsReqList.insert(friendName);
+	}
+
+	for (auto friendReq : req2)
+	{
+		friendName = m_database->getUserName("", friendReq.userId);
+		FriendsReqList.insert(friendName);
+	}
+
+	int index = 0;
+	while(index < friends.fiendsList.length())
+	{
+		std::string nameLenStr = friends.fiendsList.substr(index, 5);
+		int nameLen = std::stoi(nameLenStr);
+		index += 5;
+		friendName = friends.fiendsList.substr(index, nameLen);
+		index += nameLen;
+		FriendsList.insert(friendName);
+	}
+
 	for (auto userName : userList)
 	{
-		std::string lengthString = std::to_string((userName.length()));
-		lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
-		repCode += lengthString + userName;
+		if (userName == currentUser) continue;
+		if (FriendsReqList.find(userName) != FriendsReqList.end()) continue;
+		if (FriendsList.find(userName) != FriendsList.end())
+		{
+			auto it = std::find_if(m_clients.begin(), m_clients.end(), [&userName](const auto& pair) {
+				return pair.second->getUsername() == userName; // Assuming pair.first is the SOCKET identifier
+				});
+
+			if (it != m_clients.end()) {
+				// Client handler found, client is online
+				lengthString = std::to_string(userName.length());
+				lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
+				repCode += lengthString + userName + "1"; // Online
+			}
+			else {
+				// Client handler not found, client is offline
+				lengthString = std::to_string(userName.length());
+				lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
+				repCode += lengthString + userName + "0"; // Offline
+			}
+		}
+		else
+		{
+			lengthString = std::to_string(userName.length());
+			lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
+			repCode += lengthString + userName + "2"; // defualt
+		}
 	}
 
 	Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
+}
+
+void Communicator::searchFriends(SOCKET client_sock, std::string nsearchCommand)
+{
+	std::string repCode = std::to_string(MC_SEARCH_FRIENDS_RESP);
+
+	std::list<std::string> userList = m_database->searchUsers(nsearchCommand);
+	std::string currentUser = m_clients[client_sock]->getUsername();
+	Friends friends = m_database->getUserFriends(m_database->getUserId(currentUser));
+	std::unordered_set<std::string> FriendsList;
+
+	std::string friendName;
+	std::string lengthString;
+
+	int index = 0;
+	while(index < friends.fiendsList.length())
+	{
+		std::string nameLenStr = friends.fiendsList.substr(index, 5);
+		int nameLen = std::stoi(nameLenStr);
+		index += 5;
+		friendName = friends.fiendsList.substr(index, nameLen);
+		index += nameLen;
+		FriendsList.insert(friendName);
+	}
+
+	for (auto userName : userList)
+	{
+		if (userName == currentUser) continue;
+		if (FriendsList.find(userName) != FriendsList.end())
+		{
+			
+			lengthString = std::to_string(userName.length());
+			lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
+			repCode += lengthString + userName;
+		}
+	}
+
+	Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
+}
+
+void Communicator::backToMainPage(SOCKET client_sock)
+{
+	std::string repCode = std::to_string(MC_BACK_TO_HOME_PAGE_RESP);
+	Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
+	m_clients[client_sock]->setWindow("HomePage");
 }
 
 void Communicator::handleNewClient(SOCKET client_sock)
@@ -1172,17 +1418,26 @@ void Communicator::handleNewClient(SOCKET client_sock)
 			case MC_SEARCH_REQUEST:
 				searchUsers(client_sock, reqDetail.searchCommand);
 				break;
+			case MC_SEARCH_FRIENDS_REQUEST:
+				searchFriends(client_sock, reqDetail.searchCommand);
+				break;
 			case MC_REMOVE_FRIEND_REQUEST:
 				removeFriend(client_sock, reqDetail.userName, reqDetail.userNameToRemove);
 				break;
 			case MC_PROJECTS_LIST_REQUEST:
 				getProjectsList(client_sock, reqDetail.userName);
 				break;
+			case MC_USER_PROJECTS_LIST_REQUEST:
+				getUserProjectsList(client_sock, reqDetail.userName);
+				break;
 			case MC_MOVE_TO_CREATE_PROJ_WINDOW_REQUEST:
 				moveToCreateWindow(client_sock);
 				break;
 			case MC_CREATE_PROJECT_REQUEST:
 				createProject(client_sock, reqDetail.projectName, reqDetail.firendsList, reqDetail.codeLaneguage, reqDetail.mode);
+				break;
+			case MC_BACK_TO_HOME_PAGE_REQUEST:
+				backToMainPage(client_sock);
 				break;
 			case MC_DELETE_PROJECT_REQUEST:
 				deleteProject(client_sock, reqDetail.projectName);
@@ -1633,6 +1888,10 @@ Action Communicator::deconstructReq(const std::string& req) {
 	case MC_GET_PROJECT_FILES_REQUEST:
 		newAction.projectName = action.substr(0);
 		break;
+	case MC_USER_PROJECTS_LIST_REQUEST:
+		newAction.userNameLength = std::stoi(action.substr(0, 5));
+		newAction.userName = action.substr(5, newAction.userNameLength);
+		break;
 	case MC_LEAVE_PROJECT_REQUEST:
 		//
 		break;
@@ -1652,6 +1911,10 @@ Action Communicator::deconstructReq(const std::string& req) {
 		newAction.searchCommandLength = std::stoi(action.substr(0, 5));
 		newAction.searchCommand = action.substr(5, newAction.searchCommandLength);
 		break;
+	case MC_SEARCH_FRIENDS_REQUEST:
+		newAction.searchCommandLength = std::stoi(action.substr(0, 5));
+		newAction.searchCommand = action.substr(5, newAction.searchCommandLength);
+		break;
 	case MC_APPROVE_FRIEND_REQ_REQUEST:
 		newAction.userNameLength = std::stoi(action.substr(0, 5));
 		newAction.userName = action.substr(5, newAction.userNameLength);
@@ -1659,6 +1922,12 @@ Action Communicator::deconstructReq(const std::string& req) {
 	case MC_REJECT_FRIEND_REQ_REQUEST:
 		newAction.userNameLength = std::stoi(action.substr(0, 5));
 		newAction.userName = action.substr(5, newAction.userNameLength);
+		break;
+	case MC_ADD_FRIEND_REQUEST:
+		newAction.userNameLength = std::stoi(action.substr(0, 5));
+		newAction.userName = action.substr(5, newAction.userNameLength);
+		break;
+	case MC_BACK_TO_HOME_PAGE_REQUEST:
 		break;
 	}
 	newAction.timestamp = getCurrentTimestamp();

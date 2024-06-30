@@ -26,6 +26,13 @@ struct Permission
 	int projectId;
 };
 
+
+struct ProjectPermission
+{
+	std::string role;
+	int projectId;
+};
+
 struct FileDetail
 {
 	int creatorId;
@@ -40,6 +47,10 @@ struct ProfileInfo
 	std::string email;
 	std::string bio;
 	int userId;
+
+	bool operator<(const ProfileInfo& other) const {
+		return name < other.name; // Compare based on unique id, adjust if necessary
+	}
 };
 
 struct Project
@@ -49,6 +60,14 @@ struct Project
 	int userId;
 	int projectId;
 };
+
+struct ProjectJoinInvite
+{
+	std::string role;
+	int userId;
+	int projectId;
+};
+
 
 struct Friends
 {
@@ -88,10 +107,14 @@ public:
 	virtual ProfileInfo getUsersInfo(int userId) = 0;
 	virtual std::list<std::string> searchUsers(std::string searchCommand) = 0;
 	virtual std::list<Project> getAllProjects(int userId) = 0;
-	virtual Project getProject(std::string projectName) = 0;
+	virtual Project getProject(std::string projectName, int projectId) = 0;
 	virtual std::list<FileDetail> getProjectFiles(int projectId) = 0;
 	virtual Friends getUserFriends(int userId) = 0;
 	virtual std::list<FriendReq> getUserFriendReq(int userId) = 0;
+	virtual std::list<FriendReq> getCurrentUserReqSent(int userId) = 0;
+	virtual std::string getUserRoleInProject(int userId, int projectId) = 0;
+	virtual std::list<ProjectJoinInvite> getUserProjectInvite(int userId) = 0;
+	virtual std::list<ProjectPermission> getUserProjectPermission(int userId) = 0;
 
 	virtual void UpdateChat(const std::string& fileName, const std::string& data) = 0;
 	virtual void createChat(const std::string& ProjectName) = 0;
@@ -107,12 +130,14 @@ public:
 	virtual void changePassword(std::string username, std::string opdPass, std::string newPass) = 0;
 	virtual void createProfile(std::string username, std::string email , std::string bio, int userId) = 0;
 	virtual void modifyProfile(std::string username, std::string email , std::string bio, int userId) = 0;
-	virtual void createProject(std::string projectName, std::list<ProfileInfo> addedUsers, std::string codeLan, int creatorId) = 0;
+	virtual void createProject(std::string projectName, std::map<ProfileInfo, std::string> addedUsers, std::string codeLan, int creatorId) = 0;
 	virtual void deleteProject(const std::string projectName) = 0;
-	virtual void createProjectPermission(int projectId, int userId) = 0;
+	virtual void createProjectPermission(int projectId, int userId, std::string role) = 0;
+	virtual void createProjectJoinInvite(int projectId, int userId, std::string role) = 0;
 	virtual void deleteAllProjectPermission(int projectId) = 0;
 	virtual void deleteProjectPermission(int projectId, int userId) = 0;
 	virtual void addFriend(int userId, std::string friendsList) = 0;
+	virtual void addFriendReq(int userId, int friendRequsetId) = 0;
 	virtual void removeFriend(int userId, std::string friendsList) = 0;
 	virtual void approveFriendReq(int userId, int friendRequsetId) = 0;
 	virtual void rejectFriendReq(int userId, int friendRequsetId) = 0;

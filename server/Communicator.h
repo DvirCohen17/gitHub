@@ -12,6 +12,7 @@
 #include <cstdlib> // For system function
 #include <cstdio> // For popen and pclose
 #include <string>
+#include <unordered_set>
 #include "Client.h"
 #include "helper.h"
 #include "Operations.h"
@@ -161,12 +162,15 @@ public:
     void rejectFriendReq(SOCKET client_sock, std::string userName);
     void addFriend(SOCKET client_sock, std::string userName);
     void getProjectsList(SOCKET client_sock, std::string userName);
+    void getUserProjectsList(SOCKET client_sock, std::string userName);
     void getProjectFiles(SOCKET client_sock, std::string projectName);
     void removeFriend(SOCKET client_sock, std::string userName, std::string userNameToRemove);
     void editInfo(SOCKET client_sock, std::string bio);
     void createProject(SOCKET client_sock, std::string projectName, std::string friendList, std::string codeLan, int mode);
+    void backToMainPage(SOCKET client_sock);
     void deleteProject(SOCKET client_sock, std::string projectName);
     void renameFile(SOCKET client_sock, std::string fileName, std::string oldFileName, std::string projectName);
     void searchUsers(SOCKET client_sock, std::string searchCommand);
+    void searchFriends(SOCKET client_sock, std::string searchCommand);
 
 };
