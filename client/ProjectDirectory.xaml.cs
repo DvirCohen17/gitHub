@@ -21,6 +21,8 @@ using ICSharpCode.AvalonEdit;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.TextBox;
 using System.Collections.ObjectModel;
 using System.Text.RegularExpressions;
+using System.Globalization;
+using System.Windows.Data;
 
 namespace client_side
 {
@@ -42,6 +44,9 @@ namespace client_side
         private bool isCapsLockPressed = false;
         private bool isBackspaceHandled = false;
 
+        private ObservableCollection<User> friends { get; set; }
+        public event PropertyChangedEventHandler PropertyChanged;
+
         public ProjectDirectory(Communicator communicator, string projectDir, string codeLan)
         {
             InitializeComponent();
@@ -53,6 +58,10 @@ namespace client_side
 
             try
             {
+                Friends = new ObservableCollection<User>();
+                lstFriends.ItemsSource = Friends;
+
+
                 ReceiveInitialChat(ProjectName);     // Receive initial content from the server
                 ReceiveInitialUsers(ProjectName);    // Receive initial content from the server
                 ReceiveInitialFiles(ProjectName);    // Receive initial content from the server
@@ -102,7 +111,8 @@ namespace client_side
                 if (friendsRepCode == ((int)MessageCodes.MC_FRIENDS_LIST_RESP).ToString() && friendsRep.Length > 3)
                 {
                     int index = 3;
-                    ObservableCollection<User> friends = new ObservableCollection<User>();
+                    ObservableCollection<User> updatedFriends = new ObservableCollection<User>();
+
                     while (index < friendsRep.Length)
                     {
                         int friendNameLen = int.Parse(friendsRep.Substring(index, 5));
@@ -112,10 +122,47 @@ namespace client_side
                         string onlineStatus = friendsRep.Substring(index, 1);
                         index += 1;
 
-                        friends.Add(new User { Name = friendName, Status = ParseStatus(onlineStatus).ToString() });
+                        bool isFriend = true;
+                        bool isFriendRequest = false;
+
+                        if (onlineStatus == "0" || onlineStatus == "1")
+                        {
+                            isFriend = true;
+                            isFriendRequest = false;
+                        }
+                        else if (onlineStatus == "3")
+                        {
+                            isFriend = false;
+                            isFriendRequest = true;
+                        }
+
+                        updatedFriends.Add(new User
+                        {
+                            Name = friendName,
+                            Status = ParseStatus(onlineStatus).ToString(),
+                            IsFriend = isFriend,
+                            IsFriendRequest = isFriendRequest,
+                        });
                     }
 
-                    SortFriendsList(friends);
+                    // Update the Friends collection on the UI thread
+                    Dispatcher.Invoke(() =>
+                    {
+
+                        // Clear existing items
+                        if (Friends.Any())
+                        {
+                            Friends.Clear();
+                        }
+                        // Add updated friends to collection
+                        foreach (var friend in updatedFriends)
+                        {
+                            Friends.Add(friend);
+                        }
+
+                        // Sort the updated list
+                        SortFriendsList(Friends);
+                    });
                 }
             }
             catch (Exception ex)
@@ -1298,16 +1345,6 @@ namespace client_side
             });
         }
 
-        private void RemoveFriend_Click(object sender, RoutedEventArgs e)
-        {
-            var user = (sender as Button)?.DataContext as User;
-            if (user != null)
-            {
-                string removeFriendCode = ((int)MessageCodes.MC_REMOVE_FRIEND_REQUEST).ToString();
-                communicator.SendData($"{removeFriendCode}{communicator.UserName.Length:D5}{communicator.UserName}{user.Name.Length:D5}{user.Name}");
-            }
-        }
-
         private void TxtNewFileName_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
@@ -1391,10 +1428,121 @@ namespace client_side
             string fullMessage = $"{chatMessageCode}{newFileName.Length:D5}{newFileName}{ProjectName.Length:D5}{ProjectName}";
             communicator.SendData(fullMessage);
         }
+
+
+        private void approveRequest_Click(object sender, RoutedEventArgs e)
+        {
+            System.Windows.Controls.Button button = sender as System.Windows.Controls.Button;
+            if (button != null)
+            {
+                User user = button.CommandParameter as User;
+                if (user != null)
+                {
+                    string addFriendCode = ((int)MessageCodes.MC_APPROVE_FRIEND_REQ_REQUEST).ToString();
+                    communicator.SendData($"{addFriendCode}{user.Name.Length:D5}{user.Name}");
+                }
+            }
+        }
+
+        private void declineRequest_Click(object sender, RoutedEventArgs e)
+        {
+            System.Windows.Controls.Button button = sender as System.Windows.Controls.Button;
+            if (button != null)
+            {
+                User user = button.CommandParameter as User;
+                if (user != null)
+                {
+                    string rejectFriendCode = ((int)MessageCodes.MC_REJECT_FRIEND_REQ_REQUEST).ToString();
+                    communicator.SendData($"{rejectFriendCode}{user.Name.Length:D5}{user.Name}");
+                }
+            }
+        }
+
+        private void RemoveFriend_Click(object sender, RoutedEventArgs e)
+        {
+            System.Windows.Controls.Button button = sender as System.Windows.Controls.Button;
+            if (button != null)
+            {
+                User user = button.CommandParameter as User;
+                if (user != null)
+                {
+                    string removeFriendCode = ((int)MessageCodes.MC_REMOVE_FRIEND_REQUEST).ToString();
+                    communicator.SendData($"{removeFriendCode}{communicator.UserName.Length:D5}{communicator.UserName}{user.Name.Length:D5}{user.Name}");
+                }
+            }
+        }
+
+
         public class User
         {
-            public string Name { get; set; }
-            public string Status { get; set; }
+            private string name;
+            private string status;
+            private bool isFriend;
+            private bool isFriendRequest;
+
+            public string Name
+            {
+                get => name;
+                set
+                {
+                    name = value;
+                    OnPropertyChanged();
+                }
+            }
+
+            public string Status
+            {
+                get => status;
+                set
+                {
+                    status = value;
+                    OnPropertyChanged();
+                }
+            }
+
+            public bool IsFriend
+            {
+                get => isFriend;
+                set
+                {
+                    isFriend = value;
+                    OnPropertyChanged();
+                }
+            }
+
+            public bool IsFriendRequest
+            {
+                get => isFriendRequest;
+                set
+                {
+                    isFriendRequest = value;
+                    OnPropertyChanged();
+                }
+            }
+
+            public event PropertyChangedEventHandler PropertyChanged;
+
+            protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            }
+        }
+
+        public ObservableCollection<User> Friends
+        {
+            get => friends;
+            set
+            {
+                friends = value;
+                OnPropertyChanged(); // Notify property changed when the collection reference changes
+            }
+        }
+
+        public event PropertyChangedEventHandler PropertyChangeda;
+
+        protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
         public class FileViewModel
@@ -1408,6 +1556,8 @@ namespace client_side
             {
                 "0" => Status.Offline,
                 "1" => Status.Online,
+                "2" => Status.search,
+                "3" => Status.search,
                 _ => throw new ArgumentException($"Invalid status code: {statusCode}"),
             };
         }
@@ -1415,7 +1565,42 @@ namespace client_side
         public enum Status
         {
             Offline,
-            Online
+            Online,
+            search
+        }
+
+        public class BoolToVisibilityConverter : IValueConverter
+        {
+            public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+            {
+                if (value is bool boolValue)
+                {
+                    return boolValue ? Visibility.Visible : Visibility.Collapsed;
+                }
+                return Visibility.Collapsed;
+            }
+
+            public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        public class InverseBoolToVisibilityConverter : IValueConverter
+        {
+            public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+            {
+                if (value is bool boolValue)
+                {
+                    return !boolValue ? Visibility.Visible : Visibility.Collapsed;
+                }
+                return Visibility.Collapsed;
+            }
+
+            public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            {
+                throw new NotImplementedException();
+            }
         }
     }
 }

@@ -13,16 +13,15 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Data;
 using System.Globalization;
-using static client_side.ProjectDirectory;
 using System.Collections.Generic;
 using Microsoft.Win32;
 using System.IO;
-using static client_side.HomePage;
-
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
+using static System.Net.WebRequestMethods;
 
 namespace client_side
 {
-    public partial class HomePage : Window, INotifyPropertyChanged
+    public partial class HomePage : System.Windows.Window, INotifyPropertyChanged // Specified full namespace for Window
     {
         private Communicator communicator;
         private bool disconnect = true;
@@ -37,16 +36,28 @@ namespace client_side
         private bool inSearch = false;
         private bool first = true;
 
+        private ObservableCollection<User> friends { get; set; }
+        private ObservableCollection<ProjectInfo> projects { get; set; }
+
         public event PropertyChangedEventHandler PropertyChanged;
+
         public HomePage(Communicator communicator)
         {
             InitializeComponent();
-            Style = (Style)FindResource(typeof(Window));
+            Style = (Style)FindResource(typeof(System.Windows.Window)); // Specified full namespace for Window
             this.communicator = communicator;
             DataContext = this;
 
             lstFriends.MouseDoubleClick += LstFriends_MouseDoubleClick;
             lstProjects.MouseDoubleClick += LstProjects_MouseDoubleClick;
+
+
+            // Initialize Friends collection
+            Friends = new ObservableCollection<User>();
+            lstFriends.ItemsSource = Friends;
+
+            Projects = new ObservableCollection<ProjectInfo>();
+            lstProjects.ItemsSource = Projects;
 
             start();
 
@@ -171,100 +182,62 @@ namespace client_side
         {
             string friendsRepCode = update.Substring(0, 3);
 
-            Dispatcher.Invoke(() =>
+            if (friendsRepCode == ((int)MessageCodes.MC_FRIENDS_LIST_RESP).ToString())
             {
-                if (lstFriends.ItemsSource is ObservableCollection<User> friends)
-                {
-                    friends.Clear();
-                }
-            });
-
-            if (friendsRepCode == ((int)MessageCodes.MC_FRIENDS_LIST_RESP).ToString() && update.Length > 3)
-            {
-                bool friendCheck = true;
-                bool friendRequsetCheck = false;
-
                 int index = 3;
-                if (first)
+                ObservableCollection<User> updatedFriends = new ObservableCollection<User>();
+
+                while (index < update.Length)
                 {
-                    ObservableCollection<User> friends = new ObservableCollection<User>();
-                    while (index < update.Length)
+                    int friendNameLen = int.Parse(update.Substring(index, 5));
+                    index += 5;
+                    string friendName = update.Substring(index, friendNameLen);
+                    index += friendNameLen;
+                    string onlineStatus = update.Substring(index, 1);
+                    index += 1;
+
+                    bool isFriend = true;
+                    bool isFriendRequest = false;
+
+                    if (onlineStatus == "0" || onlineStatus == "1")
                     {
-                        int friendNameLen = int.Parse(update.Substring(index, 5));
-                        index += 5;
-                        string friendName = update.Substring(index, friendNameLen);
-                        index += friendNameLen;
-                        string onlineStatus = update.Substring(index, 1);
-                        index += 1;
-
-                        if (onlineStatus == "0" || onlineStatus == "1")
-                        {
-                            friendCheck = true;
-                            friendRequsetCheck = false;
-                        }
-                        else if (onlineStatus == "3")
-                        {
-                            friendCheck = false;
-                            friendRequsetCheck = true;
-                        }
-
-                        friends.Add(new User
-                        {
-                            Name = friendName,
-                            Status = ParseStatus(onlineStatus).ToString(),
-                            IsFriend = friendCheck,
-                            IsFriendRequest = friendRequsetCheck,
-                        });
-
+                        isFriend = true;
+                        isFriendRequest = false;
+                    }
+                    else if (onlineStatus == "3")
+                    {
+                        isFriend = false;
+                        isFriendRequest = true;
                     }
 
-                    SortFriendsList(friends);
-                    first = false;
-                }
-                else
-                {
-                    while (index < update.Length)
+                    updatedFriends.Add(new User
                     {
-                        int friendNameLen = int.Parse(update.Substring(index, 5));
-                        index += 5;
-                        string friendName = update.Substring(index, friendNameLen);
-                        index += friendNameLen;
-                        string onlineStatus = update.Substring(index, 1);
-                        index += 1;
-                        Dispatcher.Invoke(() =>
-                        {
-                            if (lstFriends.ItemsSource is ObservableCollection<User> friends)
-                            {
-                                
-                                if (onlineStatus == "0" || onlineStatus == "1")
-                                {
-                                    friendCheck = true;
-                                    friendRequsetCheck = false;
-                                }
-                                else if (onlineStatus == "3")
-                                {
-                                    friendCheck = false;
-                                    friendRequsetCheck = true;
-                                }
-
-                                friends.Add(new User
-                                {
-                                    Name = friendName,
-                                    Status = ParseStatus(onlineStatus).ToString(),
-                                    IsFriend = friendCheck,
-                                    IsFriendRequest = friendRequsetCheck,
-                                });
-                                // Optionally, sort the friends list after adding
-                                SortFriendsList(friends);
-                            }
-                        });
-                        // Move to the next user's data
-                        index += 5 + friendNameLen;
-                    }
+                        Name = friendName,
+                        Status = ParseStatus(onlineStatus).ToString(),
+                        IsFriend = isFriend,
+                        IsFriendRequest = isFriendRequest,
+                    });
                 }
-                
+
+                // Update the Friends collection on the UI thread
+                Dispatcher.Invoke(() =>
+                {
+
+                    // Clear existing items
+                    if (Friends.Any())
+                    {
+                        Friends.Clear();
+                    }
+                    // Add updated friends to collection
+                    foreach (var friend in updatedFriends)
+                    {
+                        Friends.Add(friend);
+                    }
+
+                    // Sort the updated list
+                    SortFriendsList(Friends);
+                });
             }
-            
         }
 
         private void LoadProjectsList()
@@ -273,12 +246,18 @@ namespace client_side
             communicator.SendData($"{projectsListCode}{communicator.UserName.Length:D5}{communicator.UserName}");
 
             string projectsRep = communicator.ReceiveData();
-            string projectsRepCode = projectsRep.Substring(0, 3);
+            HandleLoadProjectsList(projectsRep);
+        }
+
+        private void HandleLoadProjectsList(string update)
+        {
+            string projectsRepCode = update.Substring(0, 3);
+            string projectsRep = update.Substring(3);
 
             if (projectsRepCode == ((int)MessageCodes.MC_PROJECTS_LIST_RESP).ToString() && projectsRep.Length > 3)
             {
-                int index = 3;
-                ObservableCollection<string> projects = new ObservableCollection<string>();
+                int index = 0;
+                ObservableCollection<ProjectInfo> updatedProjects = new ObservableCollection<ProjectInfo>();
                 while (index < projectsRep.Length)
                 {
                     int projectNameLen = int.Parse(projectsRep.Substring(index, 5));
@@ -286,10 +265,35 @@ namespace client_side
                     string projectName = projectsRep.Substring(index, projectNameLen);
                     index += projectNameLen;
 
-                    projects.Add(projectName);
+                    int roleLen = int.Parse(projectsRep.Substring(index, 5));
+                    index += 5;
+                    string role = projectsRep.Substring(index, roleLen);
+                    index += roleLen;
+
+                    updatedProjects.Add(new ProjectInfo
+                    {
+                        ProjectName = projectName,
+                        Role = role
+                    });
                 }
 
-                Dispatcher.Invoke(() => lstProjects.ItemsSource = projects);
+                Dispatcher.Invoke(() =>
+                {
+
+                    // Clear existing items
+                    if (Projects.Any())
+                    {
+                        Projects.Clear();
+                    }
+                    // Add updated friends to collection
+                    foreach (var project in updatedProjects)
+                    {
+                        Projects.Add(project);
+                    }
+
+                    // Sort the updated list
+                    SortProjectsList(projects);
+                });
             }
         }
 
@@ -322,16 +326,25 @@ namespace client_side
                             HandleLoadFriendsList(update);
                             break;
                         case "222":
+                            HandleLoadProjectsList(update);
+                            break;
+                        case "241":
                             HandleReciveProjects(update);
                             break;
                         case "223":
-
+                            HandleAddFriend(update);
                             break;
                         case "236":
-
+                            HandleApproveFriendReq(update);
+                            break;
+                        case "237":
+                            HandleRejectFriendReq(update);
+                            break;
+                        case "238":
+                            HandleAddFriendReq(update);
                             break;
                         case "224":
-                            HandleRemoveUser(update);
+                            HandleRemoveFriend(update);
                             break;
                         case "225":
                             HandleSerachUsers(update);
@@ -362,7 +375,165 @@ namespace client_side
                 string msg = await Task.Run(() => communicator.ReceiveData());
             }
         }
+
+        private void HandleAddFriend(string update)
+        {
+            try
+            {
+                int nameIndex = 3;
+                int userNameLen = int.Parse(update.Substring(nameIndex, 5));
+                nameIndex += 5;
+                string userName = update.Substring(nameIndex, userNameLen);
+                nameIndex += userNameLen;
+                string status = update.Substring(nameIndex);
+
+                if (!inSearch)
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        // Check if Friends collection is initialized
+                        if (Friends == null)
+                            Friends = new ObservableCollection<User>();
+
+                        // Add new user to the Friends collection
+                        Friends.Add(new User
+                        {
+                            Name = userName,
+                            Status = ParseStatus(status).ToString(),
+                            IsFriend = true,
+                            IsFriendRequest = false,
+                        });
+
+                        // Sort the Friends list
+                        SortFriendsList(Friends);
+                    });
+                }
+                else
+                {
+                }
+                Dispatcher.Invoke(() =>
+                {
+                    addFriendBtn.Visibility = Visibility.Collapsed;
+                    addFriendText.Visibility = Visibility.Collapsed;
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error handling Add Friend response: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void HandleAddFriendReq(string update)
+        {
+            try
+            {
+                int nameIndex = 3;
+                int userNameLen = int.Parse(update.Substring(nameIndex, 5));
+                nameIndex += 5;
+                string userName = update.Substring(nameIndex, userNameLen);
+                nameIndex += userNameLen;
+                string status = update.Substring(nameIndex);
+
+                Dispatcher.Invoke(() =>
+                {
+                    // Check if Friends collection is initialized
+                    if (Friends == null)
+                        Friends = new ObservableCollection<User>();
+
+                    // Check if the friend request already exists
+                    bool alreadyExists = Friends.Any(f => f.Name == userName && f.IsFriendRequest);
+
+                    if (!alreadyExists)
+                    {
+                        // Add new user to the Friends collection
+                        Friends.Add(new User
+                        {
+                            Name = userName,
+                            Status = ParseStatus(status).ToString(),
+                            IsFriend = false,
+                            IsFriendRequest = true,
+                        });
+
+                        // Sort the Friends list
+                        SortFriendsList(Friends);
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error handling Add Friend response: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void HandleRemoveFriend(string msg)
+        {
+            try
+            {
+                string friendsListCode = ((int)MessageCodes.MC_FRIENDS_LIST_REQUEST).ToString();
+                communicator.SendData($"{friendsListCode}{communicator.UserName.Length:D5}{communicator.UserName}");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error handling Remove User response: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void HandleApproveFriendReq(string update)
+        {
+            try
+            {
+                int nameIndex = 3;
+                int userNameLen = int.Parse(update.Substring(nameIndex, 5));
+                nameIndex += 5;
+                string userName = update.Substring(nameIndex, userNameLen);
+                nameIndex += userNameLen;
+                string status = update.Substring(nameIndex);
+
+                Dispatcher.Invoke(() =>
+                {
+                    if (lstFriends.ItemsSource is ObservableCollection<User> friends)
+                    {
+                        User userToUpdate = friends.FirstOrDefault(u => u.Name == userName);
+                        if (userToUpdate != null)
+                        {
+                            friends.Remove(userToUpdate);
+                            friends.Add(new User
+                            {
+                                Name = userName,
+                                Status = ParseStatus(status).ToString(),
+                                IsFriend = true,
+                                IsFriendRequest = false,
+                            }); 
+                            SortFriendsList(friends);
+                        }
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error handling Login response: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
         
+        private void HandleRejectFriendReq(string update)
+        {
+            try
+            {
+                int nameIndex = 3;
+                int userNameLen = int.Parse(update.Substring(nameIndex, 5));
+                nameIndex += 5;
+                string userName = update.Substring(nameIndex, userNameLen);
+                nameIndex += userNameLen;
+
+                string friendsListCode = ((int)MessageCodes.MC_FRIENDS_LIST_REQUEST).ToString();
+                communicator.SendData($"{friendsListCode}{communicator.UserName.Length:D5}{communicator.UserName}");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error handling Login response: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         private void HandleError(string update)
         {
             string code = update.Substring(0, 3);
@@ -405,6 +576,10 @@ namespace client_side
             {
                 int nameLength = int.Parse(update.Substring(startIndex, 5));
                 string userName = update.Substring(startIndex + 5, nameLength);
+                startIndex += nameLength + 5;
+
+                string onlineStatus = update.Substring(startIndex, 1);
+                startIndex += 1;
 
                 Dispatcher.Invoke(() =>
                 {
@@ -414,7 +589,7 @@ namespace client_side
                         friends.Add(new User
                         {
                             Name = userName,
-                            Status = ParseStatus("2").ToString(),
+                            Status = ParseStatus(onlineStatus).ToString(),
                             IsFriend = false,
                             IsFriendRequest = false,
                         });
@@ -422,8 +597,7 @@ namespace client_side
                         SortFriendsList(friends);
                     }
                 });
-                // Move to the next user's data
-                startIndex += 5 + nameLength;
+
             }
         }
 
@@ -474,7 +648,13 @@ namespace client_side
                         if (userToUpdate != null)
                         {
                             friends.Remove(userToUpdate);
-                            friends.Add(new User { Name = userName, Status = ParseStatus("0").ToString() });
+                            friends.Add(new User
+                            {
+                                Name = userName,
+                                Status = ParseStatus("0").ToString(),
+                                IsFriend = true,
+                                IsFriendRequest = false,
+                            }); 
                             SortFriendsList(friends);
                         }
                     }
@@ -501,7 +681,13 @@ namespace client_side
                         if (userToUpdate != null)
                         {
                             friends.Remove(userToUpdate);
-                            friends.Add(new User { Name = userName, Status = ParseStatus("1").ToString() });
+                            friends.Add(new User
+                            {
+                                Name = userName,
+                                Status = ParseStatus("1").ToString(),
+                                IsFriend = true,
+                                IsFriendRequest = false,
+                            }); 
                             SortFriendsList(friends);
                         }
                     }
@@ -529,6 +715,9 @@ namespace client_side
                 int bioLenPos = emailLenPos + 5 + emailLen;
                 int bioLen = int.Parse(msg.Substring(bioLenPos, 5));
                 string bio = msg.Substring(bioLenPos + 5, bioLen);
+
+                string friendStatus = msg.Substring(bioLenPos + 5 + bioLen);
+                bool isFriend = (friendStatus == "0") ? (true) : (false) ;
                 Dispatcher.Invoke(() =>
                 {
                     displayedUserProfile = new UserProfile { UserName = userName, Email = email, Bio = bio };
@@ -546,7 +735,7 @@ namespace client_side
                         closeSerachBtn.Visibility = Visibility.Collapsed;
                         return;
                     }
-                    else if(inSearch)
+                    else if(inSearch && !isFriend)
                     {
                         displayedUserProfile.IsCurrentUserProfile = false;
                         editButton.Visibility = Visibility.Collapsed; // Hide edit button for other users' profiles
@@ -557,6 +746,17 @@ namespace client_side
                         addFriendBtn.Visibility = Visibility.Visible;
                         closeSerachBtn.Visibility = Visibility.Visible;
                         return;
+                    }
+                    else if (inSearch && isFriend)
+                    {
+                        displayedUserProfile.IsCurrentUserProfile = false;
+                        editButton.Visibility = Visibility.Collapsed; // Hide edit button for other users' profiles
+                        backButton.Visibility = Visibility.Visible;
+                        BioTextBox.Visibility = Visibility.Collapsed;
+                        BioTextBlock.Visibility = Visibility.Visible;
+                        addFriendText.Visibility = Visibility.Collapsed;
+                        addFriendBtn.Visibility = Visibility.Collapsed;
+                        closeSerachBtn.Visibility = Visibility.Visible;
                     }
                     else
                     {
@@ -578,42 +778,37 @@ namespace client_side
         {
             string projectsRepCode = msg.Substring(0, 3);
 
-            if (projectsRepCode == ((int)MessageCodes.MC_PROJECTS_LIST_RESP).ToString() && msg.Length > 3)
+            Dispatcher.Invoke(() =>
+            {
+                if (lstProjects.ItemsSource is ObservableCollection<ProjectInfo> projects)
+                {
+                    projects.Clear();
+                }
+            });
+
+            if (projectsRepCode == ((int)MessageCodes.MC_USER_PROJECTS_LIST_RESP).ToString() && msg.Length > 3)
             {
                 int index = 3;
-                ObservableCollection<string> projects = new ObservableCollection<string>();
+                ObservableCollection<ProjectInfo> projects = new ObservableCollection<ProjectInfo>();
                 while (index < msg.Length)
                 {
                     int projectNameLen = int.Parse(msg.Substring(index, 5));
                     index += 5;
                     string projectName = msg.Substring(index, projectNameLen);
                     index += projectNameLen;
-
-                    projects.Add(projectName);
-                }
-
-                Dispatcher.Invoke(() => lstProjects.ItemsSource = projects);
-            }
-        }
-
-        private void HandleRemoveUser(string msg)
-        {
-            // Assuming the message format is "{code}{userName}"
-            int nameIndex = 3; // Adjust this index based on your actual message format
-
-            // Extract user name
-            string userName = msg.Substring(nameIndex);
-
-            if (lstFriends.ItemsSource is ObservableCollection<User> friends)
-            {
-                Dispatcher.Invoke(() =>
-                {
-                    User userToRemove = friends.FirstOrDefault(u => u.Name == userName);
-                    if (userToRemove != null)
+                    Dispatcher.Invoke(() =>
                     {
-                        friends.Remove(userToRemove); // Modify the ObservableCollection
-                    }
-                });
+                        if (lstProjects.ItemsSource is ObservableCollection<ProjectInfo> projects)
+                        {
+                            projects.Add(new ProjectInfo
+                            {
+                                ProjectName = projectName,
+                                Role = ""
+                            });
+                            SortProjectsList(projects);
+                        }
+                    });
+                }
             }
         }
 
@@ -665,7 +860,7 @@ namespace client_side
             if (selectedFriend != null)
             {
                 string profileInfoCode = ((int)MessageCodes.MC_PROFILE_INFO_REQUEST).ToString();
-                string userProjects = ((int)MessageCodes.MC_PROJECTS_LIST_REQUEST).ToString();
+                string userProjects = ((int)MessageCodes.MC_USER_PROJECTS_LIST_REQUEST).ToString();
                 communicator.SendData($"{profileInfoCode}{selectedFriend.Name.Length:D5}{selectedFriend.Name}");
                 communicator.SendData($"{userProjects}{selectedFriend.Name.Length:D5}{selectedFriend.Name}");
             }
@@ -811,8 +1006,7 @@ namespace client_side
 
         private void approveRequest_Click(object sender, RoutedEventArgs e)
         {
-
-            Button button = sender as Button;
+            System.Windows.Controls.Button button = sender as System.Windows.Controls.Button;
             if (button != null)
             {
                 User user = button.CommandParameter as User;
@@ -826,7 +1020,7 @@ namespace client_side
 
         private void declineRequest_Click(object sender, RoutedEventArgs e)
         {
-            Button button = sender as Button;
+            System.Windows.Controls.Button button = sender as System.Windows.Controls.Button;
             if (button != null)
             {
                 User user = button.CommandParameter as User;
@@ -840,13 +1034,12 @@ namespace client_side
 
         private void RemoveFriend_Click(object sender, RoutedEventArgs e)
         {
-            Button button = sender as Button;
+            System.Windows.Controls.Button button = sender as System.Windows.Controls.Button;
             if (button != null)
             {
                 User user = button.CommandParameter as User;
                 if (user != null)
                 {
-                    // Handle removing the user (e.g., send request to server, update UI)
                     string removeFriendCode = ((int)MessageCodes.MC_REMOVE_FRIEND_REQUEST).ToString();
                     communicator.SendData($"{removeFriendCode}{communicator.UserName.Length:D5}{communicator.UserName}{user.Name.Length:D5}{user.Name}");
                 }
@@ -863,6 +1056,12 @@ namespace client_side
         {
             var sortedFriends = new ObservableCollection<User>(friends.OrderBy(u => u.Name));
             lstFriends.ItemsSource = sortedFriends;
+        }
+        
+        private void SortProjectsList(ObservableCollection<ProjectInfo> projects)
+        {
+            var sortedProject = new ObservableCollection<ProjectInfo>(projects.OrderBy(u => u.ProjectName));
+            lstProjects.ItemsSource = sortedProject;
         }
 
         private Status ParseStatus(string statusCode)
@@ -905,41 +1104,123 @@ namespace client_side
             public bool IsCurrentUserProfile { get; set; }
         }
 
+        private void LeaveProject_Click(object sender, RoutedEventArgs e)
+        {
+            // Leave project logic
+        }
+
+        private void DeclineInvite_Click(object sender, RoutedEventArgs e)
+        {
+            // Decline invite logic
+        }
+
+        private void AcceptInvite_Click(object sender, RoutedEventArgs e)
+        {
+            // Accept invite logic
+        }
+
+        private void ViewProjectInfo_Click(object sender, RoutedEventArgs e)
+        {
+            // View project info logic
+        }
+
+        private void EditProjectInfo_Click(object sender, RoutedEventArgs e)
+        {
+            // Edit project info logic
+        }
+
+        private void DeleteProject_Click(object sender, RoutedEventArgs e)
+        {
+            // Delete project logic
+        }
+
 
         public class User
         {
-            private bool _isFriend;
-            private bool _isFriendRequest;
+            private string name;
+            private string status;
+            private bool isFriend;
+            private bool isFriendRequest;
 
-            public string Name { get; set; }
-            public string Status { get; set; }
+            public string Name
+            {
+                get => name;
+                set
+                {
+                    name = value;
+                    OnPropertyChanged();
+                }
+            }
+
+            public string Status
+            {
+                get => status;
+                set
+                {
+                    status = value;
+                    OnPropertyChanged();
+                }
+            }
 
             public bool IsFriend
             {
-                get { return _isFriend; }
+                get => isFriend;
                 set
                 {
-                    _isFriend = value;
-                    OnPropertyChanged(nameof(IsFriend));
+                    isFriend = value;
+                    OnPropertyChanged();
                 }
             }
 
             public bool IsFriendRequest
             {
-                get { return _isFriendRequest; }
+                get => isFriendRequest;
                 set
                 {
-                    _isFriendRequest = value;
-                    OnPropertyChanged(nameof(IsFriendRequest));
+                    isFriendRequest = value;
+                    OnPropertyChanged();
                 }
             }
 
             public event PropertyChangedEventHandler PropertyChanged;
 
-            protected virtual void OnPropertyChanged(string propertyName)
+            protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
             {
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
             }
+        }
+
+        public ObservableCollection<User> Friends
+        {
+            get => friends;
+            set
+            {
+                friends = value;
+                OnPropertyChanged(); // Notify property changed when the collection reference changes
+            }
+        }
+
+        public class ProjectInfo
+        {
+            public string ProjectName { get; set; }
+            public string Role { get; set; }
+        }
+
+        public ObservableCollection<ProjectInfo> Projects
+        {
+            get => projects;
+            set
+            {
+                projects = value;
+                OnPropertyChanged(); // Notify property changed when the collection reference changes
+            }
+        }
+
+        public event PropertyChangedEventHandler PropertyChangeda;
+
+        protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
         public enum Status
@@ -980,6 +1261,76 @@ namespace client_side
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    public class RoleToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            string role = value as string;
+            return role == "invite" ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    public class AccessToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            string role = value as string;
+            return role == "admin" || role == "creator" || role == "participant" ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    public class AdminToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            string role = value as string;
+            return role == "admin" || role == "creator" ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    public class RegularToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            string role = value as string;
+            return role == "admin" || role == "creator" ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+
+    }
+    public class CreatorToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            string role = value as string;
+            return role == "creator" ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
         {
             throw new NotImplementedException();
         }

@@ -13,6 +13,13 @@
     <Window.Resources>
         <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter" />
+        <local:RoleToVisibilityConverter x:Key="RoleToVisibilityConverter" />
+        <local:AdminToVisibilityConverter x:Key="AdminToVisibilityConverter" />
+        <local:CreatorToVisibilityConverter x:Key="CreatorToVisibilityConverter" />
+        <local:RegularToVisibilityConverter x:Key="RegularToVisibilityConverter" />
+        <local:AccessToVisibilityConverter x:Key="AccessToVisibilityConverter" />
+
+
         <Style TargetType="TextBox" x:Key="SearchBoxStyle">
             <Setter Property="Template">
                 <Setter.Value>
@@ -70,34 +77,93 @@
             <Button x:Name="backButton" Content="Back" Visibility="Collapsed" Click="BackButton_Click"/>
         </StackPanel>
 
+        <Button Content="Logout" HorizontalAlignment="Right" VerticalAlignment="Top" Width="75" Margin="0,10,10,0" Click="LogoutButton_Click" />
+
         <!-- Projects Section -->
         <StackPanel Grid.Column="0" Grid.Row="1" Margin="10">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
                 <TextBlock Text="Projects" FontSize="18" FontWeight="Bold" Margin="0,10"/>
                 <Button Content="+" FontSize="18" Margin="10,0,0,0" Width="30" Click="AddProject_Click"/>
             </StackPanel>
-            <ListView x:Name="lstProjects" ItemsSource="{Binding Projects}" Height="300" Background="#444444" Foreground="White" MouseDoubleClick="LstProjects_MouseDoubleClick" PreviewKeyDown="LstFiles_PreviewKeyDown">
+            <ListView x:Name="lstProjects" ItemsSource="{Binding Projects}" Height="300" Background="black" Foreground="White" MouseDoubleClick="LstProjects_MouseDoubleClick" PreviewKeyDown="LstFiles_PreviewKeyDown">
                 <ListView.ItemTemplate>
                     <DataTemplate>
-                        <TextBlock Text="{Binding}" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <!-- Leave button -->
+                                <ColumnDefinition Width="*" />
+                                <!-- Project Name -->
+                                <ColumnDefinition Width="Auto" />
+                                <!-- Decline Invite button -->
+                                <ColumnDefinition Width="Auto" />
+                                <!-- Accept Invite button -->
+                                <ColumnDefinition Width="Auto" />
+                                <!-- Info/Edit button -->
+                                <ColumnDefinition Width="Auto" />
+                                <!-- Delete button -->
+                            </Grid.ColumnDefinitions>
+
+                            <!-- 'x' button for leaving the project -->
+                            <Button Grid.Column="0" Content="X" Width="20" Height="20" Margin="0,0,0,0" Background="Transparent" Foreground="Red" BorderThickness="0"
+                        Visibility="{Binding Role, Converter={StaticResource AccessToVisibilityConverter}}"
+                        Click="LeaveProject_Click" CommandParameter="{Binding}" />
+
+                            <TextBlock Grid.Column="1" Text="{Binding ProjectName}" Margin="5,0,0,0" VerticalAlignment="Center" />
+
+                            <!-- 'x' button for declining invite -->
+                            <Button Grid.Column="2" Content="X" Width="20" Height="20" Margin="0,0,0,0" Background="Transparent" Foreground="Red" BorderThickness="0"
+                        Visibility="{Binding Role, Converter={StaticResource RoleToVisibilityConverter}}"
+                        Click="DeclineInvite_Click" CommandParameter="{Binding}" />
+
+                            <!-- 'v' button for accepting invite -->
+                            <Button Grid.Column="3" Content="v" Width="20" Height="20" Margin="0,0,0,0" Background="Transparent" Foreground="Green" BorderThickness="0"
+                        Visibility="{Binding Role, Converter={StaticResource RoleToVisibilityConverter}}"
+                        Click="AcceptInvite_Click" CommandParameter="{Binding}" />
+
+                            <!-- 'info' button to see project info -->
+                            <Button Grid.Column="4" Content="Info" Width="50" Height="20" Margin="0,0,0,0" Background="Transparent" Foreground="White" BorderThickness="0"
+                        Visibility="{Binding Role, Converter={StaticResource RegularToVisibilityConverter}}"
+                        Click="ViewProjectInfo_Click" CommandParameter="{Binding}" />
+
+                            <!-- 'edit' button for editing project info -->
+                            <Button Grid.Column="4" Content="Edit" Width="50" Height="20" Margin="0,0,0,0" Background="Transparent" Foreground="White" BorderThickness="0"
+                        Visibility="{Binding Role, Converter={StaticResource AdminToVisibilityConverter}}"
+                        Click="EditProjectInfo_Click" CommandParameter="{Binding}" />
+
+                            <!-- 'delete' button for deleting project -->
+                            <Button Grid.Column="5" Content="Delete" Width="50" Height="20" Margin="0,0,0,0" Background="Transparent" Foreground="Red" BorderThickness="0"
+                        Visibility="{Binding Role, Converter={StaticResource CreatorToVisibilityConverter}}"
+                        Click="DeleteProject_Click" CommandParameter="{Binding}" />
+                        </Grid>
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
         </StackPanel>
 
+
+        <Button x:Name="settingsBtn" Content="settings" Visibility="Visible" Width="53" Height="23" Margin="234,8,0,0" Background="Transparent" Foreground="white" BorderThickness="0" Grid.Column="1" HorizontalAlignment="Left" VerticalAlignment="Top" />
+
         <!-- Friends Section -->
-        <StackPanel Grid.Column="1" Grid.Row="0" Grid.RowSpan="2" Margin="10">
+        <StackPanel Grid.Column="1" Grid.Row="0" Grid.RowSpan="2" Margin="10,60,0,0">
             <TextBox x:Name="searchBarTextBox" Width="200" Margin="0,0,0,10" Style="{StaticResource SearchBoxStyle}" 
                 Background="#555555" Foreground="White"
                 PreviewKeyUp="TxtSearchUsers_KeyUp">
             </TextBox>
-            <Button x:Name="closeSerachBtn" Content="Close" Visibility="Collapsed" Width="46" Height="20" Margin="5,0,0,0" Background="Transparent" Foreground="white" BorderThickness="0" Click="closeSearch_Click"/>
+            <Button x:Name="closeSerachBtn" Content="Close" Visibility="Collapsed" Width="47" Height="23" Margin="5,0,0,10" Background="Transparent" Foreground="white" BorderThickness="0" Click="closeSearch_Click"/>
 
-            <ListBox x:Name="lstFriends" Height="450" Background="#444444" Foreground="White" MouseDoubleClick="LstFriends_MouseDoubleClick">
+            <ListBox x:Name="lstFriends" ItemsSource="{Binding Friends}" Height="400" Width="300" Background="#444444" Foreground="White" MouseDoubleClick="LstFriends_MouseDoubleClick">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="{Binding Name}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" FontSize="15" Text="{Binding Name}" VerticalAlignment="Center">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Foreground" Value="White" />
@@ -115,19 +181,25 @@
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
+
                             <!-- 'X' button for removing friend -->
-                            <Button Content="X" Width="20" Height="20" Margin="5,0,0,0" Background="Transparent" Foreground="Red" BorderThickness="0"
+                            <Button Grid.Column="1" Content="X" Width="20" Height="20" Margin="80,0,0,0" Background="Transparent" Foreground="Red" BorderThickness="0"
                                 Visibility="{Binding IsFriendRequest, Converter={StaticResource BoolToVisibilityConverter}}"
-                                Click="declineRequest_Click"/>
+                                Click="declineRequest_Click"
+                                CommandParameter="{Binding}"/>
+
                             <!-- 'v' button for friend request -->
-                            <Button Content="v" Width="20" Height="20" Margin="5,0,0,0" Background="Transparent" Foreground="Yellow" BorderThickness="0"
+                            <Button Grid.Column="2" Content="V" Width="20" Height="20" Margin="10,0,0,0" Background="Transparent" Foreground="Green" BorderThickness="0"
                                 Visibility="{Binding IsFriendRequest, Converter={StaticResource BoolToVisibilityConverter}}"
-                                Click="approveRequest_Click"/>
+                                Click="approveRequest_Click"
+                                CommandParameter="{Binding}"/>
+
                             <!-- 'removeUser' button for removing user, visible only for friends -->
-                            <Button Content="remove User" Width="75" Height="20" Margin="5,0,0,0" Background="Transparent" Foreground="Blue" BorderThickness="0"
+                            <Button Grid.Column="3" Content="Remove User" Margin="60,0,0,0" Width="85" Height="20" Background="Transparent" Foreground="White" BorderThickness="0"
                                 Visibility="{Binding IsFriend, Converter={StaticResource BoolToVisibilityConverter}}"
-                                Click="RemoveFriend_Click"/>
-                        </StackPanel>
+                                Click="RemoveFriend_Click"
+                                CommandParameter="{Binding}"/>
+                        </Grid>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>

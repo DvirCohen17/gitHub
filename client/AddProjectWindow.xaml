@@ -5,8 +5,10 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:client_side"
         mc:Ignorable="d"
-        Title="Add Project" Height="450" Width="500" ResizeMode="NoResize" WindowStartupLocation="CenterScreen">
-    <Grid Margin="10,-13,10,33">
+        Title="Add Project" Height="500" Width="500" ResizeMode="NoResize" WindowStartupLocation="CenterScreen"
+        Closing="createProject_CloseFile">
+
+    <Grid Margin="10,-13,10,32">
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
@@ -26,7 +28,7 @@
         </Grid.ColumnDefinitions>
 
         <!-- Project Name -->
-        <TextBlock Text="Project Name:" Grid.ColumnSpan="2" VerticalAlignment="Top" Margin="168,95,217,0" RenderTransformOrigin="0.5,0.5" Height="16">
+        <TextBlock Text="Project Name:" Grid.ColumnSpan="2" VerticalAlignment="Top" Margin="180,20,205,0" RenderTransformOrigin="0.5,0.5" Height="16">
             <TextBlock.RenderTransform>
                 <TransformGroup>
                     <ScaleTransform/>
@@ -36,15 +38,59 @@
                 </TransformGroup>
             </TextBlock.RenderTransform>
         </TextBlock>
-        <TextBox x:Name="ProjectNameTextBox" Grid.Row="2" Margin="111,5,160,5" Grid.ColumnSpan="2"/>
+        <TextBox x:Name="ProjectNameTextBox" Margin="120,42,152,87" FontSize="10" Grid.ColumnSpan="2"/>
 
-        <!-- Project Friends -->
-        <TextBlock Text="Project Friends:" Grid.Row="3" Grid.ColumnSpan="2" VerticalAlignment="Top" Margin="168,10,-168,0"/>
-        <TextBox x:Name="UserNamesTextBox" Grid.Row="3" Grid.ColumnSpan="2" Margin="48,25,96,7" Grid.RowSpan="2"/>
+        <!-- User Search -->
+        <TextBlock Text="Search Users:" Grid.ColumnSpan="2" VerticalAlignment="Top" Margin="178,61,-178,0"/>
+        <TextBox x:Name="UserSearchTextBox" Grid.ColumnSpan="2" FontSize="10" Margin="120,84,149,45" KeyUp="UserSearchTextBox_KeyUp"/>
+
+        <!-- Search Results -->
+        <Border x:Name="borderSerachBlock" Background="Transparent" BorderBrush="LightGray" BorderThickness="1" CornerRadius="5" Margin="138,105,-66,-23" Visibility="Collapsed"/>
+
+        <ListBox x:Name="SearchResultsListBox" Grid.ColumnSpan="2" Margin="140,108,172,131" MouseDoubleClick="SearchResultsListBox_MouseDoubleClick" RenderTransformOrigin="0.5,0.5" Grid.RowSpan="9">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding Name}" Grid.Column="0"/>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+            <ListBox.RenderTransform>
+                <TransformGroup>
+                    <ScaleTransform ScaleY="1"/>
+                    <SkewTransform/>
+                    <RotateTransform/>
+                    <TranslateTransform/>
+                </TransformGroup>
+            </ListBox.RenderTransform>
+        </ListBox>
+
+        <!-- Selected Users -->
+        <TextBlock Text="Name" Grid.Column="0" FontWeight="Bold" Margin="120,21,75,0" Grid.Row="8"/>
+        <TextBlock Text="Admin" FontWeight="Bold" Margin="10,22,166,0" Grid.Row="8" Grid.Column="1"/>
+        <TextBlock Text="| Participant" Grid.Column="1" Margin="50,21,48,0" FontWeight="Bold"  Grid.Row="8"/>
+
+        <Border Background="Transparent" BorderBrush="LightGray" BorderThickness="1" CornerRadius="5" Margin="75,188,-168,-157"/>
+
+        <ListBox x:Name="SelectedUsersListBox" Grid.Row="8" Grid.ColumnSpan="3" Margin="85,43,70,0">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2*"/>
+                            <ColumnDefinition Width="2" />
+                            <ColumnDefinition Width="2" />
+                        </Grid.ColumnDefinitions>
+                        <Button Content="x" Width="20" Margin="0,0,250,0" Click="RemoveUser_Click"/>
+                        <TextBlock Text="{Binding Name}" Margin="30,0,0,0" Grid.Column="0"/>
+                        <CheckBox IsChecked="{Binding IsAdmin}" Margin="165,0,0,0"/>
+                        <CheckBox IsChecked="{Binding IsParticipant}" Margin="217,0,0,0"/>
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
 
         <!-- Code Language -->
-        <TextBlock Text="Code Language:" Grid.Row="5" Grid.ColumnSpan="2" VerticalAlignment="Top" Margin="168,3,-60,0" Grid.RowSpan="2"/>
-        <ComboBox x:Name="CodeLanguageComboBox" Grid.Row="6" Margin="154,25,203,1" Grid.ColumnSpan="2">
+        <TextBlock Text="Code Language:" Grid.Row="9" Grid.ColumnSpan="2" VerticalAlignment="Top" Margin="160,7,139,0"/>
+        <ComboBox x:Name="CodeLanguageComboBox" Grid.Row="9" Margin="154,25,202,54" Grid.ColumnSpan="2">
             <ComboBoxItem Content="cs"/>
             <ComboBoxItem Content="cpp"/>
             <ComboBoxItem Content="py"/>
@@ -52,16 +98,16 @@
         </ComboBox>
 
         <!-- Public/Private Checkbox -->
-        <TextBlock Text="Public:" Grid.Row="7" Grid.ColumnSpan="2" VerticalAlignment="Top" Margin="168,10,-168,0" Grid.RowSpan="2"/>
-        <CheckBox x:Name="PublicCheckBox" Grid.Row="8" Margin="172,31,24,61"/>
+        <TextBlock Text="Private:" Grid.Row="9" Grid.ColumnSpan="2" VerticalAlignment="Top" Margin="168,51,172,0"/>
+        <CheckBox x:Name="PrivateCheckBox" Grid.Row="9" Margin="178,73,18,19"/>
 
         <!-- Buttons -->
-        <StackPanel Grid.Row="9" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,20,0,0">
+        <StackPanel Grid.Row="10" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,20,0,0">
             <Button Content="Create" Width="75" Margin="0,0,10,0" Click="CreateProject_Click"/>
             <Button Content="Back" Width="75" Click="BackButton_Click"/>
         </StackPanel>
 
         <!-- Error Message -->
-        <TextBlock x:Name="ErrorTextBlock" Grid.Row="10" Grid.ColumnSpan="2" Foreground="Red" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,10,0,0" Visibility="Collapsed"/>
+        <TextBlock x:Name="ErrorTextBlock" Grid.Row="10" Grid.ColumnSpan="2" Foreground="Red" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,-45,10,0" Visibility="Collapsed"/>
     </Grid>
 </Window>

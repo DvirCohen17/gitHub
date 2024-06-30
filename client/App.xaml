@@ -10,7 +10,7 @@
             <Setter Property="FontFamily" Value="Comic Sans MS"/>
         </Style>
         <Style TargetType="Button">
-            <Setter Property="Background" Value="#0070C6"/>
+            <Setter Property="Background" Value="#121212"/>
             <Setter Property="Foreground"
             Value="{Binding RelativeSource={RelativeSource AncestorType={x:Type FrameworkElement}}, Path=(TextElement.Foreground)}"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
