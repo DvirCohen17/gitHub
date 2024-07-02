@@ -166,6 +166,9 @@ int callback_ProjectPermission(void* data, int argc, char** argv, char** azColNa
 		if (std::string(azColName[i]) == "projectId") {
 			perm.projectId = std::stoi(argv[i]);
 		}
+		else if (std::string(azColName[i]) == "userId") {
+			perm.userId = std::stoi(argv[i]);
+		}
 		else if (std::string(azColName[i]) == "role") {
 			perm.role = argv[i];
 		}
@@ -873,6 +876,51 @@ std::list<ProjectPermission> SqliteDataBase::getUserProjectPermission(int userId
 
 }
 
+int SqliteDataBase::getNextAdmin(int projectId)
+{
+	std::string msg = "SELECT * from ProjectPermission WHERE role = \'admin\' AND projectId = " + std::to_string(projectId) + ";";
+	std::list<ProjectPermission> projectList;
+	send_ProjectPermissions(_db, msg, &projectList);
+
+	Project project = getProject("", projectId);
+
+	if (projectList.empty())
+	{
+		msg = "SELECT * from ProjectPermission WHERE role = \'participant\' AND projectId = " + std::to_string(projectId) + ";";
+		std::list<ProjectPermission> projectList;
+		send_ProjectPermissions(_db, msg, &projectList);
+
+		if (projectList.empty())
+		{
+			deleteAllProjectFiles(project.projectId);
+			DeleteChat(project.name);
+			deleteProject(project.name);
+			return -1;
+		}
+	}
+
+	for (auto user : projectList)
+	{
+		return user.userId;
+	}
+}
+
+std::map<std::string, std::string> SqliteDataBase::getProjectParticipants(int projectId)
+{
+	std::string msg = "SELECT * from ProjectPermission WHERE projectId = " + std::to_string(projectId) + ";";
+	std::list<ProjectPermission> projectList;
+	send_ProjectPermissions(_db, msg, &projectList);
+
+	std::map<std::string, std::string> result;
+
+	for (auto user : projectList)
+	{
+		 result[getUserName("", user.userId)] = user.role;
+	}
+	return result;
+}
+
+
 std::string SqliteDataBase::getUserRoleInProject(int userId, int projectId)
 {
 	std::string msg = "SELECT * from ProjectPermission WHERE userId = " + std::to_string(userId) + " AND projectId = " + std::to_string(projectId) + "; ";
@@ -923,28 +971,64 @@ std::list<FileDetail> SqliteDataBase::getProjectFiles(int projectId)
 	return fileList;
 }
 
-void SqliteDataBase::createProject(std::string projectName, std::map<ProfileInfo, std::string> addedUsers, std::string codeLan, int creatorId)
+void SqliteDataBase::modifyProjectInfo(std::string oldProjectName, std::string newProjectName, std::map<ProfileInfo, std::string> addedUsers, std::string codeLan, int projectId)
 {
 	std::string msg;
 
-	msg = "INSERT INTO UserProjects (creatorId, projectName, codeLan) "
-		"VALUES (" + std::to_string(creatorId) + ", \'" + projectName + "\', \'" + codeLan + "\');";
 
+	msg = "UPDATE UserProjects SET projectName = \'" + newProjectName + "\', codeLan = \'" + codeLan + "\' WHERE "
+		"Id = " + std::to_string(projectId) + "; ";
+	send(_db, msg);
+
+
+	for (auto user : addedUsers)
+	{
+		if (!hasPermissionToProject(projectId, user.first.userId))
+		{
+			createProjectJoinInvite(projectId, user.first.userId, user.second);
+		}
+	}
+}
+
+void SqliteDataBase::createProject(std::string projectName, std::map<ProfileInfo, std::string> addedUsers, std::string codeLan, int creatorId, int projectId)
+{
+	std::string msg;
+
+	if (projectId == -1)
+	{
+		msg = "INSERT INTO UserProjects (creatorId, projectName, codeLan) "
+			"VALUES (" + std::to_string(creatorId) + ", \'" + projectName + "\', \'" + codeLan + "\');";
+	}
+	else
+	{
+		msg = "INSERT INTO UserProjects (creatorId, projectName, codeLan, Id) "
+			"VALUES (" + std::to_string(creatorId) + ", \'" + projectName + "\', \'" + codeLan + "\', " + std::to_string(projectId) + ");";
+	}
 	send(_db, msg);
 
 	Project project = getProject(projectName, -1);
-	
+
 	for (auto user : addedUsers)
 	{
 		createProjectJoinInvite(project.projectId, user.first.userId, user.second);
 	}
 }
 
+
 void SqliteDataBase::deleteProject(const std::string projectName)
 {
 	std::string msg = "DELETE FROM UserProjects WHERE ProjectName = \'" + projectName + "\';";
 	send(_db, msg);
 }
+
+void SqliteDataBase::leaveProject(const std::string projectName, int userId)
+{
+	Project project = getProject(projectName, -1);
+	std::string msg = "DELETE FROM ProjectPermission WHERE projectId = " + std::to_string(project.projectId)
+		+ " AND userId = " + std::to_string(userId) + ";";
+	send(_db, msg);
+}
+
 
 void SqliteDataBase::createProjectPermission(int projectId, int userId, std::string role)
 {
@@ -964,6 +1048,26 @@ void SqliteDataBase::createProjectJoinInvite(int projectId, int userId, std::str
 		"VALUES (" + std::to_string(userId) + ", " + std::to_string(projectId) + ", \'" + role + "\');";
 
 	send(_db, msg);
+}
+
+void SqliteDataBase::deleteProjectJoinInvite(int projectId, int userId)
+{
+	std::string msg;
+
+	msg = "DELETE FROM ProjectJoinInvite WHERE userId = " + std::to_string(userId) + "AND projectId " + std::to_string(projectId) + ";";
+
+	send(_db, msg);
+}
+
+void SqliteDataBase::acceptProjectJoinInvite(int projectId, int userId, std::string role)
+{
+	std::string msg;
+
+	msg = "DELETE FROM ProjectJoinInvite WHERE userId = " + std::to_string(userId) + "AND projectId " + std::to_string(projectId) + ";";
+
+	send(_db, msg);
+
+	createProjectPermission(projectId, userId, role);
 }
 
 void SqliteDataBase::deleteAllProjectPermission(int projectId)
@@ -987,6 +1091,20 @@ bool SqliteDataBase::hasPermissionToProject(int projectId, int userId)
 	std::list<ProjectPermission> permissionList;
 	send_ProjectPermissions(_db, msg, &permissionList);
 	if (!permissionList.empty())
+	{
+		return true;
+	}
+	return false;
+}
+
+bool SqliteDataBase::isCreator(std::string projectName, int userId)
+{
+	std::string msg = "SELECT * from UserProjects WHERE creatorId = " + std::to_string(userId) +
+		" AND ProjectName = \'" + projectName + "\';";
+
+	std::list<Project> projectList;
+	send_Projects(_db, msg, &projectList);
+	if (!projectList.empty())
 	{
 		return true;
 	}

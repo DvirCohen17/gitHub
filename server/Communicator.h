@@ -68,6 +68,12 @@ struct Action
     std::string projectNameLengthStr;
     int projectId;
 
+    std::string oldProjectName;
+    int oldProjectNameLength;
+
+    std::string role;
+    int roleLength;
+
     std::string codeLaneguage;
     int codeLaneguageLength;
 
@@ -142,10 +148,13 @@ public:
     void deleteFile(SOCKET client_sock, std::string fileName, std::string projectName);
     void getFiles(SOCKET client_sock);
     void getInitialContent(SOCKET client_sock, std::string fileName, std::string projectName);
-    void joinFile(SOCKET client_sock, std::string fileName, std::string fileNameLen);
-    void joinProject(SOCKET client_sock, std::string projectName, std::string projectNameLen);
-    void leaveFile(SOCKET client_sock);
-    void leaveProject(SOCKET client_sock);
+    void enterFile(SOCKET client_sock, std::string fileName, std::string fileNameLen);
+    void enterProject(SOCKET client_sock, std::string projectName, std::string projectNameLen);
+    void exitFile(SOCKET client_sock);
+    void exitProject(SOCKET client_sock);
+    void leaveProject(SOCKET client_sock, std::string projectName, std::string userName);
+    void acceptProjectInvite(SOCKET client_sock, std::string projectName, std::string userName, std::string role);
+    void declineProjectInvite(SOCKET client_sock, std::string projectName, std::string userName);
     void getMesegges(SOCKET client_sock, std::string projectName);
     void getUsersOnFile(SOCKET client_sock, std::string fileName);
     void getUsers(SOCKET client_sock);
@@ -172,5 +181,9 @@ public:
     void renameFile(SOCKET client_sock, std::string fileName, std::string oldFileName, std::string projectName);
     void searchUsers(SOCKET client_sock, std::string searchCommand);
     void searchFriends(SOCKET client_sock, std::string searchCommand);
-
+    void editProjectInfo(SOCKET client_sock, std::string projectName);
+    void viewProjectInfo(SOCKET client_sock, std::string projectName);
+    void modifyProjectInfo(SOCKET client_sock, std::string oldProjectName, std::string newProjectName, std::string friendList, std::string codeLan);
+    void getProjectInfo(SOCKET client_sock, std::string projectName);
+    
 };

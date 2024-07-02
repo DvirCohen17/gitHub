@@ -76,6 +76,16 @@ bool FileOperation::deleteDirectory(const std::string& dirPath) {
     return true;
 }
 
+void FileOperation::reNameDirecroy(const std::string& oldDirName, const std::string& newDirName) {
+    // Convert string to wide string for Windows API
+    std::rename(oldDirName.c_str(), newDirName.c_str());
+}
+
+void FileOperation::reNameFile(const std::string& oldFileName, const std::string& newFileName) {
+    // Convert string to wide string for Windows API
+    std::rename(oldFileName.c_str(), newFileName.c_str());
+}
+
 void FileOperation::getFilesInDirectory(const std::string& directoryPath, std::map<std::string, int>& files) {
     try {
         
