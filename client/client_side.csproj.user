@@ -10,16 +10,10 @@
     <Compile Update="AddProjectWindow.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Update="Files.xaml.cs">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Update="ForgotPasswordWindow.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
     <Compile Update="LoginWindow.xaml.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Update="PermissionRequestsWindow.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
     <Compile Update="ProjectDirectory.xaml.cs">
@@ -39,25 +33,16 @@
     <Page Update="AddProjectWindow.xaml">
       <SubType>Designer</SubType>
     </Page>
-    <Page Update="Files.xaml">
-      <SubType>Designer</SubType>
-    </Page>
     <Page Update="ForgotPasswordWindow.xaml">
       <SubType>Designer</SubType>
     </Page>
     <Page Update="LoginWindow.xaml">
       <SubType>Designer</SubType>
     </Page>
-    <Page Update="PermissionRequestsWindow.xaml">
-      <SubType>Designer</SubType>
-    </Page>
     <Page Update="ProjectDirectory.xaml">
       <SubType>Designer</SubType>
     </Page>
     <Page Update="SignupWindow.xaml">
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Update="TextEditor.xaml">
       <SubType>Designer</SubType>
     </Page>
     <Page Update="LoadingWindow.xaml">

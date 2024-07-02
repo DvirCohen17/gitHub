@@ -34,7 +34,6 @@ namespace client_side
         private int imageSize;
 
         private bool inSearch = false;
-        private bool first = true;
 
         private ObservableCollection<User> friends { get; set; }
         private ObservableCollection<ProjectInfo> projects { get; set; }
@@ -249,6 +248,13 @@ namespace client_side
             HandleLoadProjectsList(projectsRep);
         }
 
+        private void GetProjectsList()
+        {
+            string projectsListCode = ((int)MessageCodes.MC_PROJECTS_LIST_REQUEST).ToString();
+            communicator.SendData($"{projectsListCode}{communicator.UserName.Length:D5}{communicator.UserName}");
+
+        }
+
         private void HandleLoadProjectsList(string update)
         {
             string projectsRepCode = update.Substring(0, 3);
@@ -328,8 +334,14 @@ namespace client_side
                         case "222":
                             HandleLoadProjectsList(update);
                             break;
+                        case "147":
+                            GetProjectsList();
+                            break;
                         case "241":
                             HandleReciveProjects(update);
+                            break;
+                        case "242":
+                            HandleLeaveProject(update);
                             break;
                         case "223":
                             HandleAddFriend(update);
@@ -358,9 +370,6 @@ namespace client_side
                         case "229":
                             HandleMoveToCreateWindow(update);
                             break;
-                        case "232":
-                            HandleDeleteProject(update);
-                            break;
                         case "300":
                             HandleDisconnect(update);
                             break;
@@ -373,6 +382,19 @@ namespace client_side
             {
                 MessageBox.Show($"Error receiving server updates: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 string msg = await Task.Run(() => communicator.ReceiveData());
+            }
+        }
+
+        private void HandleLeaveProject(string msg)
+        {
+            try
+            {
+                string projectsListCode = ((int)MessageCodes.MC_PROJECTS_LIST_REQUEST).ToString();
+                communicator.SendData($"{projectsListCode}{communicator.UserName.Length:D5}{communicator.UserName}");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error handling Remove User response: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -601,33 +623,18 @@ namespace client_side
             }
         }
 
-        private void HandleDeleteProject(string update)
-        {
-            string deletedProjectName = update.Substring(3); // Assuming update format is "DEL:ProjectName"
-
-            Dispatcher.Invoke(() =>
-            {
-                if (lstProjects.ItemsSource is ObservableCollection<string> projects)
-                {
-                    // Find the index of the project to delete
-                    int deleteIndex = projects.IndexOf(deletedProjectName);
-
-                    // If the project is found, remove it from the list
-                    if (deleteIndex != -1)
-                    {
-                        projects.RemoveAt(deleteIndex);
-                    }
-                }
-            });
-        }
-
         private void HandleMoveToCreateWindow(string update)
         {
+            int nameLen = int.Parse(update.Substring(3, 5));
+            string name = update.Substring(8, nameLen);
+            string mode = update.Substring(8 + nameLen);
+
             disconnect = false;
             isListeningToServer = false;
             Dispatcher.Invoke(() =>
             {
-                AddProjectWindow addProjectWindow = new AddProjectWindow(communicator);
+                //AddProjectWindow addProjectWindow = new AddProjectWindow(communicator);
+                AddProjectWindow addProjectWindow = new AddProjectWindow(communicator, mode, name);
                 addProjectWindow.Show();
                 Close();
             });
@@ -869,11 +876,11 @@ namespace client_side
         private void LstProjects_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             e.Handled = true;
-            var selectedProject = lstProjects.SelectedItem as string;
+            var selectedProject = lstProjects.SelectedItem as ProjectInfo;
             if (selectedProject != null)
             {
-                string joinProjectCode = ((int)MessageCodes.MC_JOIN_PROJECT_REQUEST).ToString();
-                communicator.SendData($"{joinProjectCode}{selectedProject.Length:D5}{selectedProject}");
+                string joinProjectCode = ((int)MessageCodes.MC_ENTER_PROJECT_REQUEST).ToString();
+                communicator.SendData($"{joinProjectCode}{selectedProject.ProjectName.Length:D5}{selectedProject.ProjectName}");
             }
         }
 
@@ -1106,32 +1113,89 @@ namespace client_side
 
         private void LeaveProject_Click(object sender, RoutedEventArgs e)
         {
-            // Leave project logic
+            System.Windows.Controls.Button button = sender as System.Windows.Controls.Button;
+            if (button != null)
+            {
+                ProjectInfo project = button.CommandParameter as ProjectInfo;
+                if (project != null)
+                {
+                    string addFriendCode = ((int)MessageCodes.MC_LEAVE_PROJECT_REQUEST).ToString();
+                    communicator.SendData($"{addFriendCode}{project.ProjectName.Length:D5}{project.ProjectName}{displayedUserProfile.UserName.Length:D5}{displayedUserProfile.UserName}");
+                }
+            }
         }
 
         private void DeclineInvite_Click(object sender, RoutedEventArgs e)
         {
-            // Decline invite logic
+            System.Windows.Controls.Button button = sender as System.Windows.Controls.Button;
+            if (button != null)
+            {
+                ProjectInfo project = button.CommandParameter as ProjectInfo;
+                if (project != null)
+                {
+                    string addFriendCode = ((int)MessageCodes.MC_DECLINE_PROJECT_INVITE_REQUEST).ToString();
+                    communicator.SendData($"{addFriendCode}{project.ProjectName.Length:D5}{project.ProjectName}{displayedUserProfile.UserName.Length:D5}{displayedUserProfile.UserName}");
+
+                }
+            }
         }
 
         private void AcceptInvite_Click(object sender, RoutedEventArgs e)
         {
-            // Accept invite logic
+            System.Windows.Controls.Button button = sender as System.Windows.Controls.Button;
+            if (button != null)
+            {
+                ProjectInfo project = button.CommandParameter as ProjectInfo;
+                if (project != null)
+                {
+                    string addFriendCode = ((int)MessageCodes.MC_ACCEPT_PROJECT_INVITE_REQUEST).ToString();
+                    communicator.SendData($"{addFriendCode}{project.ProjectName.Length:D5}{project.ProjectName}{displayedUserProfile.UserName.Length:D5}{displayedUserProfile.UserName}{project.Role.Length:D5}{project.Role}");
+
+                }
+            }
         }
 
         private void ViewProjectInfo_Click(object sender, RoutedEventArgs e)
         {
-            // View project info logic
+            System.Windows.Controls.Button button = sender as System.Windows.Controls.Button;
+            if (button != null)
+            {
+                ProjectInfo project = button.CommandParameter as ProjectInfo;
+                if (project != null)
+                {
+                    string code = ((int)MessageCodes.MC_VIEW_PROJECT_INFO_REQUEST).ToString();
+                    string msg = $"{code}{project.ProjectName.Length:D5}{project.ProjectName}";
+                    communicator.SendData(msg);
+                }
+            }
         }
 
         private void EditProjectInfo_Click(object sender, RoutedEventArgs e)
         {
-            // Edit project info logic
+            System.Windows.Controls.Button button = sender as System.Windows.Controls.Button;
+            if (button != null)
+            {
+                ProjectInfo project = button.CommandParameter as ProjectInfo;
+                if (project != null)
+                {
+                    string code = ((int)MessageCodes.MC_EDIT_PROJECT_INFO_REQUEST).ToString();
+                    communicator.SendData($"{code}{project.ProjectName.Length:D5}{project.ProjectName}");
+                }
+            }
         }
 
         private void DeleteProject_Click(object sender, RoutedEventArgs e)
         {
-            // Delete project logic
+            System.Windows.Controls.Button button = sender as System.Windows.Controls.Button;
+            if (button != null)
+            {
+                ProjectInfo project = button.CommandParameter as ProjectInfo;
+                if (project != null)
+                {
+                    string code = ((int)MessageCodes.MC_DELETE_PROJECT_REQUEST).ToString();
+                    communicator.SendData($"{code}{project.ProjectName.Length:D5}{project.ProjectName}");
+                }
+            }
         }
 
 

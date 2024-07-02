@@ -325,7 +325,7 @@ namespace client_side
                     communicator.SendData($"{code}{ProjectName.Length:D5}{ProjectName}" +
                         $"{newFileName.Length:D5}{newFileName}");
 
-                    code = ((int)MessageCodes.MC_JOIN_FILE_REQUEST).ToString();
+                    code = ((int)MessageCodes.MC_ENTER_FILE_REQUEST).ToString();
                     communicator.SendData($"{code}{newFileName.Length:D5}{newFileName}{communicator.UserId}");
                     txtFileName.Text = newFileName;
                     currFileName = newFileName;
@@ -364,7 +364,7 @@ namespace client_side
                     else if (e.Key == Key.W)
                     {
                         insideFile = false;
-                        string chatMessageCode = ((int)MessageCodes.MC_LEAVE_FILE_REQUEST).ToString();
+                        string chatMessageCode = ((int)MessageCodes.MC_EXIT_FILE_REQUEST).ToString();
                         string fullMessage = $"{chatMessageCode}";
                         communicator.SendData(fullMessage);
                         txtFileContent.Clear();
@@ -685,13 +685,13 @@ namespace client_side
             {
                 if(insideFile)
                 {
-                    string chatMessageCode = ((int)MessageCodes.MC_LEAVE_FILE_REQUEST).ToString();
+                    string chatMessageCode = ((int)MessageCodes.MC_EXIT_FILE_REQUEST).ToString();
                     string fullMessage = $"{chatMessageCode}";
                     communicator.SendData(fullMessage);
                 }
 
                 string FileName = selectedFile.FileName;
-                string code = ((int)MessageCodes.MC_JOIN_FILE_REQUEST).ToString();
+                string code = ((int)MessageCodes.MC_ENTER_FILE_REQUEST).ToString();
                 communicator.SendData($"{code}{FileName.Length:D5}{FileName}{communicator.UserId}");
                 insideFile = true;
                 currFileName = FileName;
@@ -1368,7 +1368,7 @@ namespace client_side
         {
             foreach (var item in lstFileList.Items)
             {
-                if (item is FileModel file && file.FileName == fileName)
+                if (item is FileViewModel file && file.FileName == fileName)
                 {
                     return true;
                 }
@@ -1380,7 +1380,7 @@ namespace client_side
         {
             if (insideFile)
             {
-                string MessageCode = ((int)MessageCodes.MC_LEAVE_FILE_REQUEST).ToString();
+                string MessageCode = ((int)MessageCodes.MC_EXIT_FILE_REQUEST).ToString();
                 string Message = $"{MessageCode}";
                 communicator.SendData(Message);
             }
@@ -1412,7 +1412,7 @@ namespace client_side
         private void CloseFile_Click(object sender, RoutedEventArgs e)
         {
             insideFile = false;
-            string chatMessageCode = ((int)MessageCodes.MC_LEAVE_FILE_REQUEST).ToString();
+            string chatMessageCode = ((int)MessageCodes.MC_EXIT_FILE_REQUEST).ToString();
             string fullMessage = $"{chatMessageCode}";
             communicator.SendData(fullMessage);
             currFileName = "";

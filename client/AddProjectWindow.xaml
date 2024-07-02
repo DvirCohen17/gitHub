@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:client_side"
         mc:Ignorable="d"
-        Title="Add Project" Height="500" Width="500" ResizeMode="NoResize" WindowStartupLocation="CenterScreen"
+        Title="Add Project" Background="Black" Height="500" Width="500" ResizeMode="NoResize" WindowStartupLocation="CenterScreen"
         Closing="createProject_CloseFile">
 
     <Grid Margin="10,-13,10,32">
@@ -28,26 +28,16 @@
         </Grid.ColumnDefinitions>
 
         <!-- Project Name -->
-        <TextBlock Text="Project Name:" Grid.ColumnSpan="2" VerticalAlignment="Top" Margin="180,20,205,0" RenderTransformOrigin="0.5,0.5" Height="16">
-            <TextBlock.RenderTransform>
-                <TransformGroup>
-                    <ScaleTransform/>
-                    <SkewTransform/>
-                    <RotateTransform Angle="0.114"/>
-                    <TranslateTransform/>
-                </TransformGroup>
-            </TextBlock.RenderTransform>
-        </TextBlock>
-        <TextBox x:Name="ProjectNameTextBox" Margin="120,42,152,87" FontSize="10" Grid.ColumnSpan="2"/>
-
+        <TextBlock Text="Project Name:" Grid.ColumnSpan="2" VerticalAlignment="Top" Margin="180,20,205,0" RenderTransformOrigin="0.5,0.5" Height="16"/>
+        <TextBox x:Name="ProjectNameTextBox" Text="{Binding ProjectName, Mode=TwoWay}" TextWrapping="Wrap" Visibility="Collapsed" Margin="120,42,152,87" FontSize="10" Grid.ColumnSpan="2"/>
         <!-- User Search -->
-        <TextBlock Text="Search Users:" Grid.ColumnSpan="2" VerticalAlignment="Top" Margin="178,61,-178,0"/>
-        <TextBox x:Name="UserSearchTextBox" Grid.ColumnSpan="2" FontSize="10" Margin="120,84,149,45" KeyUp="UserSearchTextBox_KeyUp"/>
+        <TextBlock x:Name="UserSearchText" Text="Search Users:" Visibility="Collapsed" Grid.ColumnSpan="2" VerticalAlignment="Top" Margin="178,61,-178,0"/>
+        <TextBox x:Name="UserSearchTextBox" Visibility="Collapsed" Grid.ColumnSpan="2" FontSize="10" Margin="120,80,149,46" KeyUp="UserSearchTextBox_KeyUp"/>
 
         <!-- Search Results -->
         <Border x:Name="borderSerachBlock" Background="Transparent" BorderBrush="LightGray" BorderThickness="1" CornerRadius="5" Margin="138,105,-66,-23" Visibility="Collapsed"/>
 
-        <ListBox x:Name="SearchResultsListBox" Grid.ColumnSpan="2" Margin="140,108,172,131" MouseDoubleClick="SearchResultsListBox_MouseDoubleClick" RenderTransformOrigin="0.5,0.5" Grid.RowSpan="9">
+        <ListBox x:Name="SearchResultsListBox" Grid.ColumnSpan="2" Foreground="White" Background="black" Margin="140,108,172,131" MouseDoubleClick="SearchResultsListBox_MouseDoubleClick" RenderTransformOrigin="0.5,0.5" Grid.RowSpan="9">
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <TextBlock Text="{Binding Name}" Grid.Column="0"/>
@@ -65,12 +55,12 @@
 
         <!-- Selected Users -->
         <TextBlock Text="Name" Grid.Column="0" FontWeight="Bold" Margin="120,21,75,0" Grid.Row="8"/>
-        <TextBlock Text="Admin" FontWeight="Bold" Margin="10,22,166,0" Grid.Row="8" Grid.Column="1"/>
-        <TextBlock Text="| Participant" Grid.Column="1" Margin="50,21,48,0" FontWeight="Bold"  Grid.Row="8"/>
+        <TextBlock Text="Admin" Visibility="Visible" FontWeight="Bold" Margin="-20,22,166,0" Grid.Row="8" Grid.Column="1"/>
+        <TextBlock Text="| Participant  | Creator" Visibility="Visible" Grid.Column="1" Margin="20,21,48,0" FontWeight="Bold"  Grid.Row="8"/>
 
         <Border Background="Transparent" BorderBrush="LightGray" BorderThickness="1" CornerRadius="5" Margin="75,188,-168,-157"/>
 
-        <ListBox x:Name="SelectedUsersListBox" Grid.Row="8" Grid.ColumnSpan="3" Margin="85,43,70,0">
+        <ListBox x:Name="SelectedUsersListBox" Background="Black" Grid.Row="8" Grid.ColumnSpan="3" Margin="85,43,70,0">
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <Grid>
@@ -79,10 +69,11 @@
                             <ColumnDefinition Width="2" />
                             <ColumnDefinition Width="2" />
                         </Grid.ColumnDefinitions>
-                        <Button Content="x" Width="20" Margin="0,0,250,0" Click="RemoveUser_Click"/>
+                        <Button x:Name="removeUserBtn" Content="x" Width="20" Visibility="{Binding IsEnabledRemove}" Margin="0,0,250,0" Click="RemoveUser_Click"/>
                         <TextBlock Text="{Binding Name}" Margin="30,0,0,0" Grid.Column="0"/>
-                        <CheckBox IsChecked="{Binding IsAdmin}" Margin="165,0,0,0"/>
-                        <CheckBox IsChecked="{Binding IsParticipant}" Margin="217,0,0,0"/>
+                        <CheckBox x:Name="adminCheckBox" IsChecked="{Binding IsAdmin}" Visibility="Visible" Margin="130,0,0,0" IsEnabled="{Binding IsEnabled}"/>
+                        <CheckBox x:Name="participantCheckBox" IsChecked="{Binding IsParticipant}" Visibility="Visible" Margin="190,0,0,0" IsEnabled="{Binding IsEnabled}"/>
+                        <CheckBox x:Name="creatorCheckBox" IsChecked="{Binding IsCreator}" Visibility="Visible" Margin="260,0,0,0" IsEnabled="False"/>
                     </Grid>
                 </DataTemplate>
             </ListBox.ItemTemplate>
@@ -90,10 +81,10 @@
 
         <!-- Code Language -->
         <TextBlock Text="Code Language:" Grid.Row="9" Grid.ColumnSpan="2" VerticalAlignment="Top" Margin="160,7,139,0"/>
-        <ComboBox x:Name="CodeLanguageComboBox" Grid.Row="9" Margin="154,25,202,54" Grid.ColumnSpan="2">
+        <ComboBox x:Name="CodeLanguageComboBox"  Grid.Row="9" Margin="154,25,202,54" Grid.ColumnSpan="2">
             <ComboBoxItem Content="cs"/>
             <ComboBoxItem Content="cpp"/>
-            <ComboBoxItem Content="py"/>
+            <ComboBoxItem Content="python"/>
             <ComboBoxItem Content="java"/>
         </ComboBox>
 
@@ -103,7 +94,8 @@
 
         <!-- Buttons -->
         <StackPanel Grid.Row="10" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,20,0,0">
-            <Button Content="Create" Width="75" Margin="0,0,10,0" Click="CreateProject_Click"/>
+            <Button x:Name="craeteBtn" Content="Create" Width="75" Margin="0,0,10,0" Click="CreateProject_Click" Visibility="Collapsed" CommandParameter="{Binding}"/>
+            <Button x:Name="editBtn" Content="Edit" Width="75" Margin="0,0,10,0" Click="EditProject_Click"   Visibility="Collapsed" CommandParameter="{Binding}"/>
             <Button Content="Back" Width="75" Click="BackButton_Click"/>
         </StackPanel>
 

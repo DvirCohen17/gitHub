@@ -94,8 +94,15 @@
                 <ListBox x:Name="lstFriends" ItemsSource="{Binding Friends}" Height="150" Background="Black" Foreground="White" >
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="{Binding Name}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="40" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Column="0" FontSize="14" Text="{Binding Name}" VerticalAlignment="Center">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
                                             <Setter Property="Foreground" Value="White" />
@@ -113,22 +120,27 @@
                                         </Style>
                                     </TextBlock.Style>
                                 </TextBlock>
+
+                                <TextBlock Grid.Column="2" Text="Accept?" FontWeight="Bold" Margin="-80,0,0,0" VerticalAlignment="Center" Visibility="{Binding IsFriendRequest, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
                                 <!-- 'X' button for removing friend -->
-                                <Button Content="X" Width="20" Height="20" Margin="5,0,0,0" Background="Transparent" Foreground="Red" BorderThickness="0"
-            Visibility="{Binding IsFriendRequest, Converter={StaticResource BoolToVisibilityConverter}}"
-            Click="declineRequest_Click"
-            CommandParameter="{Binding}"/>
+                                <Button Grid.Column="1" Content="X" Width="20" Height="20" Margin="80,0,0,0" Background="Transparent" Foreground="Red" BorderThickness="0"
+        Visibility="{Binding IsFriendRequest, Converter={StaticResource BoolToVisibilityConverter}}"
+        Click="declineRequest_Click"
+        CommandParameter="{Binding}"/>
+
                                 <!-- 'v' button for friend request -->
-                                <Button Content="v" Width="20" Height="20" Margin="5,0,0,0" Background="Transparent" Foreground="Yellow" BorderThickness="0"
-            Visibility="{Binding IsFriendRequest, Converter={StaticResource BoolToVisibilityConverter}}"
-            Click="approveRequest_Click"
-            CommandParameter="{Binding}"/>
+                                <Button Grid.Column="2" Content="V" Width="20" Height="20" Margin="10,0,0,0" Background="Transparent" Foreground="Green" BorderThickness="0"
+        Visibility="{Binding IsFriendRequest, Converter={StaticResource BoolToVisibilityConverter}}"
+        Click="approveRequest_Click"
+        CommandParameter="{Binding}"/>
+
                                 <!-- 'removeUser' button for removing user, visible only for friends -->
-                                <Button Content="remove User" Width="75" Height="20" Margin="5,0,0,0" Background="Transparent" Foreground="Blue" BorderThickness="0"
-            Visibility="{Binding IsFriend, Converter={StaticResource BoolToVisibilityConverter}}"
-            Click="RemoveFriend_Click"
-            CommandParameter="{Binding}"/>
-                            </StackPanel>
+                                <Button Grid.Column="3" Content="Remove User" Margin="60,0,0,0" Width="85" Height="20" Background="Transparent" Foreground="White" BorderThickness="0"
+        Visibility="{Binding IsFriend, Converter={StaticResource BoolToVisibilityConverter}}"
+        Click="RemoveFriend_Click"
+        CommandParameter="{Binding}"/>
+                            </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
