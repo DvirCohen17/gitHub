@@ -1,14 +1,12 @@
 #include "Client.h"
 
 ClientHandler::ClientHandler(int clientId, std::string userName, std::string email)
-    : _id(clientId), _userName(userName), _email(email)
+    : _id(clientId), _userName(userName), _email(email), window(""), _fileName(""), _projectName(""), _projectId(-1), _fileId(-1)
 {
-    file_name = "";
-    project_name = "";
-    window = "";
-}  // Initialize the id field with the provided client ID
+}
 
 ClientHandler::ClientHandler()
+    : _id(0), _userName(""), _email(""), window(""), _fileName(""), _projectName(""), _projectId(-1), _fileId(-1)
 {
 }
 
@@ -22,12 +20,28 @@ int ClientHandler::getId() const {
 
 std::string ClientHandler::getFileName() const
 {
-    return file_name;
+    return _fileName;
+}
+
+std::string ClientHandler::getFileContent() const
+{
+    return _fileContent;
+}
+
+int ClientHandler::getFileId() const
+{
+    return _fileId;
 }
 
 std::string ClientHandler::getProjectName() const
 {
-    return project_name;
+    return _projectName;
+}
+
+int ClientHandler::getProjectId() const
+{
+    return _projectId;
+
 }
 
 std::string ClientHandler::getUsername() const
@@ -50,37 +64,40 @@ std::string ClientHandler::getWindow() const
     return window;
 }
 
-void ClientHandler::setFileName(const std::string newName)
+void ClientHandler::setFile(const std::string& newFileName, const std::string& content, int fileId)
 {
-    file_name = newName;
+    _fileName = newFileName;
+    _fileId = fileId;
+    _fileContent = content;
 }
 
-void ClientHandler::setProjectName(const std::string newName)
+void ClientHandler::setProject(const std::string& newProjectName, int projectId)
 {
-    project_name = newName;
+    _projectName = newProjectName;
+    _projectId = projectId;
 }
 
-void ClientHandler::setUsername(const std::string newName)
+void ClientHandler::setUsername(const std::string& newName)
 {
     _userName = newName;
 }
 
-void ClientHandler::setEmail(const std::string newName)
+void ClientHandler::setEmail(const std::string& newEmail)
 {
-    _email = newName;
+    _email = newEmail;
 }
 
-void ClientHandler::setWindow(const std::string newName)
+void ClientHandler::setWindow(const std::string& newWindow)
 {
-    window = newName;
+    window = newWindow;
 }
 
-void ClientHandler::setPass(const std::string newName)
+void ClientHandler::setPass(const std::string& newPass)
 {
-    _pass = newName;
+    _pass = newPass;
 }
 
-void ClientHandler::setId(const int id)
+void ClientHandler::setId(int id)
 {
     _id = id;
 }

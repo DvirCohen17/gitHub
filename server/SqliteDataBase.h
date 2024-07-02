@@ -31,7 +31,7 @@ public:
 	std::list<std::string> searchUsers(std::string searchCommand) override;
 
 	// ******* CHATS *******
-	std::string GetChatData(const std::string& fileName) override;
+	std::string GetChatData(const int projectId) override;
 
 	// ******* PERMISSIONS *******
 	std::list<Permission> getUserPermissions(int userId) override;
@@ -41,6 +41,7 @@ public:
 	// ******* FILES *******
 	std::string getFileName(const int fileId) override;
 	FileDetail getFileDetails(const std::string& fileName, const int projectId) override;
+	std::string getFileContent(const int fileId) override;
 
 	// ******* PROJECTS *******
 	std::list<Project> getAllProjects(int userId) override;
@@ -49,6 +50,7 @@ public:
 	std::list<FriendReq> getCurrentUserReqSent(int userId) override;
 	std::string getUserRoleInProject(int userId, int projectId) override;
 	std::list<ProjectJoinInvite> getUserProjectInvite(int userId) override;
+	ProjectJoinInvite getAUserProjectInvite(int userId, int projectId) override;
 	std::list<ProjectPermission> getUserProjectPermission(int userId) override;
 	int getNextAdmin(int projectId) override;
 	std::map<std::string, std::string> getProjectParticipants(int projectId) override;
@@ -60,9 +62,9 @@ public:
 	// ******* MODIFIRES *******
 
 	// ******* CHATS *******
-	void UpdateChat(const std::string& fileName, const std::string& data) override;
-	void createChat(const std::string& ProjectName) override;
-	void DeleteChat(const std::string& ProjectName) override;
+	void UpdateChat(const int projectId, const std::string& data) override;
+	void createChat(const int projectId) override;
+	void DeleteChat(const int projectId) override;
 
 	// ******* PERMISSIONS *******
 	void addPermissionRequest(int userId, int fileId, int creatorId) override;
@@ -76,11 +78,13 @@ public:
 	void acceptProjectJoinInvite(int projectId, int userId, std::string role) override;
 	void deleteAllProjectPermission(int projectId) override;
 	void deleteProjectPermission(int projectId, int userId) override;
+	void changeUserRoleInProject(int projectId, int userId, std::string role) override;
 
 	// ******* FILES *******
 	void addFile(int userId, const std::string& fileName, int projectId) override;
-	void deleteFile(const std::string& fileName) override;
+	void deleteFile(const std::string& fileName, const int projectId) override;
 	void renameFile(int projectId, std::string newFileName, std::string oldFileName) override;
+	void updateFile(int fileId, std::string content) override;
 
 	// ******* PROJECTS *******
 	void deleteAllProjectFiles(const int projectId) override;
@@ -110,6 +114,7 @@ private:
 	bool send_Permissions(sqlite3* db, std::string msg, std::list<Permission>* data);
 	bool send_PermissionReq(sqlite3* db, std::string msg, std::list<PermissionReq>* data);
 	bool send_file(sqlite3* db, std::string msg, std::list<FileDetail>* data);
+	bool send_fileData(sqlite3* db, std::string msg, std::list<FileDetail>* data);
 	bool send_profInfo(sqlite3* db, std::string msg, std::list<ProfileInfo>* data);
 	bool send_Projects(sqlite3* db, std::string msg, std::list<Project>* data);
 	bool send_Friends(sqlite3* db, std::string msg, std::list<Friends>* data);

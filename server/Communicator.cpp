@@ -108,19 +108,6 @@ void Communicator::login(SOCKET client_sock,
 
 			std::string dirName = username +"'s projects";
 			_dirName = dirName;
-			std::filesystem::path dirPath = std::filesystem::current_path() / dirName;
-
-			try {
-				if (std::filesystem::create_directory(dirPath)) {
-					std::cout << "Directory created successfully." << std::endl;
-				}
-				else {
-					std::cerr << "Failed to create directory!" << std::endl;
-				}
-			}
-			catch (const std::exception& ex) {
-				std::cerr << "An error occurred: " << ex.what() << std::endl;
-			}
 		}
 		else
 		{
@@ -141,10 +128,9 @@ void Communicator::signUp(SOCKET client_sock,
 {
 	if (!m_database->doesUserExist(username) && !m_database->doesUserExist(mail))
 	{
-		int userId = m_database->getUserId(username);
 		m_database->addNewUser(username, pass, mail);
+		int userId = m_database->getUserId(username);
 		m_database->createProfile(username, mail, "", userId);
-		m_database->addFriend(userId, "");
 		std::string repCode = std::to_string(MC_SIGNUP_RESP);
 		ClientHandler* client_handler = new ClientHandler(userId, username, mail);
 		client_handler->setWindow("HomePage");
@@ -173,19 +159,6 @@ void Communicator::signUp(SOCKET client_sock,
 
 		std::string dirName = username + "'s projects";
 		_dirName = dirName;
-		std::filesystem::path dirPath = std::filesystem::current_path() / dirName;
-
-		try {
-			if (std::filesystem::create_directory(dirPath)) {
-				std::cout << "Directory created successfully." << std::endl;
-			}
-			else {
-				std::cerr << "Failed to create directory!" << std::endl;
-			}
-		}
-		catch (const std::exception& ex) {
-			std::cerr << "An error occurred: " << ex.what() << std::endl;
-		}
 	}
 	else
 	{
@@ -247,21 +220,23 @@ void Communicator::createFile(SOCKET client_sock, std::string fileName, std::str
 	}
 	else
 	{
-		fileOperationHandler.createFile(".\\" + _dirName + "\\\\" + projectName + "\\" + fileName, true);
+		//fileOperationHandler.createFile(".\\" + _dirName + "\\\\" + projectName + "\\" + fileName, true);
 
 		Action emptyAction;
 		// Create the mutex for the new file
-		m_fileMutexes[".\\" + _dirName + "\\\\" + projectName + "\\" + fileName];
 		m_database->addFile(m_clients[client_sock]->getId(), fileName, project.projectId);
 
 		FileDetail fileList = m_database->getFileDetails(fileName, project.projectId);
-		std::map<std::string, int>& filesMap = m_projects[projectName];
+		std::map<std::string, int>& filesMap = m_projects[project.projectId];
 		filesMap[fileName] = fileList.fileId;
+
+		m_fileMutexes[fileList.fileId];
+
 
 		//m_database->addUserPermission(m_clients[client_sock]->getId(), m_fileNames[fileName + ".txt"]);
 
 		std::string repCode = std::to_string(MC_ADD_FILE_RESP) + fileName;
-		m_clients[client_sock]->setFileName(fileName);
+		m_clients[client_sock]->setFile(fileList.fileName, "", fileList.fileId);
 		Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
 		notifyAllclientsOnProject(repCode, client_sock);
 	}
@@ -270,8 +245,9 @@ void Communicator::createFile(SOCKET client_sock, std::string fileName, std::str
 void Communicator::deleteFile(SOCKET client_sock, std::string fileName, std::string projectName)
 {
 	Project project = m_database->getProject(projectName, -1);
-	if (m_usersOnFile.find(".\\" + _dirName + "\\\\" + projectName + "\\" + fileName) != m_usersOnFile.end()
-		&& !m_usersOnFile[".\\" + _dirName + "\\\\" + projectName + "\\" + fileName].empty())
+	FileDetail file = m_database->getFileDetails(fileName, project.projectId);
+	if (m_usersOnFile.find(file.fileId) != m_usersOnFile.end()
+		&& !m_usersOnFile[file.fileId].empty())
 	{
 		throw std::exception("cannot delete. Someone is inside");
 	}
@@ -283,13 +259,13 @@ void Communicator::deleteFile(SOCKET client_sock, std::string fileName, std::str
 	{
 		std::string repCode = std::to_string(MC_DELETE_FILE_RESP) + fileName;
 
-		fileOperationHandler.deleteFile(".\\" + _dirName + "\\\\" + projectName + "\\" + fileName); // decide if needs to be removed later
+		//fileOperationHandler.deleteFile(".\\" + _dirName + "\\\\" + projectName + "\\" + fileName); // decide if needs to be removed later
 
-		m_database->deleteFile(fileName);
+		m_database->deleteFile(fileName, project.projectId);
 		//m_database->deletePermission(m_fileNames[fileName + ".txt"]);
 		//m_database->deleteAllPermissionReq(m_fileNames[fileName + ".txt"]);
 		//m_fileNames.erase(fileName + ".txt");
-		auto projectIt = m_projects.find(projectName);
+		auto projectIt = m_projects.find(project.projectId);
 		if (projectIt != m_projects.end()) {
 			// Find the file in the inner map
 			std::map<std::string, int>& filesMap = projectIt->second;
@@ -310,13 +286,14 @@ void Communicator::getFiles(SOCKET client_sock)
 	std::string repCode = std::to_string(MC_GET_FILES_RESP);
 	std::string msg = "";
 	// Access the correct inner map using the project name
-	std::map<std::string, int>& projectFiles = m_projects[m_clients[client_sock]->getProjectName()];
+	int project = m_clients[client_sock]->getProjectId();
+	std::map<std::string, int>& projectFiles = m_projects[project];
 
-	fileOperationHandler.getFilesInDirectory(".\\files", projectFiles);
+	//fileOperationHandler.getFilesInDirectory(".\\files", projectFiles);
 
 	//std::map<std::string, int> filesPermissions = m_database->getUserPermissionDetails(m_clients[client_sock]->getId());
 
-	for (const auto& fileName : projectFiles)
+	for (const auto& file : m_database->getProjectFiles(project))
 	{
 		// for file permissions
 		/*
@@ -334,11 +311,11 @@ void Communicator::getFiles(SOCKET client_sock)
 		}
 		*/ 
 
-		std::string lengthString = std::to_string(fileName.first.length());
+		std::string lengthString = std::to_string(file.fileName.length());
 		lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
-		repCode += lengthString + fileName.first;
+		repCode += lengthString + file.fileName;
 		//FileDetail fileList = m_database->getFileDetails(fileName.first);
-		//projectFiles[fileName.first] = fileList.fileId;
+		projectFiles[file.fileName] = file.fileId;
 	}
 	Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
 }
@@ -349,20 +326,19 @@ void Communicator::getInitialContent(SOCKET client_sock, std::string fileName, s
 	Action emptyAction;
 
 	std::string repCode = std::to_string(MC_INITIAL_RESP);
+	Project project = m_database->getProject(projectName, -1);
+	FileDetail fileList = m_database->getFileDetails(fileName, project.projectId);
 
-	if (m_FileUpdate[".\\" + _dirName + "\\\\" + projectName + "\\" + fileName])
+	if (m_FileUpdate[fileList.fileId])
 	{
-		fileContent = m_filesData[".\\" + _dirName + "\\\\" + projectName + "\\" + fileName];
+		fileContent = m_filesData[fileList.fileId];
 	}
 	else
 	{
-		fileContent = fileOperationHandler.readFromFile(".\\" + _dirName + "\\\\" + projectName + "\\" + fileName);
-		m_filesData[".\\" + _dirName + "\\\\" + projectName + "\\" + fileName] = fileContent;
-		m_FileUpdate[".\\" + _dirName + "\\\\" + projectName + "\\" + fileName] = false;
-
-		Project project = m_database->getProject(projectName, -1);
-		FileDetail fileList = m_database->getFileDetails(fileName, project.projectId);
-		std::map<std::string, int>& filesMap = m_projects[projectName];
+		//fileContent = fileOperationHandler.readFromFile(".\\" + _dirName + "\\\\" + projectName + "\\" + fileName);
+		fileContent = m_database->getFileContent(fileList.fileId);
+		m_filesData[fileList.fileId] = fileContent;
+		std::map<std::string, int>& filesMap = m_projects[project.projectId];
 		filesMap[fileName] = fileList.fileId;
 	}
 	
@@ -371,8 +347,8 @@ void Communicator::getInitialContent(SOCKET client_sock, std::string fileName, s
 	lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
 
 	emptyAction.code = MC_INITIAL_REQUEST;
-	m_lastActionMap[".\\" + _dirName + "\\\\" + projectName + "\\" + fileName].push_back(emptyAction);
-
+	m_lastActionMap[fileList.fileId].push_back(emptyAction);
+	m_clients[client_sock]->setFile(fileName, fileContent, fileList.fileId);
 	// Create the initialFileContent string
 	std::string initialFileContent = repCode + lengthString + fileContent;
 	Helper::sendData(client_sock, BUFFER(initialFileContent.begin(), initialFileContent.end()));
@@ -384,7 +360,7 @@ void Communicator::enterFile(SOCKET client_sock, std::string fileName, std::stri
 	std::string projectName = m_clients[client_sock]->getProjectName();
 	Project project = m_database->getProject(projectName, -1);
 
-	int fileId = m_database->getFileDetails(fileName, project.projectId).fileId;
+	FileDetail file = m_database->getFileDetails(fileName, project.projectId);
 	std::string repCode;
 
 	/*
@@ -397,17 +373,17 @@ void Communicator::enterFile(SOCKET client_sock, std::string fileName, std::stri
 	repCode = std::to_string(MC_ENTER_FILE_RESP);
 	
 
-	m_clients[client_sock]->setFileName(fileName);
+	m_clients[client_sock]->setFile(file.fileName, "", file.fileId);
 	// Create the mutex for the file if it doesn't exist
-	m_fileMutexes.try_emplace(".\\" + _dirName + "\\\\" + projectName + "\\" + fileName);
+	m_fileMutexes.try_emplace(file.fileId);
 
-	m_usersOnFile[".\\" + _dirName + "\\\\" + projectName + "\\" + fileName].push_back(*m_clients[client_sock]);
+	m_usersOnFile[file.fileId].push_back(*m_clients[client_sock]);
 }
 
 void Communicator::exitFile(SOCKET client_sock)
 {
 	std::string repCode = std::to_string(MC_EXIT_FILE_RESP);
-	std::string fileName = m_clients[client_sock]->getFileName();
+	int file = m_clients[client_sock]->getFileId();
 
 	for (auto it = m_usersOnFile.begin(); it != m_usersOnFile.end(); ++it) {
 		// Iterate over the array of clients for each file
@@ -421,26 +397,25 @@ void Communicator::exitFile(SOCKET client_sock)
 		}
 	}
 	
-	std::string projectName = m_clients[client_sock]->getProjectName();
-
 	// Check if the user leaving was the last one
-	if (m_usersOnFile[".\\" + _dirName + "\\\\" + projectName + "\\" + fileName].empty()) {
+	if (m_usersOnFile[file].empty()) {
 		// Delete the mutex and remove the file from m_usersOnFile
-		m_usersOnFile.erase(".\\" + _dirName + "\\\\" + projectName + "\\" + fileName);
-		m_lastActionMap.erase(".\\" + _dirName + "\\\\" + projectName + "\\" + fileName);
-		m_fileMutexes.erase(".\\" + _dirName + "\\\\" + projectName + "\\" + fileName);
+		m_usersOnFile.erase(file);
+		m_lastActionMap.erase(file);
+		m_fileMutexes.erase(file);
 	}
-	m_clients[client_sock]->setFileName("");
+	m_clients[client_sock]->setFile("", "", -1);
 
 }
 
 void Communicator::getMesegges(SOCKET client_sock, std::string projectName)
 {
 	std::string repCode = std::to_string(MC_GET_FILES_RESP);
+	int projectId = m_database->getProject(projectName, -1).projectId;
 
 	// Handle get messages request
 	repCode = std::to_string(MC_GET_MESSAGES_RESP);
-	std::string chatContent = executeCommand("main.exe decrypt \'" + m_database->GetChatData(projectName) + "\'");
+	std::string chatContent = executeCommand("main.exe decrypt \'" + m_database->GetChatData(projectId) + "\'");
 	chatContent = chatContent.substr(0, chatContent.length() - 1);
 	repCode += chatContent;
 	Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
@@ -451,6 +426,7 @@ void Communicator::getUsersOnFile(SOCKET client_sock, std::string fileName)
 	std::string repCode = std::to_string(MC_GET_USERS_ON_FILE_RESP);
 	std::string lengthString;
 
+	/*
 	// Get the list of users logged into the file
 	for (const auto& user : m_usersOnFile[".\\files\\" + fileName]) {
 		lengthString = std::to_string((user.getUsername().length()));
@@ -458,6 +434,7 @@ void Communicator::getUsersOnFile(SOCKET client_sock, std::string fileName)
 		repCode += lengthString + user.getUsername();
 	}
 	Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
+	*/
 }
 
 void Communicator::getUsers(SOCKET client_sock)
@@ -472,9 +449,10 @@ void Communicator::getUsers(SOCKET client_sock)
 		repCode += lengthString + m_clients[sock.first]->getUsername();
 
 		// Add file name length and file name to the response
-		lengthString = std::to_string(m_clients[sock.first]->getFileName().length());
+		std::string fileName = m_clients[sock.first]->getFileName();
+		lengthString = std::to_string(fileName.length());
 		lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
-		repCode += lengthString + m_clients[sock.first]->getFileName();
+		repCode += lengthString + fileName;
 	}
 	Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
 }
@@ -506,16 +484,17 @@ void Communicator::postMsg(SOCKET client_sock, std::string projectName, std::str
 	std::string repCode = std::to_string(MC_POST_MSG_RESP);
 	
 	std::string userName = m_clients[client_sock]->getUsername();
+	int projectId = m_database->getProject(projectName, -1).projectId;
 
 	// Handle post message request
 	std::string lengthString = std::to_string(userName.length());
 	lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
 
-	std::string chatMsg = executeCommand("main.exe decrypt \'" + m_database->GetChatData(projectName) + "\'");
+	std::string chatMsg = executeCommand("main.exe decrypt \'" + m_database->GetChatData(projectId) + "\'");
 	chatMsg = chatMsg.substr(0, chatMsg.length() - 1);
 	chatMsg += dataLen + data +
 		lengthString + userName;
-	m_database->UpdateChat(projectName, executeCommand("main.exe encrypt \'" + chatMsg + "\'"));
+	m_database->UpdateChat(projectId, executeCommand("main.exe encrypt \'" + chatMsg + "\'"));
 
 	repCode += dataLen + data + lengthString + userName;
 	notifyAllclientsOnProject(repCode, client_sock);
@@ -766,11 +745,22 @@ void Communicator::rejectFriendReq(SOCKET client_sock, std::string userName)
 void Communicator::addFriend(SOCKET client_sock, std::string userName)
 {
 	std::string currUserName = m_clients[client_sock]->getUsername();
+	Friends friends = m_database->getUserFriends(m_database->getUserId(currUserName));
 	std::list<FriendReq> friendReq = m_database->getUserFriendReq(m_database->getUserId(userName));
 	
 	std::unordered_set<std::string> FriendsReqList;
 
 	std::string friendName;
+
+	int index = 0;
+	while(index < friends.fiendsList.length())
+	{
+		int lengthName = std::stoi(friends.fiendsList.substr(index, 5));
+		index += 5;
+		std::string name = friends.fiendsList.substr(index, lengthName);
+		index += lengthName;
+		FriendsReqList.insert(name);
+	}
 
 	for (auto req : friendReq)
 	{
@@ -990,11 +980,10 @@ void Communicator::createProject(SOCKET client_sock, std::string projectName, st
 		}
 	}
 
-	fileOperationHandler.createDirectory(".\\" + _dirName + "\\\\" + projectName);
 	m_database->createProject(projectName, friends, codeLan, userId, -1);
 	Project project = m_database->getProject(projectName, -1);
 	m_database->createProjectPermission(project.projectId, userId, "creator");
-	m_database->createChat(projectName);
+	m_database->createChat(project.projectId);
 
 	// Send to each friend the invite if they are online
 	Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
@@ -1004,8 +993,7 @@ void Communicator::deleteProject(SOCKET client_sock, std::string projectName)
 {
 	Project project = m_database->getProject(projectName, -1);
 	int userId = m_database->getUserId(m_clients[client_sock]->getUsername());
-	if (m_usersOnProject.find(".\\" + _dirName + "\\\\" + projectName) != m_usersOnProject.end()
-		&& !m_usersOnFile[".\\" + _dirName + "\\\\" + projectName].empty())
+	if (m_usersOnProject.find(project.projectId) != m_usersOnProject.end())
 	{
 		throw std::exception("cannot delete. Someone is inside");
 	}
@@ -1017,52 +1005,57 @@ void Communicator::deleteProject(SOCKET client_sock, std::string projectName)
 	{
 		std::string repCode = std::to_string(MC_UPDATE_PROJECT_LIST_REQUEST) + projectName;
 
-		fileOperationHandler.deleteDirectory(".\\" + _dirName + "\\\\" + projectName); // decide if needs to be removed later
+		//fileOperationHandler.deleteDirectory(".\\" + _dirName + "\\\\" + projectName); // decide if needs to be removed later
 
 		std::list<FileDetail> files = m_database->getProjectFiles(project.projectId);
 
-		m_usersOnProject.erase(".\\" + _dirName + "\\\\" + projectName);
+		m_usersOnProject.erase(project.projectId);
 		for (const auto& file : files) {
 			std::string fileName = file.fileName;
 
 			// Delete fileName from m_lastActionMap
-			auto it1 = m_lastActionMap.find(fileName);
+			auto it1 = m_lastActionMap.find(file.fileId);
 			if (it1 != m_lastActionMap.end()) {
 				m_lastActionMap.erase(it1);
 			}
 
 			// Delete fileName from m_usersOnFile
-			auto it2 = m_usersOnFile.find(fileName);
+			auto it2 = m_usersOnFile.find(file.fileId);
 			if (it2 != m_usersOnFile.end()) {
 				m_usersOnFile.erase(it2);
 			}
 
 			// Delete fileName from m_projects
-			auto it3 = m_projects.find(fileName);
+			auto it3 = m_projects.find(file.fileId);
 			if (it3 != m_projects.end()) {
 				m_projects.erase(it3);
 			}
 
 			// Delete fileName from m_filesData
-			auto it4 = m_filesData.find(fileName);
+			auto it4 = m_filesData.find(file.fileId);
 			if (it4 != m_filesData.end()) {
 				m_filesData.erase(it4);
 			}
 
 			// Delete fileName from m_FileUpdate
-			auto it5 = m_FileUpdate.find(fileName);
+			auto it5 = m_FileUpdate.find(file.fileId);
 			if (it5 != m_FileUpdate.end()) {
 				m_FileUpdate.erase(it5);
 			}
 
 			// Delete fileName from m_fileMutexes
-			auto it6 = m_fileMutexes.find(fileName);
+			auto it6 = m_fileMutexes.find(file.fileId);
 			if (it6 != m_fileMutexes.end()) {
 				m_fileMutexes.erase(it6);
 			}
+			m_database->deleteFile(fileName, project.projectId);
 		}
 
-		for (auto user : m_database->getProjectParticipants(project.projectId))
+		std::map<std::string, std::string> projectPermissions = m_database->getProjectParticipants(project.projectId);
+		m_database->DeleteChat(project.projectId);
+		m_database->deleteAllProjectPermission(project.projectId);
+
+		for (auto user : projectPermissions)
 		{
 			std::string currUserName = user.first;
 			auto userIr = std::find_if(m_clients.begin(), m_clients.end(), [&currUserName](const auto& pair) {
@@ -1079,9 +1072,6 @@ void Communicator::deleteProject(SOCKET client_sock, std::string projectName)
 			}
 		}
 
-		m_database->DeleteChat(projectName);
-		m_database->deleteAllProjectPermission(project.projectId);
-		m_database->deleteAllProjectFiles(project.projectId);
 		m_database->deleteProject(projectName);
 		//m_database->deletePermission(m_fileNames[fileName + ".txt"]);
 		//m_database->deleteAllPermissionReq(m_fileNames[fileName + ".txt"]);
@@ -1118,7 +1108,7 @@ void Communicator::modifyProjectInfo(SOCKET client_sock, std::string oldProjectN
 			return item == name;
 			});
 
-		if (it == oldFriendList.end())
+		if (it != oldFriendList.end())
 		{
 			m_database->deleteProjectPermission(project.projectId, m_database->getUserId(name));
 			continue;
@@ -1151,7 +1141,6 @@ void Communicator::modifyProjectInfo(SOCKET client_sock, std::string oldProjectN
 	}
 	Project newProject = m_database->getProject(oldProjectName, -1);
 	m_database->modifyProjectInfo(oldProjectName, projectName, friends, codeLan, newProject.projectId);
-	fileOperationHandler.reNameDirecroy(".\\" + _dirName + "\\\\" + oldProjectName, ".\\" + _dirName + "\\\\" + projectName);
 	repCode = std::to_string(MC_BACK_TO_HOME_PAGE_RESP);
 	// Send to each friend the invite if they are online
 	Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
@@ -1159,19 +1148,20 @@ void Communicator::modifyProjectInfo(SOCKET client_sock, std::string oldProjectN
 
 void Communicator::acceptProjectInvite(SOCKET client_sock, std::string projectName, std::string userName, std::string role)
 {
-	std::string repCode = std::to_string(MC_UPDATE_PROJECT_LIST_RESP);
+	std::string repCode = std::to_string(MC_UPDATE_PROJECT_LIST_REQUEST);
 
 	int userId = m_database->getUserId(m_clients[client_sock]->getUsername());
 	Project project = m_database->getProject(projectName, -1);
 
-	m_database->acceptProjectJoinInvite(project.projectId, userId, role);
+	std::string newRole = m_database->getAUserProjectInvite(userId, project.projectId).role;
+	m_database->acceptProjectJoinInvite(project.projectId, userId, newRole);
 	Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
 
 }
 
 void Communicator::declineProjectInvite(SOCKET client_sock, std::string projectName, std::string userName)
 {
-	std::string repCode = std::to_string(MC_UPDATE_PROJECT_LIST_RESP);
+	std::string repCode = std::to_string(MC_UPDATE_PROJECT_LIST_REQUEST);
 	Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
 
 	int userId = m_database->getUserId(m_clients[client_sock]->getUsername());
@@ -1193,23 +1183,27 @@ void Communicator::enterProject(SOCKET client_sock, std::string projectName, std
 	int projectId = project.projectId;
 	std::string repCode;
 
+	/*
 	if (!m_database->hasPermissionToProject(projectId, m_database->getUserId(m_clients[client_sock]->getUsername()))) {
 		// Send an error response indicating lack of permission
 		std::string errMsg = "You are not allowed to join this project" + projectNameLen + projectName;
 		throw std::exception(errMsg.c_str());
 	}
+	*/
 
 	std::string lengthString = std::to_string((project.codeLan.length()));
 	lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
 
-	repCode = std::to_string(MC_APPROVE_JOIN_RESP) + projectNameLen + projectName + lengthString + project.codeLan;
+	bool mode = m_database->hasPermissionToProject(projectId, m_database->getUserId(m_clients[client_sock]->getUsername()));
+	std::string isEditable = mode ? "true" : "false";
+	repCode = std::to_string(MC_APPROVE_JOIN_RESP) + projectNameLen + projectName + lengthString + project.codeLan + isEditable;
 	Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
 
 	repCode = std::to_string(MC_ENTER_PROJECT_RESP);
-	m_clients[client_sock]->setProjectName(projectName);
+	m_clients[client_sock]->setProject(project.name, projectId);
 	m_clients[client_sock]->setWindow("project");
 
-	m_usersOnProject[projectName].push_back(*m_clients[client_sock]);
+	m_usersOnProject[projectId].push_back(*m_clients[client_sock]);
 
 	lengthString = std::to_string((m_clients[client_sock]->getUsername().length()));
 	lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
@@ -1225,7 +1219,7 @@ void Communicator::enterProject(SOCKET client_sock, std::string projectName, std
 
 void Communicator::exitProject(SOCKET client_sock)
 {
-	std::string repCode = std::to_string(MC_APPROVE_REQ_RESP);
+	std::string repCode = std::to_string(MC_EXIT_PROJECT_RESP);
 	Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
 
 	for (auto it = m_usersOnProject.begin(); it != m_usersOnProject.end(); ++it) {
@@ -1241,14 +1235,16 @@ void Communicator::exitProject(SOCKET client_sock)
 	}
 
 	std::string projectName = m_clients[client_sock]->getProjectName();
+	int projectId = m_clients[client_sock]->getProjectId();
 	std::string fileName = m_clients[client_sock]->getFileName();
 
 	// Check if the user leaving was the last one
-	if (m_usersOnProject[".\\" + _dirName + "\\\\" + projectName].empty()) {
+	if (m_usersOnProject[projectId].empty()) {
 		// Delete the mutex and remove the file from m_usersOnFile
-		m_usersOnProject.erase(".\\" + _dirName + "\\\\" + projectName);
+		m_usersOnProject.erase(projectId);
 	}
-	m_clients[client_sock]->setProjectName("");
+
+	m_clients[client_sock]->setProject("", -1);
 	m_clients[client_sock]->setWindow("HomePage");
 }
 
@@ -1270,7 +1266,7 @@ void Communicator::leaveProject(SOCKET client_sock, std::string projectName, std
 		{
 			std::map<ProfileInfo, std::string> friends; // info, role
 			m_database->createProject(projectName, friends, project.codeLan, replacerId, project.projectId);
-			
+			m_database->changeUserRoleInProject(project.projectId, replacerId, "crearor");
 			std::string replacerName = m_database->getUserName("", replacerId);
 			auto it = std::find_if(m_clients.begin(), m_clients.end(), [&replacerName](const auto& pair) {
 				return pair.second->getUsername() == replacerName; // Assuming pair.first is the SOCKET identifier
@@ -1706,20 +1702,19 @@ void Communicator::handleNewClient(SOCKET client_sock)
 			if (pass)
 			{
 				{
-					std::string fileName = m_clients[client_sock]->getFileName();
-					std::string projectName = m_clients[client_sock]->getProjectName();
+					int fileId = m_clients[client_sock]->getFileId();
+					int projectId = m_clients[client_sock]->getProjectId();
 					// Lock the mutex before updating the file
-					std::lock_guard<std::mutex> lock(m_fileMutexes[".\\" + _dirName + "\\\\" + projectName + "\\" + fileName]);
+					std::lock_guard<std::mutex> lock(m_fileMutexes[fileId]);
 
-					reqDetail = adjustIndexForSync(fileName, projectName, reqDetail);
-					reqDetail.fileName = fileName;
+					reqDetail = adjustIndexForSync(fileId, projectId, reqDetail);
 
-					updateFileOnServer(fileName, projectName, reqDetail);
+					updateFileOnServer(fileId, reqDetail);
 					notifyAllClients(repCode + reqDetail.msg, client_sock, true);
 					
 					reqDetail.timestamp = getCurrentTimestamp();
-					m_lastActionMap[".\\" + _dirName + "\\\\" + projectName + "\\" + fileName].push_back(reqDetail);
-					m_FileUpdate[".\\" + _dirName + "\\\\" + projectName + "\\" + fileName] = true;
+					m_lastActionMap[fileId].push_back(reqDetail);
+					m_FileUpdate[fileId] = true;
 					needUpdate = true;
 				}// lock goes out of scope, releasing the lock
 			}
@@ -1742,7 +1737,7 @@ void Communicator::handleNewClient(SOCKET client_sock)
 	closesocket(client_sock);
 }
 
-Action Communicator::adjustIndexForSync(const std::string& fileName, std::string projectName, Action reqDetail)
+Action Communicator::adjustIndexForSync(const int fileId, int projectId, Action reqDetail)
 {
 	std::string lengthString;
 	std::string selectionLengthString;
@@ -1755,9 +1750,9 @@ Action Communicator::adjustIndexForSync(const std::string& fileName, std::string
 
 	int newCode = reqDetail.code;
 	// Check if there is a last action recorded for this file
-	if (m_lastActionMap.find(".\\" + _dirName + "\\\\" + projectName + "\\" + fileName) != m_lastActionMap.end())
+	if (m_lastActionMap.find(fileId) != m_lastActionMap.end())
 	{
-		std::vector<Action>& lastActions = m_lastActionMap[".\\" + _dirName + "\\\\" + projectName + "\\" + fileName];
+		std::vector<Action>& lastActions = m_lastActionMap[fileId];
 
 		// Use an iterator to iterate over the vector
 		auto it = lastActions.begin();
@@ -1841,13 +1836,12 @@ void Communicator::handleError(SOCKET client_sock, std::exception a)
 			ClientHandler* client = m_clients[client_sock];
 
 			// Check if the client is currently working on a file
-			if (!client->getFileName().empty())
+			if (client->getFileName() != "")
 			{
 				// Notify the client about the error
 				std::string response = std::to_string(MC_ERROR_RESP);
 
-				std::string fileContent = fileOperationHandler.readFromFile(".\\" + _dirName + "\\\\" + client->getProjectName()
-					+"\\" + client->getFileName());
+				std::string fileContent = m_filesData[client->getFileId()];
 				std::string lengthString = std::to_string(fileContent.length());
 				lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
 
@@ -1898,11 +1892,12 @@ void Communicator::handleClientDisconnect(SOCKET client_sock)
 		// Check if the client is inside a file
 		if (disconnectedClient->getFileName() != "")
 		{
+			int file = disconnectedClient->getFileId();
 			std::string fileName = disconnectedClient->getFileName();
 			std::string projectName = disconnectedClient->getProjectName();
 
 			// Remove the client from the file's user list
-			auto it = m_usersOnFile.find(".\\" + _dirName + "\\\\" + projectName + "\\" + fileName);
+			auto it = m_usersOnFile.find(file);
 			if (it != m_usersOnFile.end())
 			{
 				it->second.erase(std::remove_if(it->second.begin(), it->second.end(),
@@ -1914,11 +1909,11 @@ void Communicator::handleClientDisconnect(SOCKET client_sock)
 					notifyAllfriends(repCode, client_sock);
 				}
 
-				if (m_usersOnFile[".\\" + _dirName + "\\\\" + projectName + "\\" + fileName].empty()) {
+				if (m_usersOnFile[file].empty()) {
 					// Delete the mutex and remove the file from m_usersOnFile
-					m_fileMutexes.erase(".\\" + _dirName + "\\\\" + projectName + "\\" + fileName);
-					m_usersOnFile.erase(".\\" + _dirName + "\\\\" + projectName + "\\" + fileName);
-					m_lastActionMap.erase(".\\" + _dirName + "\\\\" + projectName + "\\" + fileName);
+					m_fileMutexes.erase(file);
+					m_usersOnFile.erase(file);
+					m_lastActionMap.erase(file);
 				}
 			}
 		}
@@ -2241,9 +2236,9 @@ Action Communicator::deconstructReq(const std::string& req) {
 	return newAction;
 }
 
-void Communicator::updateFileOnServer(const std::string& filePath, const std::string& projectName, const Action& reqDetail)
+void Communicator::updateFileOnServer(const int fileId, const Action& reqDetail)
 {
-	auto it = m_filesData.find(".\\" + _dirName + "\\\\" + projectName + "\\" + filePath);
+	auto it = m_filesData.find(fileId);
 
 	if (it != m_filesData.end()) {
 		int index;
@@ -2288,7 +2283,7 @@ void Communicator::updateFileOnServer(const std::string& filePath, const std::st
 		}
 	}
 	else {
-		throw std::runtime_error("File not found: .\\" + projectName + "\\" + filePath);
+		throw std::runtime_error("File not found: " + std::to_string(fileId) );
 	}
 
 
@@ -2438,52 +2433,42 @@ void Communicator::startHandleRequests()
 }
 
 void Communicator::saveFiles(/* Parameters for communication */) {
-	try
-	{
+	try {
 		while (true) {
-			if (needUpdate)
-			{
-				for (auto& [fileName, updated] : m_FileUpdate) {
+			if (needUpdate) {
+				for (auto it = m_FileUpdate.begin(); it != m_FileUpdate.end(); ) {
+					const int& fileId = it->first;
+					bool updated = it->second;
+
 					if (updated) {
 						{
-							std::lock_guard<std::mutex> lock(m_fileMutexes[fileName]);
-							
-							fileOperationHandler.updateFile(fileName, m_filesData[fileName]);
+							std::lock_guard<std::mutex> lock(m_fileMutexes[fileId]);
+							m_database->updateFile(fileId, m_filesData[fileId]);
 						}
-						if (m_usersOnFile[fileName].empty()) {
-							m_filesData.erase(fileName);
-							m_fileMutexes.erase(fileName);
-							m_FileUpdate.erase(fileName);
-							needUpdate = false;
-							if (m_FileUpdate.empty())
-							{
-								break;
-							}
-						}
-						else
-						{
-							m_FileUpdate[fileName] = false;  // Reset the change flag
-						}
+						m_FileUpdate[fileId] = false; // Reset the change flag
+					}
+
+					if (m_usersOnFile[fileId].empty()) {
+						m_filesData.erase(fileId);
+						m_fileMutexes.erase(fileId);
+						it = m_FileUpdate.erase(it);
+						m_usersOnFile.erase(fileId);
 					}
 					else {
-						if (m_usersOnFile[fileName].empty()) {
-							m_filesData.erase(fileName);
-							m_fileMutexes.erase(fileName);
-							m_FileUpdate.erase(fileName);
-							needUpdate = false;
-						}
-						if (m_FileUpdate.empty())
-						{
-							break;
-						}
+						++it;
+					}
+
+					if (m_FileUpdate.empty()) {
+						needUpdate = false;
+						break;
 					}
 				}
 			}
 			std::this_thread::sleep_for(std::chrono::seconds(60));
 		}
 	}
-	catch (const std::exception& e)
-	{
-
+	catch (const std::exception& e) {
+		// Handle the exception appropriately, e.g., logging
+		std::cerr << "Exception in saveFiles: " << e.what() << std::endl;
 	}
 }

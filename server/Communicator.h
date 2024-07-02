@@ -94,16 +94,16 @@ class Communicator {
 private:
     SOCKET m_serverSocket;
     std::map<SOCKET, ClientHandler*> m_clients;
-    std::map<std::string, std::vector<Action>> m_lastActionMap; // fileName : <lastAction, index>
-    std::map<std::string, std::vector<ClientHandler>> m_usersOnFile; // fileName : users
-    std::map<std::string, std::vector<ClientHandler>> m_usersOnProject; // fileName : users
+    std::map<int, std::vector<Action>> m_lastActionMap; // fileId : <lastAction, index>
+    std::map<int, std::vector<ClientHandler>> m_usersOnFile; // fileId : users
+    std::map<int, std::vector<ClientHandler>> m_usersOnProject; // projectName : users
 
-    std::map<std::string, std::map<std::string, int>> m_projects; // name, id
+    std::map<int, std::map<std::string, int>> m_projects; // name, id
     std::map<std::string, std::vector<std::string>> m_friends; // name, id
-    std::map<std::string, std::string> m_filesData; // name, data
-    std::map<std::string, bool> m_FileUpdate; // name, there was a change since last update
+    std::map<int, std::string> m_filesData; // id, data
+    std::map<int, bool> m_FileUpdate; // id, there was a change since last update
 
-    std::unordered_map<std::string, std::mutex> m_fileMutexes;
+    std::unordered_map<int, std::mutex> m_fileMutexes;
 
     Operations operationHandler;
     FileOperation fileOperationHandler;
@@ -126,7 +126,7 @@ public:
     void handleNewClient(SOCKET client_sock);
 
     void updateFileOnServerold(const std::string& filePath, const Action& reqDetail);
-    void updateFileOnServer(const std::string& filePath, const std::string& projectName, const Action& reqDetail);
+    void updateFileOnServer(const int fileId, const Action& reqDetail);
     void saveFiles();
 
     void handleClientDisconnect(SOCKET client_sock);
@@ -138,7 +138,7 @@ public:
     void notifyAllclientsOnProject(const std::string& updatedContent, SOCKET client_sock);
 
     Action deconstructReq(const std::string& req);
-    Action adjustIndexForSync(const std::string& fileName, std::string projectName, Action reqDetail);
+    Action adjustIndexForSync(const int fileId, int projectId, Action reqDetail);
 
     void login(SOCKET client_sock, std::string username, std::string pass, std::string mail);
     void logout(SOCKET client_sock);

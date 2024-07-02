@@ -6,10 +6,11 @@
 #include <vector>
 #include <map>
 #include "Client.h"
+#include <iostream>
 
 struct Chat
 {
-	std::string projectName;
+	int projectId;
 	std::string data;
 };
 
@@ -26,7 +27,6 @@ struct Permission
 	int projectId;
 };
 
-
 struct ProjectPermission
 {
 	std::string role;
@@ -40,6 +40,7 @@ struct FileDetail
 	int fileId;
 	int projectId;
 	std::string fileName;
+	std::string content;
 };
 
 struct ProfileInfo
@@ -68,7 +69,6 @@ struct ProjectJoinInvite
 	int userId;
 	int projectId;
 };
-
 
 struct Friends
 {
@@ -109,7 +109,7 @@ public:
 	virtual std::list<std::string> searchUsers(std::string searchCommand) = 0;
 
 	// ******* CHATS *******
-	virtual std::string GetChatData(const std::string& fileName) = 0;
+	virtual std::string GetChatData(const int projectId) = 0;
 	
 	// ******* PERMISSIONS *******
 	virtual std::list<Permission> getUserPermissions(int userId) = 0;
@@ -119,6 +119,7 @@ public:
 	// ******* FILES *******
 	virtual std::string getFileName(const int fileId) = 0;
 	virtual FileDetail getFileDetails(const std::string& fileName, const int projectId) = 0;
+	virtual std::string getFileContent(const int fileId) = 0;
 	
 	// ******* PROJECTS *******
 	virtual std::list<Project> getAllProjects(int userId) = 0;
@@ -127,6 +128,7 @@ public:
 	virtual std::list<FriendReq> getCurrentUserReqSent(int userId) = 0;
 	virtual std::string getUserRoleInProject(int userId, int projectId) = 0;
 	virtual std::list<ProjectJoinInvite> getUserProjectInvite(int userId) = 0;
+	virtual ProjectJoinInvite getAUserProjectInvite(int userId, int projectId) = 0;
 	virtual std::list<ProjectPermission> getUserProjectPermission(int userId) = 0;
 	virtual int getNextAdmin(int projectId) = 0;
 	virtual std::map<std::string, std::string> getProjectParticipants(int projectId) = 0;
@@ -139,9 +141,9 @@ public:
 	// ******* MODIFIRES *******
 
 	// ******* CHATS *******
-	virtual void UpdateChat(const std::string& fileName, const std::string& data) = 0;
-	virtual void createChat(const std::string& ProjectName) = 0;
-	virtual void DeleteChat(const std::string& ProjectName) = 0;
+	virtual void UpdateChat(const int projectId, const std::string& data) = 0;
+	virtual void createChat(const int projectId) = 0;
+	virtual void DeleteChat(const int projectId) = 0;
 	
 	// ******* PERMISSIONS *******
 	virtual void addPermissionRequest(int userId, int fileId, int creatorId) = 0;
@@ -155,11 +157,13 @@ public:
 	virtual void acceptProjectJoinInvite(int projectId, int userId, std::string role) = 0;
 	virtual void deleteAllProjectPermission(int projectId) = 0;
 	virtual void deleteProjectPermission(int projectId, int userId) = 0;
+	virtual void changeUserRoleInProject(int projectId, int userId, std::string role) = 0;
 
 	// ******* FILES *******
 	virtual void addFile(int userId, const std::string& fileName, int projectId) = 0;
-	virtual void deleteFile(const std::string& fileName) = 0;
+	virtual void deleteFile(const std::string& fileName, const int projectId) = 0;
 	virtual void renameFile(int projectId, std::string newFileName, std::string oldFileName) = 0;
+	virtual void updateFile(int fileId, std::string content) = 0;
 
 	// ******* PROJECTS *******
 	virtual void deleteAllProjectFiles(const int projectId) = 0;

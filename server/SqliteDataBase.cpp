@@ -39,8 +39,8 @@ int callback_chats(void* data, int argc, char** argv, char** azColName)
 	Chat chat;
 
 	for (int i = 0; i < argc; i++) {
-		if (std::string(azColName[i]) == "projectName") {
-			chat.projectName = argv[i];
+		if (std::string(azColName[i]) == "projectId") {
+			chat.projectId = std::stoi((argv[i]));
 		}
 		else if (std::string(azColName[i]) == "data") {
 			chat.data = argv[i];
@@ -104,6 +104,23 @@ int callback_File(void* data, int argc, char** argv, char** azColName)
 		}
 		else if (std::string(azColName[i]) == "ProjectId") {
 			file.projectId = std::stoi(argv[i]);
+		}
+	}
+	list_files->push_back(file);
+	return 0;
+}
+
+int callback_FileDetail(void* data, int argc, char** argv, char** azColName)
+{
+	std::list<FileDetail>* list_files = (std::list<FileDetail>*)data;
+	FileDetail file;
+
+	for (int i = 0; i < argc; i++) {
+		if (std::string(azColName[i]) == "FileId") {
+			file.fileId = std::stoi(argv[i]);
+		}
+		else if (std::string(azColName[i]) == "Data") {
+			file.content = argv[i];
 		}
 	}
 	list_files->push_back(file);
@@ -300,6 +317,17 @@ bool SqliteDataBase::send_file(sqlite3* db, std::string msg, std::list<FileDetai
 	return true;
 }
 
+bool SqliteDataBase::send_fileData(sqlite3* db, std::string msg, std::list<FileDetail>* data)
+{
+	const char* sqlStatement = msg.c_str();
+	char* errMessage = nullptr;
+	int res = sqlite3_exec(db, sqlStatement, callback_FileDetail, data, &errMessage);
+	if (res != SQLITE_OK)
+		return false;
+
+	return true;
+}
+
 bool SqliteDataBase::send_profInfo(sqlite3* db, std::string msg, std::list<ProfileInfo>* data)
 {
 	const char* sqlStatement = msg.c_str();
@@ -401,7 +429,10 @@ bool SqliteDataBase::open()
 		msg = "CREATE TABLE 'chats' ("
 			" id INTEGER PRIMARY KEY AUTOINCREMENT,"
 			" fileName TEXT UNIQUE NOT NULL,"
-			" data TEXT NOT NULL);";
+			" projectId INTEGER UNIQUE NOT NULL,"
+			" data TEXT NOT NULL,"
+			"FOREIGN KEY(projectId) REFERENCES UserProjects(Id),"
+			");";
 		send(_db, msg);
 		msg = "CREATE TABLE Files ("
 			"fileId INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -472,6 +503,14 @@ bool SqliteDataBase::open()
 			"FOREIGN KEY(projectiD) REFERENCES UserProjects(Id), "
 			"FOREIGN KEY(userId) REFERENCES users(id),"
 			"PRIMARY KEY(id AUTOINCREMENT)"
+			"); ";
+		send(_db, msg);
+		msg = "CREATE TABLE FilesData ("
+			"Id	INTEGER,"
+			"FileId	INTEGER,"
+			"Data	TEXT,"
+			"FOREIGN KEY(FileId) REFERENCES Files(fileId),"
+			"PRIMARY KEY(Id AUTOINCREMENT)"
 			"); ";
 		send(_db, msg);
 	}
@@ -600,46 +639,46 @@ void SqliteDataBase::changePassword(std::string username, std::string opdPass, s
 	send(_db, msg);
 }
 
-void SqliteDataBase::UpdateChat(const std::string& projectName, const std::string& data)
+void SqliteDataBase::UpdateChat(const int projectId, const std::string& data)
 {
-	DeleteChat(projectName);
+	DeleteChat(projectId);
 
-	std::string msg = "INSERT INTO chats (projectName, data) VALUES (\'" + projectName + "\', \"" + data + "\"); ";
+	std::string msg = "INSERT INTO chats (projectId, data) VALUES (" + std::to_string(projectId) + ", \"" + data + "\"); ";
 
 	send(_db, msg);
 }
 
-void SqliteDataBase::createChat(const std::string& projectName)
-{
-	std::string msg;
-
-	msg = "INSERT INTO chats (projectName, data) VALUES (\'" + projectName + "\', ''); ";
-
-	send(_db, msg);
-}
-
-void SqliteDataBase::DeleteChat(const std::string& projectName)
+void SqliteDataBase::createChat(const int projectId)
 {
 	std::string msg;
 
-	msg = "DELETE FROM chats WHERE projectName = \'" + projectName + "\';";
+	msg = "INSERT INTO chats (projectId, data) VALUES (" + std::to_string(projectId) + ", ''); ";
 
 	send(_db, msg);
 }
 
-std::string SqliteDataBase::GetChatData(const std::string& projectName)
+void SqliteDataBase::DeleteChat(const int projectId)
+{
+	std::string msg;
+
+	msg = "DELETE FROM chats WHERE projectId = " + std::to_string(projectId) + ";";
+
+	send(_db, msg);
+}
+
+std::string SqliteDataBase::GetChatData(const int projectId)
 {
 	std::string msg;
 	std::list<Chat> chatList; // This list will store the result data
 
 	// Assuming 'projectName' is a unique identifier in the 'chats' table
 
-	msg = "SELECT * FROM chats WHERE projectName = \'" + projectName + "\';";
+	msg = "SELECT * FROM chats WHERE projectId = " + std::to_string(projectId) + ";";
 
 	send_chats(_db, msg, &chatList);
 
 	for (const Chat& data : chatList) {
-		if (data.projectName == projectName)
+		if (data.projectId == projectId)
 		{
 			return data.data;
 		}
@@ -704,19 +743,29 @@ void SqliteDataBase::addFile(int userId, const std::string& fileName, int projec
 	std::string msg = "INSERT INTO Files (creatorId, fileName, ProjectId) "
 		"VALUES (" + std::to_string(userId) + ", \'" + fileName + "\'," + std::to_string(projectId) + ");";
 	send(_db, msg);
+	msg = "INSERT FROM FilesData (FileId, Data) VALUES (" + std::to_string(getFileDetails(fileName, projectId).fileId) + ", \'\');";
+	send(_db, msg);
 }
 
-void SqliteDataBase::deleteFile(const std::string& fileName) {
-	std::string msg = "DELETE FROM Files WHERE fileName = \'" + fileName + "\';";
+void SqliteDataBase::deleteFile(const std::string& fileName, const int projectId) {
+	std::string msg = "DELETE FROM FilesData WHERE FileId = " + std::to_string(getFileDetails(fileName, projectId).fileId) + ";";
+	send(_db, msg);
+
+	msg = "DELETE FROM Files WHERE fileName = \'" + fileName + "\' AND ProjectId = " + std::to_string(projectId) + ";";
 	send(_db, msg);
 }
 
 void SqliteDataBase::renameFile(int projectId, std::string newFileName, std::string oldFileName) {
-	std::string msg = "UPDATE Files SET fileName = /'" + newFileName + "/'" +
+	std::string msg = "UPDATE Files SET fileName = \'" + newFileName + "\'" +
 		"WHERE projectId = " + std::to_string(projectId) + " AND fileName = \'" + oldFileName + "; ";
 	send(_db, msg);
 }
 
+void SqliteDataBase::updateFile(int fileId, std::string content) {
+	std::string msg = "UPDATE FilesData SET Data = \'" + content + "\'" +
+		" WHERE FileId = " + std::to_string(fileId) + "; ";
+	send(_db, msg);
+}
 
 void SqliteDataBase::deleteAllProjectFiles(const int projectId) {
 	std::string msg = "DELETE * FROM Files WHERE ProjectId = \'" + std::to_string(projectId) + "\';";
@@ -753,6 +802,21 @@ FileDetail SqliteDataBase::getFileDetails(const std::string& fileName, const int
 		}
 	}
 	return emptyFile;
+}
+
+std::string SqliteDataBase::getFileContent(const int fileId) {
+	std::string msg = "SELECT * FROM FilesData WHERE FileId = " + std::to_string(fileId) + "; ";
+
+	std::list<FileDetail> fileList;
+	send_fileData(_db, msg, &fileList);
+
+	for (const FileDetail& data : fileList) {
+		if (data.fileId == fileId)
+		{
+			return data.content;
+		}
+	}
+	return "";
 }
 
 std::string SqliteDataBase::getFileName(const int fileId)
@@ -831,10 +895,16 @@ void SqliteDataBase::createProfile(std::string username, std::string email, std:
 {
 	std::string msg;
 
-	msg = "INSERT INTO ProfileInfo (Name, Email, Bio, creatorId) "
+	msg = "INSERT INTO ProfileInfo (Name, Email, Bio, userId) "
 		"VALUES (\'" + username + "\', \'" + email + "\', \'" + bio + "\'," + std::to_string(userId) + ");";
 
 	send(_db, msg);
+
+	msg = "INSERT INTO UserFriends (userId, friendsList) "
+		"VALUES (" + std::to_string(userId) + ", \'\');";
+
+	send(_db, msg);
+
 }
 
 void SqliteDataBase::modifyProfile(std::string username, std::string email, std::string bio, int userId)
@@ -866,6 +936,22 @@ std::list<ProjectJoinInvite> SqliteDataBase::getUserProjectInvite(int userId)
 
 }
 
+ProjectJoinInvite SqliteDataBase::getAUserProjectInvite(int userId, int projectId)
+{
+	std::string msg = "SELECT * from ProjectJoinInvite WHERE userId = " + std::to_string(userId) + " AND projectId = " + std::to_string(projectId) + " ;";
+	std::list<ProjectJoinInvite> projectList;
+	send_ProjectJoinInvite(_db, msg, &projectList);
+
+	for (auto invite : projectList)
+	{
+		if (invite.projectId == projectId && invite.userId == userId)
+		{
+			return invite;
+		}
+	}
+
+}
+
 std::list<ProjectPermission> SqliteDataBase::getUserProjectPermission(int userId)
 {
 	std::string msg = "SELECT * from ProjectPermission WHERE userId = " + std::to_string(userId) + ";";
@@ -893,7 +979,7 @@ int SqliteDataBase::getNextAdmin(int projectId)
 		if (projectList.empty())
 		{
 			deleteAllProjectFiles(project.projectId);
-			DeleteChat(project.name);
+			DeleteChat(project.projectId);
 			deleteProject(project.name);
 			return -1;
 		}
@@ -1054,7 +1140,7 @@ void SqliteDataBase::deleteProjectJoinInvite(int projectId, int userId)
 {
 	std::string msg;
 
-	msg = "DELETE FROM ProjectJoinInvite WHERE userId = " + std::to_string(userId) + "AND projectId " + std::to_string(projectId) + ";";
+	msg = "DELETE FROM ProjectJoinInvite WHERE userId = " + std::to_string(userId) + " AND projectId = " + std::to_string(projectId) + ";";
 
 	send(_db, msg);
 }
@@ -1063,7 +1149,7 @@ void SqliteDataBase::acceptProjectJoinInvite(int projectId, int userId, std::str
 {
 	std::string msg;
 
-	msg = "DELETE FROM ProjectJoinInvite WHERE userId = " + std::to_string(userId) + "AND projectId " + std::to_string(projectId) + ";";
+	msg = "DELETE FROM ProjectJoinInvite WHERE userId = " + std::to_string(userId) + " AND projectId = " + std::to_string(projectId) + ";";
 
 	send(_db, msg);
 
@@ -1079,6 +1165,13 @@ void SqliteDataBase::deleteAllProjectPermission(int projectId)
 void SqliteDataBase::deleteProjectPermission(int projectId, int userId)
 {
 	std::string msg = "DELETE FROM ProjectPermission WHERE projectId = " + std::to_string(projectId) +
+		" AND userId" + std::to_string(userId) + ";";
+	send(_db, msg);
+}
+
+void SqliteDataBase::changeUserRoleInProject(int projectId, int userId, std::string role) 
+{
+	std::string msg = "UPDATE FROM ProjectPermission SET role = \'" + role +  "\' WHERE projectId = " + std::to_string(projectId) +
 		" AND userId" + std::to_string(userId) + ";";
 	send(_db, msg);
 }
