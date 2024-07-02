@@ -58,7 +58,8 @@
                                FontSize="16"
                                ShowLineNumbers="True"
                                Background="Black"
-                               Foreground="White"/>
+                               Foreground="White"
+                               IsEnabled="True"/>
 
         <!-- Right-side panel for chat and user list -->
         <StackPanel Grid.Column="2" Grid.RowSpan="2" Orientation="Vertical" Width="200" Background="DarkSlateGray">

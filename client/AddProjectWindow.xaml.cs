@@ -323,31 +323,20 @@ namespace client_side
                         }
                     }
                 }
-                else if (currentRole.isCreate)
-                {
-                    UserSearchText.Visibility = Visibility.Visible;
-                    UserSearchTextBox.Visibility = Visibility.Visible;
-                    UserSearchTextBox.IsReadOnly = false;
-                    ProjectNameTextBox.Visibility = Visibility.Visible;
-                    ProjectNameTextBox.IsReadOnly = false;
-                    CodeLanguageComboBox.IsEnabled = true;
-                    craeteBtn.Visibility = Visibility.Visible;
-                    editBtn.Visibility = Visibility.Collapsed;
-                    PrivateCheckBox.IsEnabled = true;
-                    foreach (User user in SelectedUsersListBox.Items)
-                    {
-                        user.IsEnabled = true;
-                        if (user.IsCreator)
-                        {
-                            user.IsEnabledRemove = "Collapsed";
-                        }
-                        else
-                        {
-                            user.IsEnabledRemove = "Visible";
-                        }
-                    }
-                }
+                
 
+            }
+            else if (currentRole.isCreate)
+            {
+                UserSearchText.Visibility = Visibility.Visible;
+                UserSearchTextBox.Visibility = Visibility.Visible;
+                UserSearchTextBox.IsReadOnly = false;
+                ProjectNameTextBox.Visibility = Visibility.Visible;
+                ProjectNameTextBox.IsReadOnly = false;
+                CodeLanguageComboBox.IsEnabled = true;
+                craeteBtn.Visibility = Visibility.Visible;
+                editBtn.Visibility = Visibility.Collapsed;
+                PrivateCheckBox.IsEnabled = true;
             }
             receiveServerUpdatesThread = new Thread(() => ReceiveServerUpdates())
             {

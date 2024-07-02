@@ -260,7 +260,7 @@ namespace client_side
             string projectsRepCode = update.Substring(0, 3);
             string projectsRep = update.Substring(3);
 
-            if (projectsRepCode == ((int)MessageCodes.MC_PROJECTS_LIST_RESP).ToString() && projectsRep.Length > 3)
+            if (projectsRepCode == ((int)MessageCodes.MC_PROJECTS_LIST_RESP).ToString())
             {
                 int index = 0;
                 ObservableCollection<ProjectInfo> updatedProjects = new ObservableCollection<ProjectInfo>();
@@ -435,8 +435,11 @@ namespace client_side
                 }
                 Dispatcher.Invoke(() =>
                 {
-                    addFriendBtn.Visibility = Visibility.Collapsed;
-                    addFriendText.Visibility = Visibility.Collapsed;
+                    if (userName == displayedUserProfile.UserName)
+                    {
+                        addFriendBtn.Visibility = Visibility.Collapsed;
+                        addFriendText.Visibility = Visibility.Collapsed;
+                    }
                 });
             }
             catch (Exception ex)
@@ -574,9 +577,11 @@ namespace client_side
 
             int codeLanLen = int.Parse(update.Substring(8 + projectLength, 5));
             string codeLan = update.Substring(13 + projectLength, codeLanLen);
+            string mode = update.Substring(13 + projectLength + codeLanLen);
+            bool isEditable = mode == "true" ? true : false;
             Dispatcher.Invoke(() =>
             {
-                ProjectDirectory TextEditorWindow = new ProjectDirectory(communicator, ProjectName, codeLan);
+                ProjectDirectory TextEditorWindow = new ProjectDirectory(communicator, ProjectName, codeLan, isEditable);
                 TextEditorWindow.Show();
                 Close();
             });

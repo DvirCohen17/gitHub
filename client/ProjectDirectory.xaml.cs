@@ -47,7 +47,7 @@ namespace client_side
         private ObservableCollection<User> friends { get; set; }
         public event PropertyChangedEventHandler PropertyChanged;
 
-        public ProjectDirectory(Communicator communicator, string projectDir, string codeLan)
+        public ProjectDirectory(Communicator communicator, string projectDir, string codeLan, bool isEditable)
         {
             InitializeComponent();
             Style = (Style)FindResource(typeof(Window));
@@ -56,6 +56,7 @@ namespace client_side
             codeLaneguage = codeLan;
             insideFile = false;
 
+            txtFileContent.IsEnabled = isEditable ? true : false ; 
             try
             {
                 Friends = new ObservableCollection<User>();
@@ -848,6 +849,9 @@ namespace client_side
                         case "233":
                             HandleRenameFile(update);
                             break;
+                        case "231":
+                            HandleBackToMainPage();
+                            break;
 
                         default:
                             throw new InvalidOperationException($"Unknown message code: {code}");
@@ -1384,19 +1388,24 @@ namespace client_side
                 string Message = $"{MessageCode}";
                 communicator.SendData(Message);
             }
-            // TODO function that leave the file
-            disconnect = false; // if window closed by the user disconnect
-            isListeningToServer = false;
-
-            string chatMessageCode = ((int)MessageCodes.MC_LEAVE_PROJECT_REQUEST).ToString();
+            string chatMessageCode = ((int)MessageCodes.MC_EXIT_PROJECT_REQUEST).ToString();
 
             string fullMessage = $"{chatMessageCode}";
             communicator.SendData(fullMessage);
-
-            HomePage mainWindow = new HomePage(communicator);
-            mainWindow.Show();
-            Close();
             return;
+        }
+
+        private void HandleBackToMainPage()
+        {
+            disconnect = false;
+            isListeningToServer = false;
+
+            Dispatcher.Invoke(() =>
+            {
+                HomePage homePageWindow = new HomePage(communicator);
+                homePageWindow.Show();
+                Close();
+            });
         }
 
         private void ApplyFileNameChange_Click(object sender, RoutedEventArgs e)
