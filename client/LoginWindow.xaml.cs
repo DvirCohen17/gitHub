@@ -20,6 +20,7 @@ namespace client_side
     /// </summary>
     public partial class LoginWindow : Window
     {
+
         private Communicator communicator;
         bool disconnect = true; // if window closed by the user disconnect
 
@@ -40,6 +41,40 @@ namespace client_side
             {
                 communicator = new Communicator(ip_port[0], int.Parse(ip_port[1]));
                 Closing += login_CloseFile; // Hook up the closing event handler
+                if (!Directory.Exists(communicator.DirectoryPath))
+                {
+                    Directory.CreateDirectory(communicator.DirectoryPath);
+                    string chatMessageCode = ((int)MessageCodes.MC_GET_CODE_STYLES_REQUEST).ToString();
+
+                    string fullMessage = $"{chatMessageCode}";
+
+                    communicator.SendData(fullMessage);
+                    string codeStyles = communicator.ReceiveFileData();
+                    string codeString = codeStyles.Substring(0, 3);
+
+                    if (codeString == ((int)MessageCodes.MC_GET_CODE_STYLES_RESP).ToString() &&
+                        codeStyles.Length > 3)
+                    {
+                        int currentIndex = 3;
+
+                        while (currentIndex < codeStyles.Length)
+                        {
+                            // Extract data length for each message
+                            int codeLanLen = int.Parse(codeStyles.Substring(currentIndex, 3));
+                            currentIndex += 3;
+                            string codeLan = codeStyles.Substring(currentIndex, codeLanLen);
+                            currentIndex += codeLanLen;
+
+                            int dataLen = int.Parse(codeStyles.Substring(currentIndex, 7));
+                            currentIndex += 7;
+                            string data = codeStyles.Substring(currentIndex, dataLen);
+                            currentIndex += dataLen;
+
+                            string filePath = System.IO.Path.Combine(communicator.DirectoryPath, $"{codeLan}.xshd");
+                            File.WriteAllText(filePath, data);
+                        }
+                    }
+                }
 
             }
             catch (Exception)

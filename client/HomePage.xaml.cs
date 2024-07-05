@@ -144,7 +144,7 @@ namespace client_side
                     addFriendBtn.Visibility = Visibility.Collapsed;
                     addFriendText.Visibility = Visibility.Collapsed;
                     closeSerachBtn.Visibility = Visibility.Collapsed;
-
+                    AddProjectBtn.Visibility = Visibility.Visible;
                     /* Show "Upload Picture" button only if no profile image exists
                     if (displayedUserProfile.ProfileImage == null)
                     {
@@ -161,6 +161,7 @@ namespace client_side
                     addFriendBtn.Visibility = Visibility.Collapsed;
                     addFriendText.Visibility = Visibility.Collapsed;
                     closeSerachBtn.Visibility = Visibility.Collapsed;
+                    AddProjectBtn.Visibility = Visibility.Collapsed;
                 }
 
                 DataContext = displayedUserProfile;
@@ -745,6 +746,7 @@ namespace client_side
                         addFriendText.Visibility = Visibility.Collapsed;
                         addFriendBtn.Visibility = Visibility.Collapsed;
                         closeSerachBtn.Visibility = Visibility.Collapsed;
+                        AddProjectBtn.Visibility = Visibility.Visible;
                         return;
                     }
                     else if(inSearch && !isFriend)
@@ -757,6 +759,7 @@ namespace client_side
                         addFriendText.Visibility = Visibility.Visible;
                         addFriendBtn.Visibility = Visibility.Visible;
                         closeSerachBtn.Visibility = Visibility.Visible;
+                        AddProjectBtn.Visibility = Visibility.Collapsed;
                         return;
                     }
                     else if (inSearch && isFriend)
@@ -769,6 +772,7 @@ namespace client_side
                         addFriendText.Visibility = Visibility.Collapsed;
                         addFriendBtn.Visibility = Visibility.Collapsed;
                         closeSerachBtn.Visibility = Visibility.Visible;
+                        AddProjectBtn.Visibility = Visibility.Collapsed;
                     }
                     else
                     {
@@ -780,6 +784,7 @@ namespace client_side
                         addFriendText.Visibility = Visibility.Collapsed;
                         addFriendBtn.Visibility = Visibility.Collapsed;
                         closeSerachBtn.Visibility = Visibility.Collapsed;
+                        AddProjectBtn.Visibility = Visibility.Collapsed;
                         return;
                     }
                 });

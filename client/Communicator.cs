@@ -60,6 +60,7 @@ namespace client_side
         MC_UPDATE_PROJECT_LIST_REQUEST = 147,
         MC_GET_PROJECT_INFO_REQUEST = 148,
         MC_MODIFY_PROJECT_INFO_REQUEST = 149,
+        MC_GET_CODE_STYLES_REQUEST = 150,
 
         MC_ERROR_RESP = 200, //responses
         MC_INITIAL_RESP = 201,
@@ -111,6 +112,7 @@ namespace client_side
         MC_UPDATE_PROJECT_LIST_RESP = 247,
         MC_GET_PROJECT_INFO_RESP = 248,
         MC_MODIFY_PROJECT_INFO_RESP = 249,
+        MC_GET_CODE_STYLES_RESP = 250,
 
         MC_DISCONNECT = 300, //user
         MC_LOGIN_REQUEST = 301,
@@ -130,6 +132,8 @@ namespace client_side
 
     public class Communicator
     {
+        public string DirectoryPath = @"C:\githubDemo\codeStyles";
+
         private Socket m_socket;
         public int UserId { get; set; }
         public string UserName { get; set; }
@@ -179,7 +183,16 @@ namespace client_side
 
         public string ReceiveData()
         {
-            byte[] buffer = new byte[1048];  // Adjust the buffer size as needed
+            byte[] buffer = new byte[512];  // Adjust the buffer size as needed
+            int bytesRead = m_socket.Receive(buffer);
+            string rep = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+            //LogAction(rep);
+            return rep;
+        }
+
+        public string ReceiveFileData()
+        {
+            byte[] buffer = new byte[30000];  // Adjust the buffer size as needed
             int bytesRead = m_socket.Receive(buffer);
             string rep = Encoding.UTF8.GetString(buffer, 0, bytesRead);
             //LogAction(rep);

@@ -44,9 +44,9 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <TextBox x:Name="txtFileName" Margin="0,0,5,0" Width="138" VerticalAlignment="Center"/>
-            <Button Content="Apply" Click="ApplyFileNameChange_Click" Margin="208,0,0,0" Grid.ColumnSpan="3" HorizontalAlignment="Left"/>
-            <Button Content="Close" Click="CloseFile_Click" Margin="115,0,0,0" HorizontalAlignment="Left"/>
+            <TextBox x:Name="txtFileName" Margin="0,0,5,0" Width="138" VerticalAlignment="Center" IsReadOnly="False"/>
+            <Button x:Name="ApplayNameChangeBtn" Visibility="Visible" Content="Apply" Click="ApplyFileNameChange_Click" Margin="208,0,0,0" Grid.ColumnSpan="3" HorizontalAlignment="Left"/>
+            <Button x:Name="closeFileBtn" Content="Close" Click="CloseFile_Click" Margin="115,0,0,0" HorizontalAlignment="Left"/>
         </Grid>
 
         <!-- AvalonEdit for text editing -->

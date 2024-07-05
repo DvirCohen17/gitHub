@@ -56,7 +56,11 @@ namespace client_side
             codeLaneguage = codeLan;
             insideFile = false;
 
-            txtFileContent.IsEnabled = isEditable ? true : false ; 
+            txtFileContent.IsEnabled = isEditable ? true : false ;
+            txtFileName.IsReadOnly = isEditable ? false : true ;
+            ApplayNameChangeBtn.Visibility = isEditable ? Visibility.Visible : Visibility.Collapsed;
+            closeFileBtn.Visibility = Visibility.Collapsed;
+            txtNewFileName.Visibility = isEditable ? Visibility.Visible : Visibility.Collapsed;
             try
             {
                 Friends = new ObservableCollection<User>();
@@ -702,6 +706,7 @@ namespace client_side
 
                 code = ((int)MessageCodes.MC_INITIAL_REQUEST).ToString();
                 communicator.SendData($"{code}{ProjectName.Length:D5}{ProjectName}{FileName.Length:D5}{FileName}");
+                closeFileBtn.Visibility = Visibility.Visible;
             }
         }
         
@@ -737,19 +742,19 @@ namespace client_side
             switch (codeLanguage)
             {
                 case "cpp":
-                    filePath = "C:\\Users\\test0\\OneDrive\\Documents\\cyber\\cloud\\client\\client_side\\codeStyles\\CPP-Mode.xshd";
+                    filePath = $"{communicator.DirectoryPath}\\CPP-Mode.xshd";
                     break;
                 case "python":
-                    filePath = "C:\\Users\\test0\\OneDrive\\Documents\\cyber\\cloud\\client\\client_side\\codeStyles\\PY-Mode.xshd";
+                    filePath = $"{communicator.DirectoryPath}\\PY-Mode.xshd";
                     break;
                 case "cs":
-                    filePath = "C:\\Users\\test0\\OneDrive\\Documents\\cyber\\cloud\\client\\client_side\\codeStyles\\CS-Mode.xshd";
+                    filePath = $"{communicator.DirectoryPath}\\CS-Mode.xshd";
                     break;
                 case "java":
-                    filePath = "C:\\Users\\test0\\OneDrive\\Documents\\cyber\\cloud\\client\\client_side\\codeStyles\\JAVA-Mode.xshd";
+                    filePath = $"{communicator.DirectoryPath}\\JAVA-Mode.xshd";
                     break;
                 case "JavaScript":
-                    filePath = "C:\\Users\\test0\\OneDrive\\Documents\\cyber\\cloud\\client\\client_side\\codeStyles\\JavaScript-Mode.xshd";
+                    filePath = $"{communicator.DirectoryPath}\\JavaScript-Mode.xshd";
                     break;
                 default:
                     txtFileContent.SyntaxHighlighting = null;
@@ -1426,7 +1431,7 @@ namespace client_side
             communicator.SendData(fullMessage);
             currFileName = "";
             txtFileName.Text = "";
-
+            closeFileBtn.Visibility = Visibility.Collapsed;
             // Clear the content of the TextEditor
             txtFileContent.Clear();
         }
