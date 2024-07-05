@@ -21,6 +21,9 @@ public:
 
 	// ******* GETTERS *******
 
+	//******* VERSION *******
+	std::string getLatestVersion() override;
+
 	// ******* PROFILE *******
 	bool addNewUser(std::string username, std::string password, std::string email) override;
 	int getUserId(std::string username) override;
@@ -121,5 +124,6 @@ private:
 	bool send_FriendReq(sqlite3* db, std::string msg, std::list<FriendReq>* data);
 	bool send_ProjectPermissions(sqlite3* db, std::string msg, std::list<ProjectPermission>* data);
 	bool send_ProjectJoinInvite(sqlite3* db, std::string msg, std::list<ProjectJoinInvite>* data);
+	bool send_ClientVersion(sqlite3* db, std::string msg, std::list<std::string>* data);
 };
 

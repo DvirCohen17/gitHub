@@ -186,4 +186,6 @@ public:
     void modifyProjectInfo(SOCKET client_sock, std::string oldProjectName, std::string newProjectName, std::string friendList, std::string codeLan);
     void getProjectInfo(SOCKET client_sock, std::string projectName);
     
+    void getCodeStyles(SOCKET client_sock);
+
 };

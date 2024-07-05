@@ -98,6 +98,9 @@ public:
 	virtual bool isCreator(std::string projectName, int userId) = 0;
 
 	// ******* GETTERS *******
+	
+	//******* VERSION *******
+	virtual std::string getLatestVersion() = 0;
 
 	// ******* PROFILE *******
 	virtual bool addNewUser(std::string username, std::string password, std::string email) = 0;

@@ -214,6 +214,21 @@ int callback_ProjectJoinInvite(void* data, int argc, char** argv, char** azColNa
 	return 0;
 }
 
+int callback_ClientVersion(void* data, int argc, char** argv, char** azColName)
+{
+	std::list<std::string>* list_invites = (std::list<std::string>*)data;
+	std::string invite;
+
+	for (int i = 0; i < argc; i++) {
+		if (std::string(azColName[i]) == "Version") {
+			invite = std::stoi(argv[i]);
+		}
+	}
+	list_invites->push_back(invite);
+	return 0;
+}
+
+
 int callback_Friend(void* data, int argc, char** argv, char** azColName)
 {
 	std::list<Friends>* list_friends = (std::list<Friends>*)data;
@@ -372,6 +387,17 @@ bool SqliteDataBase::send_ProjectJoinInvite(sqlite3* db, std::string msg, std::l
 	return true;
 }
 
+bool SqliteDataBase::send_ClientVersion(sqlite3* db, std::string msg, std::list<std::string>* data)
+{
+	const char* sqlStatement = msg.c_str();
+	char* errMessage = nullptr;
+	int res = sqlite3_exec(db, sqlStatement, callback_ProjectJoinInvite, data, &errMessage);
+	if (res != SQLITE_OK)
+		return false;
+
+	return true;
+}
+
 bool SqliteDataBase::send_Friends(sqlite3* db, std::string msg, std::list<Friends>* data)
 {
 	const char* sqlStatement = msg.c_str();
@@ -511,6 +537,11 @@ bool SqliteDataBase::open()
 			"Data	TEXT,"
 			"FOREIGN KEY(FileId) REFERENCES Files(fileId),"
 			"PRIMARY KEY(Id AUTOINCREMENT)"
+			"); ";
+		send(_db, msg);
+		msg = "CREATE TABLE ClientVersion ("
+			"Version	TEXT,"
+			"PRIMARY KEY(Version)"
 			"); ";
 		send(_db, msg);
 	}
@@ -1293,9 +1324,25 @@ void SqliteDataBase::approveFriendReq(int userId, int friendRequsetId)
 
 	addFriend(userId, userFriend2.fiendsList);
 }
+
 void SqliteDataBase::rejectFriendReq(int userId, int friendRequsetId)
 {
 	std::string msg = "DELETE FROM FriendReq WHERE friendReqId = " + std::to_string(friendRequsetId) +
 		" AND userId = " + std::to_string(userId) + ";";
 	send(_db, msg);
+}
+
+std::string SqliteDataBase::getLatestVersion()
+{
+	std::string msg = "SELECT * from ClientVersion;";
+	std::list<std::string> versionList;
+	send_ClientVersion(_db, msg, &versionList);
+	
+	for (auto item : versionList)
+	{
+		if (!item.empty())
+		{
+			return item;
+		}
+	}
 }

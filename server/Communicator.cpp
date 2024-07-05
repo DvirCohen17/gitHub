@@ -2,6 +2,13 @@
 #include <cstdio> // For popen and pclose
 
 extern std::unordered_map<std::string, std::mutex> m_fileMutexes;
+const std::unordered_map<std::string, std::string> codeStyles = {
+	{"CPP-Mode", ".\\codeStyles\\CPP-Mode.xshd"},
+	{"PY-Mode", ".\\codeStyles\\PY-Mode.xshd"},
+	{"CS-Mode", ".\\codeStyles\\CS-Mode.xshd"},
+	{"JAVA-Mode", ".\\codeStyles\\JAVA-Mode.xshd"},
+	{"JavaScript-Mode", ".\\codeStyles\\JavaScript-Mode.xshd"}
+};
 
 std::string Communicator::executeCommand(const std::string& command) {
 	std::string result;
@@ -1506,6 +1513,28 @@ void Communicator::backToMainPage(SOCKET client_sock)
 	m_clients[client_sock]->setWindow("HomePage");
 }
 
+void Communicator::getCodeStyles(SOCKET client_sock)
+{
+	std::string repCode = std::to_string(MC_GET_CODE_STYLES_RESP);
+	std::string path;
+	std::string lengthString;
+	for (auto file : codeStyles)
+	{
+		path = file.second;
+		std::string data = fileOperationHandler.readFromFile(path);
+
+		lengthString = std::to_string(file.first.length());
+		lengthString = std::string(3 - lengthString.length(), '0') + lengthString;
+		repCode += lengthString + file.first;
+
+		lengthString = std::to_string(data.length());
+		lengthString = std::string(7 - lengthString.length(), '0') + lengthString;
+		repCode += lengthString + data;
+	}
+
+	Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
+}
+
 void Communicator::handleNewClient(SOCKET client_sock)
 {
 	bool run = true;
@@ -1526,7 +1555,7 @@ void Communicator::handleNewClient(SOCKET client_sock)
 	{
 		try
 		{
-			buf = Helper::getPartFromSocket(client_sock, 1024);
+			buf = Helper::getPartFromSocket(client_sock, 512);
 			if (buf.size() == 0)
 			{
 				closesocket(client_sock);
@@ -1689,6 +1718,9 @@ void Communicator::handleNewClient(SOCKET client_sock)
 				break;
 			case MC_RENAME_FILE_REQUEST:
 				renameFile(client_sock, reqDetail.fileName,reqDetail.oldFileName, reqDetail.projectName);
+				break;
+			case MC_GET_CODE_STYLES_REQUEST:
+				getCodeStyles(client_sock);
 				break;
 			case MC_DISCONNECT: // Handle disconnect request
 				run = false;
@@ -1984,6 +2016,9 @@ Action Communicator::deconstructReq(const std::string& req) {
 		newAction.fileName = action.substr(10 + newAction.projectNameLength, std::stoi(newAction.fileNameLength));		break;
 		break;
 	case MC_GET_FILES_REQUEST:
+		//newAction.data = action;
+		break;
+	case MC_GET_CODE_STYLES_REQUEST:
 		//newAction.data = action;
 		break;
 	case MC_GET_MESSAGES_REQUEST:
