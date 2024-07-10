@@ -149,7 +149,7 @@
         </StackPanel>
 
 
-        <Button x:Name="settingsBtn" Content="settings" Visibility="Visible" Width="53" Height="23" Margin="234,8,0,0" Background="Transparent" Foreground="white" BorderThickness="0" Grid.Column="1" HorizontalAlignment="Left" VerticalAlignment="Top" />
+        <Button x:Name="settingsBtn" Click="Settings_Click" Content="settings" Visibility="Visible" Width="53" Height="23" Margin="234,8,0,0" Background="Transparent" Foreground="white" BorderThickness="0" Grid.Column="1" HorizontalAlignment="Left" VerticalAlignment="Top" />
 
         <!-- Friends Section -->
         <StackPanel Grid.Column="1" Grid.Row="0" Grid.RowSpan="2" Margin="10,60,0,0">

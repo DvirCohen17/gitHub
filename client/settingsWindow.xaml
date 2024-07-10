@@ -1,0 +1,16 @@
+﻿<Window x:Class="client_side.settingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:client_side"
+        mc:Ignorable="d"
+        Title="settingsWindow" Height="600" Width="1000" Closing="settings_CloseFile">
+    <Grid x:Name="MainGrid">
+        <StackPanel Orientation="Vertical" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10">
+            <Button Content="Modify Code Style" Click="ModifyCodeStyle_Click" Margin="5"/>
+            <Button x:Name="closeSettings" Content="close settings" Click="CloseButton_Click" Margin="5" Visibility="Visible"/>
+            <!-- Add more buttons here for other actions -->
+        </StackPanel>
+    </Grid>
+</Window>

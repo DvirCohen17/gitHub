@@ -111,6 +111,7 @@ namespace client_side
                 string bio = profileRep.Substring(bioLenPos + 5, bioLen);
                 BitmapImage receivedImage = null;
 
+                
                 /*
                 int imageLenPos = bioLenPos + 5 + bioLen;
                 int imageSize = int.Parse(profileRep.Substring(imageLenPos, 6));
@@ -124,6 +125,7 @@ namespace client_side
                         receivedImage = communicator.ByteArrayToImage(imageData);
                     }
                 }
+                
                 */
 
                 displayedUserProfile = new UserProfile
@@ -373,6 +375,9 @@ namespace client_side
                             break;
                         case "300":
                             HandleDisconnect(update);
+                            break;
+                        case "251":
+                            HandleMoveToSettings(update);
                             break;
                         default:
                             throw new InvalidOperationException($"{code}");
@@ -641,6 +646,19 @@ namespace client_side
             {
                 //AddProjectWindow addProjectWindow = new AddProjectWindow(communicator);
                 AddProjectWindow addProjectWindow = new AddProjectWindow(communicator, mode, name);
+                addProjectWindow.Show();
+                Close();
+            });
+        }
+
+        private void HandleMoveToSettings(string update)
+        {
+            disconnect = false;
+            isListeningToServer = false;
+            Dispatcher.Invoke(() =>
+            {
+                //AddProjectWindow addProjectWindow = new AddProjectWindow(communicator);
+                settingsWindow addProjectWindow = new settingsWindow(communicator);
                 addProjectWindow.Show();
                 Close();
             });
@@ -997,6 +1015,13 @@ namespace client_side
             BioTextBlock.Visibility = Visibility.Collapsed;
             addFriendText.Visibility = Visibility.Collapsed;
             addFriendBtn.Visibility = Visibility.Collapsed;
+            AddProjectBtn.Visibility = Visibility.Visible;
+        }
+        
+        private void Settings_Click(object sender, RoutedEventArgs e)
+        {
+            string code = ((int)MessageCodes.MC_SETTINGS_REQUEST).ToString();
+            communicator.SendData($"{code}");
         }
         
         private void AddProject_Click(object sender, RoutedEventArgs e)

@@ -61,6 +61,7 @@ namespace client_side
         MC_GET_PROJECT_INFO_REQUEST = 148,
         MC_MODIFY_PROJECT_INFO_REQUEST = 149,
         MC_GET_CODE_STYLES_REQUEST = 150,
+        MC_SETTINGS_REQUEST = 151,
 
         MC_ERROR_RESP = 200, //responses
         MC_INITIAL_RESP = 201,
@@ -113,6 +114,7 @@ namespace client_side
         MC_GET_PROJECT_INFO_RESP = 248,
         MC_MODIFY_PROJECT_INFO_RESP = 249,
         MC_GET_CODE_STYLES_RESP = 250,
+        MC_SETTINGS_RESP = 251,
 
         MC_DISCONNECT = 300, //user
         MC_LOGIN_REQUEST = 301,

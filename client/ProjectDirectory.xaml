@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:client_side"
         xmlns:avalonedit="http://icsharpcode.net/sharpdevelop/avalonedit"
         mc:Ignorable="d"
-        Title="Collaborative Text Editor" Loaded="Window_Loaded" Closing="ProjectDirectory_CloseFile">
+        Title="Collaborative Text Editor" Loaded="Window_Loaded" WindowState="Maximized" Closing="ProjectDirectory_CloseFile">
 
     <Window.Resources>
         <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
@@ -20,13 +20,13 @@
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="200"/>
             <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="auto"/>
         </Grid.ColumnDefinitions>
 
         <!-- File List section -->
-        <StackPanel Grid.Column="0" Grid.RowSpan="2" Background="DarkSlateGray" Margin="0,0,10,0">
-            <Button Content="Return to Main Page" Click="ReturnToMainPage_Click"/>
-            <ListBox x:Name="lstFileList" FontSize="14" Background="Black" Foreground="White" Margin="5,0,5,5" MouseDoubleClick="LstFiles_MouseDoubleClick" PreviewKeyDown="LstFiles_PreviewKeyDown">
+        <StackPanel Grid.Column="0" Grid.RowSpan="2" Background="black" Margin="0,0,10,0">
+            <Button Content="Return to Main Page" Margin="10" Click="ReturnToMainPage_Click"/>
+            <ListBox x:Name="lstFileList" FontSize="14" Background="Black" Foreground="White" Margin="45,60,5,5" MouseDoubleClick="LstFiles_MouseDoubleClick" PreviewKeyDown="LstFiles_PreviewKeyDown">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <TextBlock Text="{Binding FileName}" Padding="5"/>
@@ -45,8 +45,8 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <TextBox x:Name="txtFileName" Margin="0,0,5,0" Width="138" VerticalAlignment="Center" IsReadOnly="False"/>
-            <Button x:Name="ApplayNameChangeBtn" Visibility="Visible" Content="Apply" Click="ApplyFileNameChange_Click" Margin="208,0,0,0" Grid.ColumnSpan="3" HorizontalAlignment="Left"/>
-            <Button x:Name="closeFileBtn" Content="Close" Click="CloseFile_Click" Margin="115,0,0,0" HorizontalAlignment="Left"/>
+            <Button x:Name="ApplayNameChangeBtn" Visibility="Visible" Content="Apply" Click="ApplyFileNameChange_Click" Margin="0,0,0,0" Grid.ColumnSpan="3" HorizontalAlignment="Right"/>
+            <Button x:Name="closeFileBtn" Content="Close" Click="CloseFile_Click" Margin="35,0,0,0" HorizontalAlignment="Left"/>
         </Grid>
 
         <!-- AvalonEdit for text editing -->
@@ -59,10 +59,11 @@
                                ShowLineNumbers="True"
                                Background="Black"
                                Foreground="White"
-                               IsEnabled="True"/>
+                               IsEnabled="True"
+                               Width="870"/>
 
         <!-- Right-side panel for chat and user list -->
-        <StackPanel Grid.Column="2" Grid.RowSpan="2" Orientation="Vertical" Width="200" Background="DarkSlateGray">
+        <StackPanel Grid.Column="2" Grid.RowSpan="2" Orientation="Vertical" Width="200" Background="black">
             <!-- Chat section -->
             <StackPanel>
                 <TextBlock Text="   Chat" FontWeight="Bold" Height="27" Foreground="White"/>
@@ -90,9 +91,12 @@
             </StackPanel>
 
             <!-- User List section -->
+
+            <Border Background="Transparent" BorderBrush="White" Margin="-15,0,00,0" Height="203" Width="200" BorderThickness="1" CornerRadius="50" />
+
             <StackPanel>
-                <TextBlock Text="   User List" FontWeight="Bold" Foreground="White" Height="23"/>
-                <ListBox x:Name="lstFriends" ItemsSource="{Binding Friends}" Height="150" Background="Black" Foreground="White" >
+                <TextBlock Text="   User List" FontWeight="Bold" Foreground="White" Margin="0,-420,0,0" Height="23"/>
+                <ListBox x:Name="lstFriends" ItemsSource="{Binding Friends}" Height="150" Width="195" Margin="0,-200,0,0" Background="Black" Foreground="White" >
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <Grid>

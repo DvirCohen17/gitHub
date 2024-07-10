@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:client_side"
         mc:Ignorable="d"
         Title="Login" Height="300" Width="400"
-        ResizeMode="NoResize" Closing="login_CloseFile">
+        ResizeMode="NoResize" Closing="login_CloseFile" >
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>

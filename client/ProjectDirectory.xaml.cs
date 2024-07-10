@@ -278,18 +278,18 @@ namespace client_side
             }
         }
 
-        public static string GetNextSourceFileName(List<string> fileNames)
+        public static string GetNextSourceFileName(List<FileViewModel> fileNames, string extension)
         {
-            // Regex pattern to match "source" followed by an optional number
-            string pattern = @"^source(\d*)$";
+            // Regex pattern to match "source" followed by an optional number and the specified extension
+            string pattern = $@"^source(\d*)\{extension}$";
             Regex regex = new Regex(pattern);
 
             // List to store the numbers extracted from the file names
             List<int> sourceNumbers = new List<int>();
 
-            foreach (var fileName in fileNames)
+            foreach (var file in fileNames)
             {
-                Match match = regex.Match(fileName);
+                Match match = regex.Match(file.FileName);
                 if (match.Success)
                 {
                     // If the number is present, parse it; otherwise, consider it as "source0"
@@ -306,9 +306,9 @@ namespace client_side
 
             // Find the highest number and return the next available "source" file name
             int nextNumber = sourceNumbers.Count > 0 ? sourceNumbers.Max() + 1 : 0;
-            return nextNumber == 0 ? "source" : $"source{nextNumber}";
+            return nextNumber == 0 ? $"source{extension}" : $"source{nextNumber}{extension}";
         }
-        
+
         private void TextBoxInput_KeyDown(object sender, KeyEventArgs e)
         {
             try
@@ -318,13 +318,13 @@ namespace client_side
                     insideFile = true;
 
                     // Assuming you have a list of file names in your ListBox
-                    List<string> fileNames = lstFileList.Items.OfType<string>().ToList();
+                    List<FileViewModel> fileNames = lstFileList.Items.OfType<FileViewModel>().ToList();
 
                     // Get the next available "source" file name
-                    string nextSourceFileName = GetNextSourceFileName(fileNames);
+                    string nextSourceFileName = GetNextSourceFileName(fileNames, "." + codeLaneguage);
 
                     // Display or use the next available "source" file name
-                    string newFileName = nextSourceFileName + ".txt"; // cahnge later to .codeLan
+                    string newFileName = nextSourceFileName; // cahnge later to .codeLan
 
                     string code = ((int)MessageCodes.MC_CREATE_FILE_REQUEST).ToString();
                     communicator.SendData($"{code}{ProjectName.Length:D5}{ProjectName}" +
@@ -334,6 +334,7 @@ namespace client_side
                     communicator.SendData($"{code}{newFileName.Length:D5}{newFileName}{communicator.UserId}");
                     txtFileName.Text = newFileName;
                     currFileName = newFileName;
+                    closeFileBtn.Visibility = Visibility.Visible;
                 }
 
                 // Check if Caps Lock key is pressed
@@ -742,16 +743,17 @@ namespace client_side
             switch (codeLanguage)
             {
                 case "cpp":
-                    filePath = $"{communicator.DirectoryPath}\\CPP-Mode.xshd";
+                    filePath = $"{communicator.DirectoryPath}\\C++-Mode.xshd";
                     break;
                 case "python":
-                    filePath = $"{communicator.DirectoryPath}\\PY-Mode.xshd";
+                    filePath = $"{communicator.DirectoryPath}\\Python-Mode.xshd";
+                    codeLaneguage = "py";
                     break;
                 case "cs":
-                    filePath = $"{communicator.DirectoryPath}\\CS-Mode.xshd";
+                    filePath = $"{communicator.DirectoryPath}\\C#-Mode.xshd";
                     break;
                 case "java":
-                    filePath = $"{communicator.DirectoryPath}\\JAVA-Mode.xshd";
+                    filePath = $"{communicator.DirectoryPath}\\Java-Mode.xshd";
                     break;
                 case "JavaScript":
                     filePath = $"{communicator.DirectoryPath}\\JavaScript-Mode.xshd";
@@ -1365,9 +1367,11 @@ namespace client_side
                         lblErr.Content = "File already exists";
                         return;
                     }
+
+                    string newName = txtNewFileName.Text + "." + codeLaneguage;
                     string code = ((int)MessageCodes.MC_CREATE_FILE_REQUEST).ToString();
                     communicator.SendData($"{code}{ProjectName.Length:D5}{ProjectName}" +
-                        $"{txtNewFileName.Text.Length:D5}{txtNewFileName.Text}");
+                        $"{newName.Length:D5}{newName}");
                     return;
                 }
             }
@@ -1442,7 +1446,6 @@ namespace client_side
             string fullMessage = $"{chatMessageCode}{newFileName.Length:D5}{newFileName}{ProjectName.Length:D5}{ProjectName}";
             communicator.SendData(fullMessage);
         }
-
 
         private void approveRequest_Click(object sender, RoutedEventArgs e)
         {

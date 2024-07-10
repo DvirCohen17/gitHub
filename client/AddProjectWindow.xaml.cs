@@ -306,7 +306,7 @@ namespace client_side
                     UserSearchTextBox.IsReadOnly = false;
                     ProjectNameTextBox.Visibility = Visibility.Visible;
                     ProjectNameTextBox.IsReadOnly = false;
-                    CodeLanguageComboBox.IsEnabled = true;
+                    CodeLanguageComboBox.IsEnabled = false;
                     craeteBtn.Visibility = Visibility.Collapsed;
                     editBtn.Visibility = Visibility.Visible;
                     PrivateCheckBox.IsEnabled = true;
