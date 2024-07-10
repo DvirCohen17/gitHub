@@ -774,7 +774,7 @@ void SqliteDataBase::addFile(int userId, const std::string& fileName, int projec
 	std::string msg = "INSERT INTO Files (creatorId, fileName, ProjectId) "
 		"VALUES (" + std::to_string(userId) + ", \'" + fileName + "\'," + std::to_string(projectId) + ");";
 	send(_db, msg);
-	msg = "INSERT FROM FilesData (FileId, Data) VALUES (" + std::to_string(getFileDetails(fileName, projectId).fileId) + ", \'\');";
+	msg = "INSERT INTO FilesData (FileId, Data) VALUES (" + std::to_string(getFileDetails(fileName, projectId).fileId) + ", \'\');";
 	send(_db, msg);
 }
 
@@ -1103,6 +1103,10 @@ void SqliteDataBase::modifyProjectInfo(std::string oldProjectName, std::string n
 		if (!hasPermissionToProject(projectId, user.first.userId))
 		{
 			createProjectJoinInvite(projectId, user.first.userId, user.second);
+		}
+		else
+		{
+			changeUserRoleInProject(projectId, user.first.userId, user.second);
 		}
 	}
 }

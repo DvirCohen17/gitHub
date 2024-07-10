@@ -187,5 +187,6 @@ public:
     void getProjectInfo(SOCKET client_sock, std::string projectName);
     
     void getCodeStyles(SOCKET client_sock);
+    void moveToSettings(SOCKET client_sock);
 
 };

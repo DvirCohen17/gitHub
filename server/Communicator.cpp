@@ -3,10 +3,10 @@
 
 extern std::unordered_map<std::string, std::mutex> m_fileMutexes;
 const std::unordered_map<std::string, std::string> codeStyles = {
-	{"CPP-Mode", ".\\codeStyles\\CPP-Mode.xshd"},
-	{"PY-Mode", ".\\codeStyles\\PY-Mode.xshd"},
-	{"CS-Mode", ".\\codeStyles\\CS-Mode.xshd"},
-	{"JAVA-Mode", ".\\codeStyles\\JAVA-Mode.xshd"},
+	{"C++-Mode", ".\\codeStyles\\C++-Mode.xshd"},
+	{"Python-Mode", ".\\codeStyles\\Python-Mode.xshd"},
+	{"C#-Mode", ".\\codeStyles\\C#-Mode.xshd"},
+	{"Java-Mode", ".\\codeStyles\\Java-Mode.xshd"},
 	{"JavaScript-Mode", ".\\codeStyles\\JavaScript-Mode.xshd"}
 };
 
@@ -238,7 +238,7 @@ void Communicator::createFile(SOCKET client_sock, std::string fileName, std::str
 		filesMap[fileName] = fileList.fileId;
 
 		m_fileMutexes[fileList.fileId];
-
+		m_filesData[fileList.fileId] = "";
 
 		//m_database->addUserPermission(m_clients[client_sock]->getId(), m_fileNames[fileName + ".txt"]);
 
@@ -1096,13 +1096,9 @@ void Communicator::modifyProjectInfo(SOCKET client_sock, std::string oldProjectN
 
 	int index = 0;
 	Project project = m_database->getProject(oldProjectName, -1);
-	std::list<std::string> oldFriendList;
+	std::map<std::string, std::string> oldFriendList;
+	std::map<std::string, std::string> newFriendList;
 
-	for (auto user : m_database->getProjectParticipants(project.projectId))
-	{
-		oldFriendList.push_back(user.first);
-	}
-	
 	while (index < friendList.length())
 	{
 		int nameLengeth = std::stoi(friendList.substr(index, 5));
@@ -1110,16 +1106,6 @@ void Communicator::modifyProjectInfo(SOCKET client_sock, std::string oldProjectN
 
 		std::string name = friendList.substr(index, nameLengeth);
 		index += nameLengeth;
-
-		auto it = std::find_if(oldFriendList.begin(), oldFriendList.end(), [&name](const std::string& item) {
-			return item == name;
-			});
-
-		if (it != oldFriendList.end())
-		{
-			m_database->deleteProjectPermission(project.projectId, m_database->getUserId(name));
-			continue;
-		}
 
 		std::string roleMsg = friendList.substr(index, 1);
 		index += 1;
@@ -1132,9 +1118,40 @@ void Communicator::modifyProjectInfo(SOCKET client_sock, std::string oldProjectN
 		{
 			role = "participant";
 		}
+		newFriendList[name] = role;
+	}
 
+	for (auto user : m_database->getProjectParticipants(project.projectId))
+	{
+		oldFriendList[user.first] = user.second;
+
+		std::string userName = user.first;
+		auto it = std::find_if(newFriendList.begin(), newFriendList.end(), [&userName](const auto& pair) {
+			return pair.first == userName; // Assuming pair.first is the SOCKET identifier
+			});
+
+		if (it == newFriendList.end())
+		{
+			m_database->deleteProjectPermission(project.projectId, m_database->getUserId(userName));
+			auto userIt = std::find_if(m_clients.begin(), m_clients.end(), [&userName](const auto& pair) {
+				return pair.second->getUsername() == userName; // Assuming pair.first is the SOCKET identifier
+				});
+
+			if (userIt != m_clients.end()) {
+				// Client handler found, client is online
+				repCode = std::to_string(MC_UPDATE_PROJECT_LIST_REQUEST);
+				Helper::sendData(userIt->first, BUFFER(repCode.begin(), repCode.end()));
+			}
+			continue;
+		}
+
+	}
+	
+	for (auto item : newFriendList)
+	{
+		std::string name = item.first;
 		ProfileInfo profile = m_database->getUsersInfo(m_database->getUserId(name));
-		friends[profile] = role;
+		friends[profile] = item.second;
 
 		auto userIr = std::find_if(m_clients.begin(), m_clients.end(), [&name](const auto& pair) {
 			return pair.second->getUsername() == name; // Assuming pair.first is the SOCKET identifier
@@ -1439,14 +1456,23 @@ void Communicator::searchFriends(SOCKET client_sock, std::string nsearchCommand)
 
 void Communicator::editProjectInfo(SOCKET client_sock, std::string projectName)
 {
-	std::string lengthString = std::to_string(projectName.length());
-	lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
-	bool isCretor = m_database->isCreator(projectName, m_database->getUserId(m_clients[client_sock]->getUsername()));
-	std::string repCode = std::to_string(MC_MOVE_TO_CREATE_PROJ_WINDOW_RESP) + lengthString + projectName;
-	repCode += isCretor ? "creator" : "editor";
+	Project project = m_database->getProject(projectName, -1);
+	if (m_usersOnProject.find(project.projectId) != m_usersOnProject.end()
+		&& !m_usersOnProject[project.projectId].empty())
+	{
+		throw std::exception("cannot edit. Someone is inside");
+	}
+	else
+	{
+		std::string lengthString = std::to_string(projectName.length());
+		lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
+		bool isCretor = m_database->isCreator(projectName, m_database->getUserId(m_clients[client_sock]->getUsername()));
+		std::string repCode = std::to_string(MC_MOVE_TO_CREATE_PROJ_WINDOW_RESP) + lengthString + projectName;
+		repCode += isCretor ? "creator" : "editor";
 
-	m_clients[client_sock]->setWindow("createProjectWindow");
-	Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
+		m_clients[client_sock]->setWindow("createProjectWindow");
+		Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
+	}
 }
 
 void Communicator::viewProjectInfo(SOCKET client_sock, std::string projectName)
@@ -1532,6 +1558,13 @@ void Communicator::getCodeStyles(SOCKET client_sock)
 		repCode += lengthString + data;
 	}
 
+	Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
+}
+
+void Communicator::moveToSettings(SOCKET client_sock)
+{
+	std::string repCode = std::to_string(MC_SETTINGS_RESP);
+	m_clients[client_sock]->setWindow("settings");
 	Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
 }
 
@@ -1721,6 +1754,9 @@ void Communicator::handleNewClient(SOCKET client_sock)
 				break;
 			case MC_GET_CODE_STYLES_REQUEST:
 				getCodeStyles(client_sock);
+				break;
+			case MC_SETTINGS_REQUEST:
+				moveToSettings(client_sock);
 				break;
 			case MC_DISCONNECT: // Handle disconnect request
 				run = false;
@@ -2263,6 +2299,8 @@ Action Communicator::deconstructReq(const std::string& req) {
 	case MC_GET_PROJECT_INFO_REQUEST:
 		newAction.projectNameLength = std::stoi(action.substr(0, 5));
 		newAction.projectName = action.substr(5, newAction.projectNameLength);
+		break;
+	case MC_SETTINGS_REQUEST:
 		break;
 	}
 	newAction.timestamp = getCurrentTimestamp();
