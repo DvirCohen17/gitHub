@@ -1,6 +1,6 @@
 # gitHub
 This is a multy server-client project. 
-Ypu can use it to create projects and work in an enviorment that support live coding with your friends, watch other people projects.
+You can use it to create projects and work in an enviorment that support live coding with your friends, watch other people projects.
 
 To use this this project you must install .net 
 
