@@ -92,7 +92,7 @@ public:
 	// ******* PROJECTS *******
 	void deleteAllProjectFiles(const int projectId) override;
 	void createProject(std::string projectName, std::map<ProfileInfo, std::string> addedUsers, std::string codeLan, int creatorId, int projectId) override;
-	void modifyProjectInfo(std::string oldProjectName, std::string newProjectName, std::map<ProfileInfo, std::string> addedUsers, std::string codeLan, int projectId) override;
+	void modifyProjectInfo(int projectId, std::string newProjectName, std::map<ProfileInfo, std::string> addedUsers, std::string codeLan) override;
 	void deleteProject(const std::string projectName) override;
 	void leaveProject(const std::string projectName, int userId) override;
 

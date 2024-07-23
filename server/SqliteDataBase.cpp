@@ -1088,7 +1088,7 @@ std::list<FileDetail> SqliteDataBase::getProjectFiles(int projectId)
 	return fileList;
 }
 
-void SqliteDataBase::modifyProjectInfo(std::string oldProjectName, std::string newProjectName, std::map<ProfileInfo, std::string> addedUsers, std::string codeLan, int projectId)
+void SqliteDataBase::modifyProjectInfo(int projectId, std::string newProjectName, std::map<ProfileInfo, std::string> addedUsers, std::string codeLan)
 {
 	std::string msg;
 
