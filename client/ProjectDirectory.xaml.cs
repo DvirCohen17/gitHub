@@ -32,6 +32,7 @@ namespace client_side
     public partial class ProjectDirectory : Window
     {
         private string ProjectName;
+        private int ProjectId;
         private string currFileName;
         private bool insideFile;
         private string codeLaneguage;
@@ -47,12 +48,13 @@ namespace client_side
         private ObservableCollection<User> friends { get; set; }
         public event PropertyChangedEventHandler PropertyChanged;
 
-        public ProjectDirectory(Communicator communicator, string projectDir, string codeLan, bool isEditable)
+        public ProjectDirectory(Communicator communicator, string projectDir, int projectId, string codeLan, bool isEditable)
         {
             InitializeComponent();
             Style = (Style)FindResource(typeof(Window));
             this.communicator = communicator;
             ProjectName = projectDir;
+            ProjectId = projectId;
             codeLaneguage = codeLan;
             insideFile = false;
 
@@ -67,9 +69,9 @@ namespace client_side
                 lstFriends.ItemsSource = Friends;
 
 
-                ReceiveInitialChat(ProjectName);     // Receive initial content from the server
-                ReceiveInitialUsers(ProjectName);    // Receive initial content from the server
-                ReceiveInitialFiles(ProjectName);    // Receive initial content from the server
+                ReceiveInitialChat(projectId);     // Receive initial content from the server
+                ReceiveInitialUsers();              // Receive initial content from the server
+                ReceiveInitialFiles(projectId);    // Receive initial content from the server
 
                 SetCodeLanguageStyle(codeLaneguage);
 
@@ -103,7 +105,7 @@ namespace client_side
             this.Top = (SystemParameters.PrimaryScreenHeight - this.Height) / 2;
         }
         
-        private void ReceiveInitialUsers(string projectName)
+        private void ReceiveInitialUsers()
         {
             try
             {
@@ -187,12 +189,12 @@ namespace client_side
             fileList.Sort((f1, f2) => string.Compare(f1.FileName, f2.FileName, StringComparison.Ordinal));
         }
 
-        private void ReceiveInitialChat(string projectName)
+        private void ReceiveInitialChat(int projectId)
         {
             try
             {
                 string code = ((int)MessageCodes.MC_GET_MESSAGES_REQUEST).ToString();
-                communicator.SendData($"{code}{projectName}");
+                communicator.SendData($"{code}{projectId}");
 
                 string initialContent = communicator.ReceiveData();
                 string codeString = initialContent.Substring(0, 3);
@@ -236,12 +238,12 @@ namespace client_side
             }
         }
 
-        private void ReceiveInitialFiles(string projectName)
+        private void ReceiveInitialFiles(int projectId)
         {
             try
             {
                 string code = ((int)MessageCodes.MC_GET_PROJECT_FILES_REQUEST).ToString();
-                communicator.SendData($"{code}{projectName}");
+                communicator.SendData($"{code}{projectId}");
 
                 string initialContent = communicator.ReceiveData();
                 string codeString = initialContent.Substring(0, 3);
@@ -327,7 +329,7 @@ namespace client_side
                     string newFileName = nextSourceFileName; // cahnge later to .codeLan
 
                     string code = ((int)MessageCodes.MC_CREATE_FILE_REQUEST).ToString();
-                    communicator.SendData($"{code}{ProjectName.Length:D5}{ProjectName}" +
+                    communicator.SendData($"{code}{ProjectId.ToString().Length:D5}{ProjectId}" +
                         $"{newFileName.Length:D5}{newFileName}");
 
                     code = ((int)MessageCodes.MC_ENTER_FILE_REQUEST).ToString();
@@ -706,7 +708,7 @@ namespace client_side
                 Thread.Sleep(500); // Sleep for 1000 milliseconds (1 second)
 
                 code = ((int)MessageCodes.MC_INITIAL_REQUEST).ToString();
-                communicator.SendData($"{code}{ProjectName.Length:D5}{ProjectName}{FileName.Length:D5}{FileName}");
+                communicator.SendData($"{code}{ProjectId.ToString().Length:D5}{ProjectId}{FileName.Length:D5}{FileName}");
                 closeFileBtn.Visibility = Visibility.Visible;
             }
         }
@@ -732,7 +734,7 @@ namespace client_side
                 };
 
                 string code = ((int)MessageCodes.MC_DELETE_FILE_REQUEST).ToString();
-                communicator.SendData($"{code}{ProjectName.Length:D5}{ProjectName}" +
+                communicator.SendData($"{code}{ProjectId.ToString().Length:D5}{ProjectId}" +
                     $"{fileToRemove.FileName.Length:D5}{fileToRemove.FileName}");
             }
         }
@@ -1325,8 +1327,8 @@ namespace client_side
                 int userId = communicator.UserId; // Assuming you have a property UserId in your class
 
                 // Construct the message to be sent to the server
-                string fullMessage = $"{chatMessageCode}{ProjectName.Length:D5}" +
-                    $"{ProjectName}{messageLength:D5}{message}";
+                string fullMessage = $"{chatMessageCode}{ProjectId.ToString().Length:D5}{ProjectId}" +
+                    $"{messageLength:D5}{message}";
 
                 communicator.SendData(fullMessage);
 
@@ -1370,7 +1372,7 @@ namespace client_side
 
                     string newName = txtNewFileName.Text + "." + codeLaneguage;
                     string code = ((int)MessageCodes.MC_CREATE_FILE_REQUEST).ToString();
-                    communicator.SendData($"{code}{ProjectName.Length:D5}{ProjectName}" +
+                    communicator.SendData($"{code}{ProjectId.ToString().Length:D5}{ProjectId}" +
                         $"{newName.Length:D5}{newName}");
                     return;
                 }
@@ -1443,7 +1445,7 @@ namespace client_side
         private void RenameFile(string newFileName)
         {
             string chatMessageCode = ((int)MessageCodes.MC_RENAME_FILE_REQUEST).ToString();
-            string fullMessage = $"{chatMessageCode}{newFileName.Length:D5}{newFileName}{ProjectName.Length:D5}{ProjectName}";
+            string fullMessage = $"{chatMessageCode}{newFileName.Length:D5}{newFileName}{ProjectId.ToString().Length:D5}{ProjectId}";
             communicator.SendData(fullMessage);
         }
 

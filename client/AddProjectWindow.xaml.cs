@@ -22,6 +22,7 @@ namespace client_side
         private Thread receiveServerUpdatesThread;
         private bool isListeningToServer = true;
 
+        private int ProjectId = -1;
 
         private string Access;
         private bool isEditable;
@@ -159,6 +160,7 @@ namespace client_side
         public class Info
         {
             public string ProjectName { get; set; }
+            public int ProjectId { get; set; }
             public string CodeLan { get; set; }
             public bool IsPrivate { get; set; }
             public List<User> users { get; set; } = new List<User>();
@@ -173,7 +175,7 @@ namespace client_side
             public bool isEditable { get; set; }
         }
 
-        public AddProjectWindow(Communicator communicator, string mode, string projectName)
+        public AddProjectWindow(Communicator communicator, string mode, string projectName, int projectId)
         {
             InitializeComponent();
             Style = (Style)FindResource(typeof(System.Windows.Window)); // Specified full namespace for Window
@@ -238,6 +240,8 @@ namespace client_side
                     projectInfo.IsPrivate = isPrivate;
                     projectInfo.CodeLan = codeLanguage;
                     projectInfo.ProjectName = MsgProjectName;
+                    projectInfo.ProjectId = projectId;
+                    ProjectId = projectId;
                     oldProjectName = projectInfo.ProjectName;
                     int index = 0;
                     while (index < selectedUsersData.Length)
@@ -423,7 +427,7 @@ namespace client_side
                     return;
                 }
 
-                selectedUsersData += $"{user.Name.Length:D5}{user.Name}{(user.IsAdmin ? "1" : "")}{(user.IsParticipant ? "0" : "")}";
+                selectedUsersData += $"{user.Name.Length:D5}{user.Name}{(user.IsCreator ? "2" : "")}{(user.IsAdmin ? "1" : "")}{(user.IsParticipant ? "0" : "")}";
             }
 
             // Gather project data
@@ -436,7 +440,7 @@ namespace client_side
             // Example: Send data to server and handle response
             string createProjectCode = ((int)MessageCodes.MC_MODIFY_PROJECT_INFO_REQUEST).ToString();
 
-            communicator.SendData($"{createProjectCode}{oldProjectName.Length:D5}{oldProjectName}{projectName.Length:D5}{projectName}{selectedUsersData.Length:D5}" +
+            communicator.SendData($"{createProjectCode}{ProjectId.ToString().Length:D5}{ProjectId}{projectName.Length:D5}{projectName}{selectedUsersData.Length:D5}" +
                 $"{selectedUsersData}{codeLanguage.Length:D5}{codeLanguage}{isPrivate}");
         }
 

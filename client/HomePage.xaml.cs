@@ -18,6 +18,7 @@ using Microsoft.Win32;
 using System.IO;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 using static System.Net.WebRequestMethods;
+using Microsoft.VisualBasic;
 
 namespace client_side
 {
@@ -279,10 +280,16 @@ namespace client_side
                     string role = projectsRep.Substring(index, roleLen);
                     index += roleLen;
 
+                    int idLen = int.Parse(projectsRep.Substring(index, 5));
+                    index += 5;
+                    int id = int.Parse(projectsRep.Substring(index, idLen));
+                    index += idLen;
+
                     updatedProjects.Add(new ProjectInfo
                     {
                         ProjectName = projectName,
-                        Role = role
+                        Role = role,
+                        ProjectId = id
                     });
                 }
 
@@ -577,17 +584,29 @@ namespace client_side
         {
             disconnect = false;
             isListeningToServer = false;
+            int index = 3;
 
-            int projectLength = int.Parse(update.Substring(3, 5));
-            string ProjectName = update.Substring(8, projectLength);
+            int projectLength = int.Parse(update.Substring(index, 5));
+            index += 5;
+            string ProjectName = update.Substring(index, projectLength);
+            index += projectLength;
 
-            int codeLanLen = int.Parse(update.Substring(8 + projectLength, 5));
-            string codeLan = update.Substring(13 + projectLength, codeLanLen);
-            string mode = update.Substring(13 + projectLength + codeLanLen);
+            int projectIdLength = int.Parse(update.Substring(index, 5));
+            index += 5;
+            int projectId = int.Parse(update.Substring(index, projectIdLength));
+            index += projectIdLength;
+
+            int codeLanLen = int.Parse(update.Substring(index, 5));
+            index += 5;
+            string codeLan = update.Substring(index, codeLanLen);
+            index += codeLanLen;
+
+            string mode = update.Substring(index);
             bool isEditable = mode == "true" ? true : false;
+
             Dispatcher.Invoke(() =>
             {
-                ProjectDirectory TextEditorWindow = new ProjectDirectory(communicator, ProjectName, codeLan, isEditable);
+                ProjectDirectory TextEditorWindow = new ProjectDirectory(communicator, ProjectName, projectId, codeLan, isEditable);
                 TextEditorWindow.Show();
                 Close();
             });
@@ -636,16 +655,25 @@ namespace client_side
 
         private void HandleMoveToCreateWindow(string update)
         {
-            int nameLen = int.Parse(update.Substring(3, 5));
-            string name = update.Substring(8, nameLen);
-            string mode = update.Substring(8 + nameLen);
+            int index = 3;
+            int nameLen = int.Parse(update.Substring(index, 5));
+            index += 5;
+            string name = update.Substring(index, nameLen);
+            index += nameLen;
+
+            int iDLen = int.Parse(update.Substring(index, 5));
+            index += 5;
+            int id = int.Parse(update.Substring(index, nameLen));
+            index += iDLen;
+
+            string mode = update.Substring(index);
 
             disconnect = false;
             isListeningToServer = false;
             Dispatcher.Invoke(() =>
             {
                 //AddProjectWindow addProjectWindow = new AddProjectWindow(communicator);
-                AddProjectWindow addProjectWindow = new AddProjectWindow(communicator, mode, name);
+                AddProjectWindow addProjectWindow = new AddProjectWindow(communicator, mode, name, id);
                 addProjectWindow.Show();
                 Close();
             });
@@ -831,6 +859,11 @@ namespace client_side
                     index += 5;
                     string projectName = msg.Substring(index, projectNameLen);
                     index += projectNameLen;
+
+                    int projectIdLength = int.Parse(msg.Substring(index, 5));
+                    index += 5;
+                    int projectId = int.Parse(msg.Substring(index, projectIdLength));
+                    index += projectIdLength;
                     Dispatcher.Invoke(() =>
                     {
                         if (lstProjects.ItemsSource is ObservableCollection<ProjectInfo> projects)
@@ -838,7 +871,8 @@ namespace client_side
                             projects.Add(new ProjectInfo
                             {
                                 ProjectName = projectName,
-                                Role = ""
+                                Role = "",
+                                ProjectId = projectId
                             });
                             SortProjectsList(projects);
                         }
@@ -908,15 +942,7 @@ namespace client_side
             if (selectedProject != null)
             {
                 string joinProjectCode = ((int)MessageCodes.MC_ENTER_PROJECT_REQUEST).ToString();
-                communicator.SendData($"{joinProjectCode}{selectedProject.ProjectName.Length:D5}{selectedProject.ProjectName}");
-            }
-        }
-
-        private void LstFiles_PreviewKeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.Back)
-            {
-                deleteProject(sender, e);
+                communicator.SendData($"{joinProjectCode}{selectedProject.ProjectId.ToString().Length:D5}{selectedProject.ProjectId}");
             }
         }
 
@@ -931,11 +957,11 @@ namespace client_side
 
         private void deleteProject(object sender, RoutedEventArgs e)
         {
-            var selectedProject = lstProjects.SelectedItem as string;
+            var selectedProject = lstProjects.SelectedItem as ProjectInfo;
             if (selectedProject != null)
             {
                 string code = ((int)MessageCodes.MC_DELETE_PROJECT_REQUEST).ToString();
-                communicator.SendData($"{code}{selectedProject.Length:D5}{selectedProject}");
+                communicator.SendData($"{code}{selectedProject.ProjectId.ToString().Length:D5}{selectedProject.ProjectId}");
             }
         }
 
@@ -1155,7 +1181,7 @@ namespace client_side
                 if (project != null)
                 {
                     string addFriendCode = ((int)MessageCodes.MC_LEAVE_PROJECT_REQUEST).ToString();
-                    communicator.SendData($"{addFriendCode}{project.ProjectName.Length:D5}{project.ProjectName}{displayedUserProfile.UserName.Length:D5}{displayedUserProfile.UserName}");
+                    communicator.SendData($"{addFriendCode}{project.ProjectId.ToString().Length:D5}{project.ProjectId}{displayedUserProfile.UserName.Length:D5}{displayedUserProfile.UserName}");
                 }
             }
         }
@@ -1169,7 +1195,7 @@ namespace client_side
                 if (project != null)
                 {
                     string addFriendCode = ((int)MessageCodes.MC_DECLINE_PROJECT_INVITE_REQUEST).ToString();
-                    communicator.SendData($"{addFriendCode}{project.ProjectName.Length:D5}{project.ProjectName}{displayedUserProfile.UserName.Length:D5}{displayedUserProfile.UserName}");
+                    communicator.SendData($"{addFriendCode}{project.ProjectId.ToString().Length:D5}{project.ProjectId}{displayedUserProfile.UserName.Length:D5}{displayedUserProfile.UserName}");
 
                 }
             }
@@ -1184,7 +1210,7 @@ namespace client_side
                 if (project != null)
                 {
                     string addFriendCode = ((int)MessageCodes.MC_ACCEPT_PROJECT_INVITE_REQUEST).ToString();
-                    communicator.SendData($"{addFriendCode}{project.ProjectName.Length:D5}{project.ProjectName}{displayedUserProfile.UserName.Length:D5}{displayedUserProfile.UserName}{project.Role.Length:D5}{project.Role}");
+                    communicator.SendData($"{addFriendCode}{project.ProjectId.ToString().Length:D5}{project.ProjectId}{displayedUserProfile.UserName.Length:D5}{displayedUserProfile.UserName}{project.Role.Length:D5}{project.Role}");
 
                 }
             }
@@ -1199,7 +1225,7 @@ namespace client_side
                 if (project != null)
                 {
                     string code = ((int)MessageCodes.MC_VIEW_PROJECT_INFO_REQUEST).ToString();
-                    string msg = $"{code}{project.ProjectName.Length:D5}{project.ProjectName}";
+                    string msg = $"{code}{project.ProjectId.ToString().Length:D5}{project.ProjectId}";
                     communicator.SendData(msg);
                 }
             }
@@ -1214,7 +1240,7 @@ namespace client_side
                 if (project != null)
                 {
                     string code = ((int)MessageCodes.MC_EDIT_PROJECT_INFO_REQUEST).ToString();
-                    communicator.SendData($"{code}{project.ProjectName.Length:D5}{project.ProjectName}");
+                    communicator.SendData($"{code}{project.ProjectId.ToString().Length:D5}{project.ProjectId}");
                 }
             }
         }
@@ -1228,7 +1254,7 @@ namespace client_side
                 if (project != null)
                 {
                     string code = ((int)MessageCodes.MC_DELETE_PROJECT_REQUEST).ToString();
-                    communicator.SendData($"{code}{project.ProjectName.Length:D5}{project.ProjectName}");
+                    communicator.SendData($"{code}{project.ProjectId.ToString().Length:D5}{project.ProjectId}");
                 }
             }
         }
@@ -1303,6 +1329,7 @@ namespace client_side
         {
             public string ProjectName { get; set; }
             public string Role { get; set; }
+            public int ProjectId { get; set; }
         }
 
         public ObservableCollection<ProjectInfo> Projects
