@@ -179,6 +179,8 @@ namespace client_side
         {
             InitializeComponent();
             Style = (Style)FindResource(typeof(System.Windows.Window)); // Specified full namespace for Window
+            communicator.ApplyTheme(this);
+
             this.communicator = communicator;
             this.Access = mode;
             DataContext = this;

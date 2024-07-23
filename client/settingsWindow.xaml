@@ -9,7 +9,8 @@
     <Grid x:Name="MainGrid">
         <StackPanel Orientation="Vertical" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10">
             <Button Content="Modify Code Style" Click="ModifyCodeStyle_Click" Margin="5"/>
-            <Button x:Name="closeSettings" Content="close settings" Click="CloseButton_Click" Margin="5" Visibility="Visible"/>
+            <Button x:Name="modifyThemeButton" Content="Modify Theme" Click="ModifyTheme_Click" Margin="5"/>
+            <Button x:Name="closeSettings" Content="Close Settings" Click="CloseButton_Click" Margin="5" Visibility="Visible"/>
             <!-- Add more buttons here for other actions -->
         </StackPanel>
     </Grid>

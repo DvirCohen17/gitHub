@@ -24,9 +24,9 @@
         </Grid.ColumnDefinitions>
 
         <!-- File List section -->
-        <StackPanel Grid.Column="0" Grid.RowSpan="2" Background="black" Margin="0,0,10,0">
+        <StackPanel Grid.Column="0" Grid.RowSpan="2"  Margin="0,0,10,0">
             <Button Content="Return to Main Page" Margin="10" Click="ReturnToMainPage_Click"/>
-            <ListBox x:Name="lstFileList" FontSize="14" Background="Black" Foreground="White" Margin="45,60,5,5" MouseDoubleClick="LstFiles_MouseDoubleClick" PreviewKeyDown="LstFiles_PreviewKeyDown">
+            <ListBox x:Name="lstFileList" FontSize="14" Background="Transparent" Foreground="White" Margin="45,60,5,5" MouseDoubleClick="LstFiles_MouseDoubleClick" PreviewKeyDown="LstFiles_PreviewKeyDown">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <TextBlock Text="{Binding FileName}" Padding="5"/>
@@ -63,10 +63,10 @@
                                Width="870"/>
 
         <!-- Right-side panel for chat and user list -->
-        <StackPanel Grid.Column="2" Grid.RowSpan="2" Orientation="Vertical" Width="200" Background="black">
+        <StackPanel Grid.Column="2" Grid.RowSpan="2" Orientation="Vertical" Width="200">
             <!-- Chat section -->
             <StackPanel>
-                <TextBlock Text="   Chat" FontWeight="Bold" Height="27" Foreground="White"/>
+                <TextBlock Text="   Chat" FontWeight="Bold" Height="27"  Foreground="White"/>
                 <TextBox x:Name="txtChat"
                          VerticalScrollBarVisibility="Auto"
                          HorizontalScrollBarVisibility="Auto"
@@ -74,7 +74,7 @@
                          FontSize="10"
                          Height="263"
                          Width="191"
-                         Background="Black"
+                         Background="Transparent"
                          Foreground="White"
                          IsReadOnly="True"/>
                 <TextBlock Text="  Send Message" FontWeight="Bold" Height="30" Foreground="White" Margin="5,5,5,0"/>
@@ -84,7 +84,7 @@
                          FontSize="16"
                          Height="54"
                          Width="180"
-                         Background="Black"
+                         Background="Transparent"
                          Foreground="White"
                          KeyDown="TxtChatInput_KeyDown"/>
                 <Label x:Name="lblErr" Foreground="Red" FontSize="12" FontWeight="Bold" Height="39" Width="188"/>
@@ -96,7 +96,7 @@
 
             <StackPanel>
                 <TextBlock Text="   User List" FontWeight="Bold" Foreground="White" Margin="0,-420,0,0" Height="23"/>
-                <ListBox x:Name="lstFriends" ItemsSource="{Binding Friends}" Height="150" Width="195" Margin="0,-200,0,0" Background="Black" Foreground="White" >
+                <ListBox x:Name="lstFriends" ItemsSource="{Binding Friends}" Height="150" Width="195" Margin="0,-200,0,0" Background="Transparent" Foreground="White" >
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <Grid>

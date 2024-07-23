@@ -37,7 +37,7 @@
         <!-- Search Results -->
         <Border x:Name="borderSerachBlock" Background="Transparent" BorderBrush="LightGray" BorderThickness="1" CornerRadius="5" Margin="138,105,-66,-23" Visibility="Collapsed"/>
 
-        <ListBox x:Name="SearchResultsListBox" Grid.ColumnSpan="2" Foreground="White" Background="black" Margin="140,108,172,131" MouseDoubleClick="SearchResultsListBox_MouseDoubleClick" RenderTransformOrigin="0.5,0.5" Grid.RowSpan="9">
+        <ListBox x:Name="SearchResultsListBox" Grid.ColumnSpan="2" Foreground="White" Background="Transparent" Margin="140,108,172,131" MouseDoubleClick="SearchResultsListBox_MouseDoubleClick" RenderTransformOrigin="0.5,0.5" Grid.RowSpan="9">
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <TextBlock Text="{Binding Name}" Grid.Column="0"/>
@@ -60,7 +60,7 @@
 
         <Border Background="Transparent" BorderBrush="LightGray" BorderThickness="1" CornerRadius="5" Margin="75,188,-168,-157"/>
 
-        <ListBox x:Name="SelectedUsersListBox" Background="Black" Grid.Row="8" Grid.ColumnSpan="3" Margin="85,43,70,0">
+        <ListBox x:Name="SelectedUsersListBox" Background="Transparent" Grid.Row="8" Grid.ColumnSpan="3" Margin="85,43,70,0">
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <Grid>

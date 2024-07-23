@@ -1,12 +1,12 @@
 ﻿using System;
 using System.IO;
-using System.Drawing;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
 using System.Security.Cryptography;
-using System.Windows.Media.Imaging;
 
 namespace client_side
 {
@@ -132,9 +132,45 @@ namespace client_side
 
     };
 
+    public class Theme
+    {
+        public Brush Background { get; set; }
+        public Brush Foreground { get; set; }
+        public Brush ButtonBackground { get; set; }
+        public Brush ButtonForeground { get; set; }
+        public Brush ApproveButtonBackground { get; set; }
+        public Brush ApproveButtonForeground { get; set; }
+        public Brush RejectButtonBackground { get; set; }
+        public Brush RejectButtonForeground { get; set; }
+        public Brush TextColor { get; set; } 
+
+        public Theme(
+            Brush background,
+            Brush foreground,
+            Brush buttonBackground,
+            Brush buttonForeground,
+            Brush approveButtonBackground,
+            Brush approveButtonForeground,
+            Brush rejectButtonBackground,
+            Brush rejectButtonForeground,
+            Brush textColor)
+        {
+            Background = background;
+            Foreground = foreground;
+            ButtonBackground = buttonBackground;
+            ButtonForeground = buttonForeground;
+            ApproveButtonBackground = approveButtonBackground;
+            ApproveButtonForeground = approveButtonForeground;
+            RejectButtonBackground = rejectButtonBackground;
+            RejectButtonForeground = rejectButtonForeground;
+            TextColor = textColor;
+        }
+    }
+
     public class Communicator
     {
         public string DirectoryPath = @"C:\githubDemo\codeStyles";
+        private Theme AppTheme;
 
         private Socket m_socket;
         public int UserId { get; set; }
@@ -149,12 +185,205 @@ namespace client_side
 
             m_socket.Connect(ip, port);
 
+            ModifyTheme("cyberpunk");
         }
 
         ~Communicator()
         {
             m_socket.Close();
         }
+
+        public void ModifyTheme(string theme)
+        {
+            switch (theme.ToLower())
+            {
+                case "light":
+                    AppTheme = new Theme(
+                        Brushes.White,
+                        Brushes.Black,
+                        Brushes.Black,
+                        Brushes.White,
+                        Brushes.LightGreen,
+                        Brushes.DarkGreen,
+                        Brushes.LightCoral,
+                        Brushes.DarkRed,
+                        Brushes.Black); // Set text color for light theme
+                    break;
+                case "dark":
+                    AppTheme = new Theme(
+                        Brushes.Black,
+                        Brushes.White,
+                        Brushes.Black,
+                        Brushes.White,
+                        Brushes.Yellow,
+                        Brushes.White,
+                        Brushes.DarkRed,
+                        Brushes.White,
+                        Brushes.White); // Set text color for dark theme
+                    break;
+                case "blue":
+                    AppTheme = new Theme(
+                        Brushes.LightBlue,
+                        Brushes.DarkBlue,
+                        Brushes.LightBlue,
+                        Brushes.DarkBlue,
+                        Brushes.LightGreen,
+                        Brushes.DarkGreen,
+                        Brushes.LightCoral,
+                        Brushes.DarkRed,
+                        Brushes.DarkBlue); // Set text color for blue theme
+                    break;
+                case "green":
+                    AppTheme = new Theme(
+                        Brushes.LightGreen,
+                        Brushes.DarkGreen,
+                        Brushes.LightGreen,
+                        Brushes.DarkGreen,
+                        Brushes.LightGreen,
+                        Brushes.DarkGreen,
+                        Brushes.LightCoral,
+                        Brushes.DarkRed,
+                        Brushes.DarkGreen); // Set text color for green theme
+                    break;
+                case "red":
+                    AppTheme = new Theme(
+                        Brushes.LightCoral,
+                        Brushes.DarkRed,
+                        Brushes.LightCoral,
+                        Brushes.DarkRed,
+                        Brushes.LightGreen,
+                        Brushes.DarkGreen,
+                        Brushes.LightCoral,
+                        Brushes.DarkRed,
+                        Brushes.DarkRed); // Set text color for red theme
+                    break;
+                case "cyberpunk":
+                    AppTheme = new Theme(
+                        new SolidColorBrush(Color.FromRgb(10, 0, 50)), // Dark blue background
+                        new SolidColorBrush(Color.FromRgb(0, 255, 255)), // Cyan text
+                        new SolidColorBrush(Color.FromRgb(255, 20, 147)), // Deep pink button
+                        Brushes.White,
+                        new SolidColorBrush(Color.FromRgb(0, 255, 0)), // Green approve button
+                        Brushes.White,
+                        new SolidColorBrush(Color.FromRgb(255, 0, 0)), // Red reject button
+                        Brushes.White,
+                        new SolidColorBrush(Color.FromRgb(0, 255, 255))); // Cyan text color
+                    break;
+                case "matrix":
+                    AppTheme = new Theme(
+                        Brushes.Black,
+                        new SolidColorBrush(Color.FromRgb(0, 255, 0)), // Green text
+                        Brushes.Black,
+                        new SolidColorBrush(Color.FromRgb(0, 255, 0)), // Green text
+                        Brushes.DarkGreen, // Green approve button
+                        Brushes.White,
+                        Brushes.DarkRed, // Red reject button
+                        Brushes.White,
+                        new SolidColorBrush(Color.FromRgb(0, 255, 0))); // Green text color
+                    break;
+                default:
+                    AppTheme = new Theme(
+                        Brushes.White,
+                        Brushes.Black,
+                        Brushes.White,
+                        Brushes.Black,
+                        Brushes.LightGreen,
+                        Brushes.DarkGreen,
+                        Brushes.LightCoral,
+                        Brushes.DarkRed,
+                        Brushes.Black); // Default text color
+                    break;
+            }
+        }
+
+        public void ApplyTheme(Window window)
+        {
+            if (AppTheme != null)
+            {
+                window.Background = AppTheme.Background;
+                window.Foreground = AppTheme.Foreground;
+
+                // Apply theme to all child controls
+                ApplyThemeToControls(window.Content as Panel);
+            }
+        }
+
+        private void ApplyThemeToControls(Panel panel)
+        {
+            if (panel == null)
+                return;
+
+            foreach (var control in panel.Children)
+            {
+                ApplyThemeToControl(control as DependencyObject); // Cast to DependencyObject
+            }
+        }
+
+        private void ApplyThemeToControl(DependencyObject control)
+        {
+            if (control == null)
+                return;
+
+            if (control is Button button)
+            {
+                if (button.Tag != null && button.Tag.ToString() == "Approve")
+                {
+                    button.Background = AppTheme.ApproveButtonBackground;
+                    button.Foreground = AppTheme.ApproveButtonForeground;
+                }
+                else if (button.Tag != null && button.Tag.ToString() == "Reject")
+                {
+                    button.Background = AppTheme.RejectButtonBackground;
+                    button.Foreground = AppTheme.RejectButtonForeground;
+                }
+                else
+                {
+                    button.Background = AppTheme.ButtonBackground;
+                    button.Foreground = AppTheme.ButtonForeground;
+                }
+            }
+            else if (control is TextBlock textBlock)
+            {
+                textBlock.Foreground = AppTheme.TextColor; // Apply text color
+            }
+            else if (control is TextBox textBox)
+            {
+                textBox.Foreground = AppTheme.TextColor; // Apply text color
+            }
+            else if (control is ListBox listBox)
+            {
+                listBox.Foreground = AppTheme.TextColor; // Apply text color
+                foreach (var item in listBox.Items)
+                {
+                    // Find the ListBoxItem and apply theme to it
+                    ListBoxItem listBoxItem = listBox.ItemContainerGenerator.ContainerFromItem(item) as ListBoxItem;
+                    if (listBoxItem != null)
+                    {
+                        ApplyThemeToControl(listBoxItem);
+                    }
+                }
+            }
+            else if (control is Panel childPanel)
+            {
+                foreach (var child in childPanel.Children)
+                {
+                    ApplyThemeToControl(child as DependencyObject); // Cast to DependencyObject
+                }
+            }
+        }
+
+        private void ApplyThemeToControl(ListBoxItem listBoxItem)
+        {
+            if (listBoxItem == null)
+                return;
+
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(listBoxItem); i++)
+            {
+                DependencyObject child = VisualTreeHelper.GetChild(listBoxItem, i);
+                ApplyThemeToControl(child);
+            }
+        }
+
 
         public string HashPassword(string password)
         {
@@ -217,23 +446,6 @@ namespace client_side
             }
 
             return buffer;
-        }
-
-        public BitmapImage ByteArrayToImage(byte[] imageData)
-        {
-            if (imageData == null || imageData.Length == 0)
-                return null;
-
-            using (MemoryStream ms = new MemoryStream(imageData))
-            {
-                BitmapImage image = new BitmapImage();
-                image.BeginInit();
-                image.StreamSource = ms;
-                image.CacheOption = BitmapCacheOption.OnLoad;
-                image.EndInit();
-                image.Freeze(); // Ensure the image can be used across threads
-                return image;
-            }
         }
 
         /*

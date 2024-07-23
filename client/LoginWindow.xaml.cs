@@ -75,6 +75,7 @@ namespace client_side
                         }
                     }
                 }
+                communicator.ApplyTheme(this);
 
             }
             catch (Exception)

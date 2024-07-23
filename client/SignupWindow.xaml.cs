@@ -29,6 +29,7 @@ namespace client_side
             Style = (Style)FindResource(typeof(Window));
             communicator = _communicator;
             Closing += signUp_CloseFile; // Hook up the closing event handler
+            communicator.ApplyTheme(this);
 
         }
 

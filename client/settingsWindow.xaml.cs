@@ -18,6 +18,7 @@ namespace client_side
             InitializeComponent();
             Style = (Style)FindResource(typeof(System.Windows.Window)); // Specified full namespace for Window
             this.communicator = communicator;
+            communicator.ApplyTheme(this);
         }
 
         private void ModifyCodeStyle_Click(object sender, RoutedEventArgs e)
@@ -38,8 +39,13 @@ namespace client_side
 
             MainGrid.Children.Add(scrollViewer);
 
-            // Show the back button
-            closeSettings.Visibility = Visibility.Visible;
+            Button backButton = new Button { Content = "Back", Margin = new Thickness(5) };
+            backButton.Click += BackButton_Click;
+            panel.Children.Add(backButton);
+            Button closeButton = new Button { Content = "Close Settings", Margin = new Thickness(5) };
+            closeButton.Click += CloseButton_Click;
+            panel.Children.Add(closeButton);
+            communicator.ApplyTheme(this);
         }
 
         private void LanguageSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -98,6 +104,9 @@ namespace client_side
                 Button closeButton = new Button { Content = "Close Settings", Margin = new Thickness(5) };
                 closeButton.Click += CloseButton_Click;
                 panel.Children.Add(closeButton);
+
+                communicator.ApplyTheme(this);
+
             }
             else
             {
@@ -177,10 +186,16 @@ namespace client_side
             MainGrid.Children.Clear();
             var initialPanel = new StackPanel { Orientation = Orientation.Vertical, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(10) };
             var modifyCodeStyleButton = new Button { Content = "Modify Code Style", Margin = new Thickness(5) };
+            var modifyThemeButton = new Button { Content = "Modify Theme", Margin = new Thickness(5) };
+            var closeSettingsButton = new Button { Content = "Close Settings", Margin = new Thickness(5) };
             modifyCodeStyleButton.Click += ModifyCodeStyle_Click;
+            modifyThemeButton.Click += ModifyTheme_Click;
+            closeSettingsButton.Click += CloseButton_Click;
             initialPanel.Children.Add(modifyCodeStyleButton);
+            initialPanel.Children.Add(modifyThemeButton);
+            initialPanel.Children.Add(closeSettingsButton);
             MainGrid.Children.Add(initialPanel);
-            closeSettings.Visibility = Visibility.Visible;
+            communicator.ApplyTheme(this);
 
         }
 
@@ -198,6 +213,48 @@ namespace client_side
                 Close();
             });
 
+        }
+
+        private void ModifyTheme_Click(object sender, RoutedEventArgs e)
+        {
+            MainGrid.Children.Clear();
+
+            StackPanel panel = new StackPanel { Orientation = Orientation.Vertical };
+            ScrollViewer scrollViewer = new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+
+            ComboBox themeSelector = new ComboBox { Margin = new Thickness(5) };
+            themeSelector.Items.Add("Light");
+            themeSelector.Items.Add("Dark");
+            themeSelector.Items.Add("Blue");
+            themeSelector.Items.Add("Green");
+            themeSelector.Items.Add("Red");
+            themeSelector.Items.Add("CyberPunk");
+            themeSelector.Items.Add("Matrix");
+            themeSelector.SelectionChanged += ThemeSelector_SelectionChanged;
+            panel.Children.Add(themeSelector);
+
+            MainGrid.Children.Add(scrollViewer);
+
+            Button backButton = new Button { Content = "Back", Margin = new Thickness(5) };
+            backButton.Click += BackButton_Click;
+            panel.Children.Add(backButton);
+            Button closeButton = new Button { Content = "Close Settings", Margin = new Thickness(5) };
+            closeButton.Click += CloseButton_Click;
+            panel.Children.Add(closeButton);
+            communicator.ApplyTheme(this);
+
+        }
+
+        private void ThemeSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            ComboBox comboBox = sender as ComboBox;
+            string selectedTheme = comboBox.SelectedItem as string;
+
+            if (selectedTheme != null)
+            {
+                communicator.ModifyTheme(selectedTheme);
+                communicator.ApplyTheme(this);
+            }
         }
 
         private async void settings_CloseFile(object sender, EventArgs e)

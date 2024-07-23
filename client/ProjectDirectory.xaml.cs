@@ -83,6 +83,7 @@ namespace client_side
 
                 //txtFileContent.CaretIndex = communicator.UserFileIndex; 
                 Closing += ProjectDirectory_CloseFile; // Hook up the closing event handler
+                communicator.ApplyTheme(this);
 
             }
             catch (Exception)
@@ -369,6 +370,7 @@ namespace client_side
                     {
                         txtFileContent.CaretOffset = txtFileContent.Text.Length;
                     }
+                    /*
                     else if (e.Key == Key.W)
                     {
                         insideFile = false;
@@ -379,6 +381,7 @@ namespace client_side
                         currFileName = "";
                         txtFileName.Text = "";
                     }
+                    */
                 }
                 else if (e.Key == Key.Enter)
                 {

@@ -68,7 +68,7 @@ namespace client_side
             receiveServerUpdatesThread.Start();
 
             Closing += HomePage_CloseFile;
-
+            communicator.ApplyTheme(this);
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -656,16 +656,19 @@ namespace client_side
         private void HandleMoveToCreateWindow(string update)
         {
             int index = 3;
+            int id = -1;
             int nameLen = int.Parse(update.Substring(index, 5));
             index += 5;
             string name = update.Substring(index, nameLen);
             index += nameLen;
+            if (nameLen > 0)
+            {
+                int iDLen = int.Parse(update.Substring(index, 5));
+                index += 5;
+                id = int.Parse(update.Substring(index, iDLen));
+                index += iDLen;
 
-            int iDLen = int.Parse(update.Substring(index, 5));
-            index += 5;
-            int id = int.Parse(update.Substring(index, nameLen));
-            index += iDLen;
-
+            }
             string mode = update.Substring(index);
 
             disconnect = false;
@@ -1448,6 +1451,7 @@ namespace client_side
         }
 
     }
+
     public class CreatorToVisibilityConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
