@@ -1331,7 +1331,6 @@ void Communicator::leaveProject(SOCKET client_sock, int projectId, std::string u
 void Communicator::getProjectFiles(SOCKET client_sock, int projectId)
 {
 	Project project = m_database->getProject("", projectId);
-	int projectId = project.projectId;
 	std::string repCode = std::to_string(MC_GET_PROJECT_FILES_RESP);
 	
 	std::list<FileDetail> files = m_database->getProjectFiles(projectId);
