@@ -30,7 +30,7 @@
         <Label Grid.Row="2" VerticalAlignment="Center">Password:</Label>
         <PasswordBox x:Name="pwdPassword" MaxLength="30" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" Margin="0,0,5,0"></PasswordBox>
 
-        <Button Grid.Row="6" HorizontalAlignment="Left" Width="150" Height="28" Click="btnLogin_Click" Grid.Column="1" Margin="52,66,0,0" VerticalAlignment="Top">Login</Button>
+        <Button Grid.Row="6" HorizontalAlignment="Center" Width="150" Height="28" Click="btnLogin_Click" Grid.Column="1" Margin="-62,66,0,0" VerticalAlignment="Top">Login</Button>
 
         <TextBlock Grid.Row="6" HorizontalAlignment="Left" Margin="126,100,0,0" Grid.Column="1">Don't have an account?
             <Hyperlink Click="hprlnkSignup">Sign Up</Hyperlink>

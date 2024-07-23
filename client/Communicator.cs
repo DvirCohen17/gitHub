@@ -143,6 +143,7 @@ namespace client_side
         public Brush RejectButtonBackground { get; set; }
         public Brush RejectButtonForeground { get; set; }
         public Brush TextColor { get; set; } 
+        public string theame {  get; set; }
 
         public Theme(
             Brush background,
@@ -153,7 +154,8 @@ namespace client_side
             Brush approveButtonForeground,
             Brush rejectButtonBackground,
             Brush rejectButtonForeground,
-            Brush textColor)
+            Brush textColor,
+            string theame)
         {
             Background = background;
             Foreground = foreground;
@@ -164,13 +166,14 @@ namespace client_side
             RejectButtonBackground = rejectButtonBackground;
             RejectButtonForeground = rejectButtonForeground;
             TextColor = textColor;
+            this.theame = theame;
         }
     }
 
     public class Communicator
     {
         public string DirectoryPath = @"C:\githubDemo\codeStyles";
-        private Theme AppTheme;
+        public Theme AppTheme;
 
         private Socket m_socket;
         public int UserId { get; set; }
@@ -207,7 +210,7 @@ namespace client_side
                         Brushes.DarkGreen,
                         Brushes.LightCoral,
                         Brushes.DarkRed,
-                        Brushes.Black); // Set text color for light theme
+                        Brushes.Black, "Light"); // Set text color for light theme
                     break;
                 case "dark":
                     AppTheme = new Theme(
@@ -219,7 +222,7 @@ namespace client_side
                         Brushes.White,
                         Brushes.DarkRed,
                         Brushes.White,
-                        Brushes.White); // Set text color for dark theme
+                        Brushes.White, "Dark"); // Set text color for dark theme
                     break;
                 case "blue":
                     AppTheme = new Theme(
@@ -231,7 +234,7 @@ namespace client_side
                         Brushes.DarkGreen,
                         Brushes.LightCoral,
                         Brushes.DarkRed,
-                        Brushes.DarkBlue); // Set text color for blue theme
+                        Brushes.DarkBlue, "Blue"); // Set text color for blue theme
                     break;
                 case "green":
                     AppTheme = new Theme(
@@ -243,7 +246,7 @@ namespace client_side
                         Brushes.DarkGreen,
                         Brushes.LightCoral,
                         Brushes.DarkRed,
-                        Brushes.DarkGreen); // Set text color for green theme
+                        Brushes.DarkGreen, "Green"); // Set text color for green theme
                     break;
                 case "red":
                     AppTheme = new Theme(
@@ -255,7 +258,7 @@ namespace client_side
                         Brushes.DarkGreen,
                         Brushes.LightCoral,
                         Brushes.DarkRed,
-                        Brushes.DarkRed); // Set text color for red theme
+                        Brushes.DarkRed, "Red"); // Set text color for red theme
                     break;
                 case "cyberpunk":
                     AppTheme = new Theme(
@@ -267,7 +270,7 @@ namespace client_side
                         Brushes.White,
                         new SolidColorBrush(Color.FromRgb(255, 0, 0)), // Red reject button
                         Brushes.White,
-                        new SolidColorBrush(Color.FromRgb(0, 255, 255))); // Cyan text color
+                        new SolidColorBrush(Color.FromRgb(0, 255, 255)), "CyberPunk"); // Cyan text color
                     break;
                 case "matrix":
                     AppTheme = new Theme(
@@ -279,7 +282,7 @@ namespace client_side
                         Brushes.White,
                         Brushes.DarkRed, // Red reject button
                         Brushes.White,
-                        new SolidColorBrush(Color.FromRgb(0, 255, 0))); // Green text color
+                        new SolidColorBrush(Color.FromRgb(0, 255, 0)), "Matrix"); // Green text color
                     break;
                 default:
                     AppTheme = new Theme(
@@ -291,7 +294,7 @@ namespace client_side
                         Brushes.DarkGreen,
                         Brushes.LightCoral,
                         Brushes.DarkRed,
-                        Brushes.Black); // Default text color
+                        Brushes.Black, "Light"); // Default text color
                     break;
             }
         }
@@ -326,29 +329,42 @@ namespace client_side
 
             if (control is Button button)
             {
-                if (button.Tag != null && button.Tag.ToString() == "Approve")
-                {
-                    button.Background = AppTheme.ApproveButtonBackground;
-                    button.Foreground = AppTheme.ApproveButtonForeground;
-                }
-                else if (button.Tag != null && button.Tag.ToString() == "Reject")
-                {
-                    button.Background = AppTheme.RejectButtonBackground;
-                    button.Foreground = AppTheme.RejectButtonForeground;
-                }
-                else
-                {
-                    button.Background = AppTheme.ButtonBackground;
-                    button.Foreground = AppTheme.ButtonForeground;
-                }
+                // Apply the background and foreground colors
+                button.Background = AppTheme.ButtonBackground;
+                button.Foreground = AppTheme.ButtonForeground;
+
+                // Apply the border color for buttons
+                button.BorderBrush = AppTheme.ButtonForeground;
             }
             else if (control is TextBlock textBlock)
             {
                 textBlock.Foreground = AppTheme.TextColor; // Apply text color
+
             }
             else if (control is TextBox textBox)
             {
                 textBox.Foreground = AppTheme.TextColor; // Apply text color
+                textBox.BorderBrush = AppTheme.TextColor; 
+            }
+            else if (control is Border border)
+            {
+                border.BorderBrush = AppTheme.TextColor; // Apply text color
+            }
+            else if (control is CheckBox checkBox)
+            {
+                checkBox.Foreground = AppTheme.TextColor; // Apply text color
+                if (checkBox.Content is string contentString)
+                {
+                    checkBox.Content = new TextBlock
+                    {
+                        Text = contentString,
+                        Foreground = AppTheme.TextColor
+                    };
+                }
+                else if (checkBox.Content is TextBlock contentTextBlock)
+                {
+                    contentTextBlock.Foreground = AppTheme.TextColor;
+                }
             }
             else if (control is ListBox listBox)
             {
@@ -371,6 +387,7 @@ namespace client_side
                 }
             }
         }
+
 
         private void ApplyThemeToControl(ListBoxItem listBoxItem)
         {

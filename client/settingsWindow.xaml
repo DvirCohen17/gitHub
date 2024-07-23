@@ -7,11 +7,25 @@
         mc:Ignorable="d"
         Title="settingsWindow" Height="600" Width="1000" Closing="settings_CloseFile">
     <Grid x:Name="MainGrid">
-        <StackPanel Orientation="Vertical" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10">
-            <Button Content="Modify Code Style" Click="ModifyCodeStyle_Click" Margin="5"/>
-            <Button x:Name="modifyThemeButton" Content="Modify Theme" Click="ModifyTheme_Click" Margin="5"/>
-            <Button x:Name="closeSettings" Content="Close Settings" Click="CloseButton_Click" Margin="5" Visibility="Visible"/>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="200"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Button x:Name="closeSettings" Content="Close Settings" Click="CloseButton_Click" 
+                HorizontalAlignment="Center" VerticalAlignment="Top" Margin="5,10,0,10" Visibility="Visible"/>
+        <StackPanel Grid.Row="1" Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="10">
+            <Button Content="Code Style" Width="140" Height="30" FontSize="17" Click="ModifyCodeStyle_Click" Margin="5,10"/>
+            <Button x:Name="modifyThemeButton" Width="140" Height="30" Content="Theme" FontSize="17" Click="ModifyTheme_Click" Margin="5, 80"/>
             <!-- Add more buttons here for other actions -->
         </StackPanel>
+        <ScrollViewer Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="10">
+            <StackPanel x:Name="dynamicContentPanel" Orientation="Vertical" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                <!-- Dynamic content will be added here -->
+            </StackPanel>
+        </ScrollViewer>
     </Grid>
 </Window>

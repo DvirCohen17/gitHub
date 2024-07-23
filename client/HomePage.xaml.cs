@@ -33,6 +33,7 @@ namespace client_side
 
         private bool waitingForImage = false;
         private int imageSize;
+        private string theame;
 
         private bool inSearch = false;
 
@@ -58,6 +59,8 @@ namespace client_side
 
             Projects = new ObservableCollection<ProjectInfo>();
             lstProjects.ItemsSource = Projects;
+
+            theame = communicator.AppTheme.theame;
 
             start();
 
@@ -211,6 +214,11 @@ namespace client_side
                     {
                         isFriend = false;
                         isFriendRequest = true;
+
+                        if (theame == "Light")
+                        {
+                            onlineStatus = "4";
+                        }
                     }
 
                     updatedFriends.Add(new User
@@ -1139,10 +1147,11 @@ namespace client_side
         {
             return statusCode switch
             {
-                "0" => Status.Offline,
-                "1" => Status.Online,
-                "2" => Status.search,
-                "3" => Status.search,
+                "0" => Status.Offline_defualt,
+                "1" => Status.Online_defualt,
+                "2" => Status.search_defualt,
+                "3" => Status.search_defualt,
+                "4" => Status.search_Light,
                 _ => throw new ArgumentException($"Invalid status code: {statusCode}"),
             };
         }
@@ -1354,9 +1363,10 @@ namespace client_side
 
         public enum Status
         {
-            Offline,
-            Online,
-            search
+            Offline_defualt,
+            Online_defualt,
+            search_defualt,
+            search_Light
         }
 
     }

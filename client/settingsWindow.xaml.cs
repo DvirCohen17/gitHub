@@ -5,6 +5,7 @@ using System.Windows.Media;
 using System.Linq;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace client_side
 {
@@ -12,6 +13,7 @@ namespace client_side
     {
         private Communicator communicator;
         private bool disconnect = true;
+        private string theame;
 
         public settingsWindow(Communicator communicator)
         {
@@ -19,36 +21,34 @@ namespace client_side
             Style = (Style)FindResource(typeof(System.Windows.Window)); // Specified full namespace for Window
             this.communicator = communicator;
             communicator.ApplyTheme(this);
+            theame = communicator.AppTheme.theame;
         }
 
         private void ModifyCodeStyle_Click(object sender, RoutedEventArgs e)
         {
-            MainGrid.Children.Clear();
+            dynamicContentPanel.Children.Clear();
 
-            StackPanel panel = new StackPanel { Orientation = Orientation.Vertical };
-            ScrollViewer scrollViewer = new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+            TextBlock instructionText = new TextBlock
+            {
+                Text = "Select Code Language",
+                Margin = new Thickness(5),
+                FontSize = 14,
+                FontWeight = FontWeights.Bold
+            };
+            dynamicContentPanel.Children.Add(instructionText);
 
-            ComboBox languageSelector = new ComboBox { Margin = new Thickness(5) };
-            languageSelector.Items.Add("C++");
-            languageSelector.Items.Add("C#");
-            languageSelector.Items.Add("Python");
-            languageSelector.Items.Add("Java");
-            languageSelector.Items.Add("JavaScript");
-            languageSelector.SelectionChanged += LanguageSelector_SelectionChanged;
-            panel.Children.Add(languageSelector);
+            ComboBox codeLanguageComboBox = new ComboBox { Margin = new Thickness(5) };
+            codeLanguageComboBox.Items.Add("C++");
+            codeLanguageComboBox.Items.Add("C#");
+            codeLanguageComboBox.Items.Add("Python");
+            codeLanguageComboBox.Items.Add("Java");
+            codeLanguageComboBox.Items.Add("JavaScript");
+            codeLanguageComboBox.SelectionChanged += CodeLanguageComboBox_SelectionChanged;
 
-            MainGrid.Children.Add(scrollViewer);
-
-            Button backButton = new Button { Content = "Back", Margin = new Thickness(5) };
-            backButton.Click += BackButton_Click;
-            panel.Children.Add(backButton);
-            Button closeButton = new Button { Content = "Close Settings", Margin = new Thickness(5) };
-            closeButton.Click += CloseButton_Click;
-            panel.Children.Add(closeButton);
-            communicator.ApplyTheme(this);
+            dynamicContentPanel.Children.Add(codeLanguageComboBox);
         }
 
-        private void LanguageSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void CodeLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             ComboBox comboBox = sender as ComboBox;
             string selectedLanguage = comboBox.SelectedItem as string;
@@ -56,20 +56,41 @@ namespace client_side
 
             if (System.IO.File.Exists(filePath))
             {
-                var scrollViewer = MainGrid.Children[0] as ScrollViewer;
-                var panel = scrollViewer.Content as StackPanel;
-                panel.Children.Clear();
-                panel.Children.Add(comboBox);
+                dynamicContentPanel.Children.Clear();
+                dynamicContentPanel.Children.Add(comboBox);
 
                 XDocument xml = XDocument.Load(filePath);
                 XNamespace ns = "http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008"; // Update this if your namespace is different
 
+                // Set WrapPanel orientation to vertical
+                WrapPanel wrapPanel = new WrapPanel
+                {
+                    Orientation = Orientation.Vertical,
+                    Margin = new Thickness(5),
+                    VerticalAlignment = VerticalAlignment.Top // Align to top for better layout
+                };
+
                 foreach (var colorElement in xml.Descendants(ns + "Color"))
                 {
-                    StackPanel colorPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(5) };
-                    TextBlock colorName = new TextBlock { Text = colorElement.Attribute("name")?.Value, Width = 150 };
+                    StackPanel colorPanel = new StackPanel
+                    {
+                        Orientation = Orientation.Horizontal,
+                        Margin = new Thickness(5),
+                        Width = 400 // Set width to ensure horizontal spacing
+                    };
 
-                    ComboBox colorPicker = new ComboBox { Width = 100 };
+                    TextBlock colorName = new TextBlock
+                    {
+                        Text = colorElement.Attribute("name")?.Value,
+                        Width = 150, // Fixed width for alignment
+                        TextWrapping = TextWrapping.Wrap
+                    };
+
+                    ComboBox colorPicker = new ComboBox
+                    {
+                        Width = 150, // Match width with TextBlock
+                        Margin = new Thickness(5, 0, 0, 0) // Margin for spacing
+                    };
                     var colorNames = typeof(Colors).GetProperties().Select(p => p.Name).ToList();
                     colorPicker.ItemsSource = colorNames;
 
@@ -92,25 +113,19 @@ namespace client_side
                     colorPanel.Children.Add(colorPicker);
                     colorPanel.Children.Add(exampleText);
 
-                    panel.Children.Add(colorPanel);
+                    wrapPanel.Children.Add(colorPanel);
                 }
 
-                Button applyButton = new Button { Content = "Apply", Margin = new Thickness(5) };
-                applyButton.Click += ApplyButton_Click;
-                panel.Children.Add(applyButton);
-                Button backButton = new Button { Content = "Back", Margin = new Thickness(5) };
-                backButton.Click += BackButton_Click;
-                panel.Children.Add(backButton);
-                Button closeButton = new Button { Content = "Close Settings", Margin = new Thickness(5) };
-                closeButton.Click += CloseButton_Click;
-                panel.Children.Add(closeButton);
+                // Add the WrapPanel to a ScrollViewer
+                ScrollViewer scrollViewer = new ScrollViewer
+                {
+                    Content = wrapPanel,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, // Disable horizontal scroll if unnecessary
+                    Margin = new Thickness(5) // Margin for ScrollViewer
+                };
 
-                communicator.ApplyTheme(this);
-
-            }
-            else
-            {
-                MessageBox.Show($"The file {filePath} does not exist.", "File Not Found", MessageBoxButton.OK, MessageBoxImage.Error);
+                dynamicContentPanel.Children.Add(scrollViewer);
             }
         }
 
@@ -123,80 +138,85 @@ namespace client_side
             if (exampleText != null && selectedColor != null)
             {
                 exampleText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(selectedColor));
+                ApplyButton_Click(colorPicker, null);
             }
         }
 
         private void ApplyButton_Click(object sender, RoutedEventArgs e)
         {
-            var scrollViewer = MainGrid.Children[0] as ScrollViewer;
-            var panel = scrollViewer.Content as StackPanel;
-            ComboBox languageSelector = panel.Children[0] as ComboBox;
-            string selectedLanguage = languageSelector.SelectedItem as string;
+            WrapPanel wrapPanel = dynamicContentPanel.Children.OfType<ScrollViewer>().Select(s => s.Content as WrapPanel).FirstOrDefault();
+
+            if (wrapPanel == null)
+            {
+                MessageBox.Show("WrapPanel not found.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            ComboBox languageSelector = dynamicContentPanel.Children.OfType<ComboBox>().FirstOrDefault();
+
+            string selectedLanguage = languageSelector?.SelectedItem as string;
             string filePath = $"C:\\githubDemo\\codeStyles\\{selectedLanguage}-Mode.xshd";
 
-            // Load the XML document
-            XDocument xml = XDocument.Load(filePath);
-            XNamespace ns = "http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008";
-
-            // Find the SyntaxDefinition element
-            XElement syntaxDefinition = xml.Root;
-
-            if (syntaxDefinition != null)
+            if (System.IO.File.Exists(filePath))
             {
-                // Find the Color elements under SyntaxDefinition
-                IEnumerable<XElement> colorElements = syntaxDefinition.Descendants(ns + "Color");
+                XDocument xml = XDocument.Load(filePath);
+                XNamespace ns = "http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008";
 
-                // Create a dictionary to map color names to their respective elements
-                var colorElementDict = colorElements.ToDictionary(
-                    elem => elem.Attribute("name")?.Value,
-                    elem => elem
-                );
-
-                // Iterate through each StackPanel in the UI (skipping the first one for language selection)
-                foreach (StackPanel colorPanel in panel.Children.OfType<StackPanel>().Skip(0))
+                XElement syntaxDefinition = xml.Root;
+                if (syntaxDefinition != null)
                 {
-                    if (colorPanel.Children[0] is TextBlock colorNameTextBlock &&
-                        colorPanel.Children[1] is ComboBox colorPicker)
-                    {
-                        string colorName = colorNameTextBlock.Text;
-                        string selectedColor = colorPicker.SelectedItem as string;
+                    IEnumerable<XElement> colorElements = syntaxDefinition.Descendants(ns + "Color");
+                    var colorElementDict = colorElements.ToDictionary(
+                       elem => elem.Attribute("name")?.Value,
+                       elem => elem
+                   );
 
-                        // Check if the color element exists in the XML
-                        if (colorElementDict.TryGetValue(colorName, out XElement colorElement))
+                    bool anyChangesMade = false;
+
+                    foreach (StackPanel colorPanel in wrapPanel.Children.OfType<StackPanel>())
+                    {
+                        if (colorPanel.Children.Count >= 3 &&
+                            colorPanel.Children[0] is TextBlock colorNameTextBlock &&
+                            colorPanel.Children[1] is ComboBox colorPicker)
                         {
-                            colorElement.SetAttributeValue("foreground", selectedColor);
+                            string colorName = colorNameTextBlock.Text;
+                            string selectedColor = colorPicker.SelectedItem as string;
+
+                            Debug.WriteLine($"Processing color panel: {colorName}, selected color: {selectedColor}");
+
+                            if (colorElementDict.TryGetValue(colorName, out XElement colorElement))
+                            {
+                                colorElement.SetAttributeValue("foreground", selectedColor);
+                                anyChangesMade = true;
+                            }
+                            else
+                            {
+                                Debug.WriteLine($"Color element '{colorName}' not found in XML.");
+                            }
+                        }
+                        else
+                        {
+                            Debug.WriteLine("Expected children not found in colorPanel.");
                         }
                     }
+
+                    if (anyChangesMade)
+                    {
+                        try
+                        {
+                            xml.Save(filePath);
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show($"Error saving XML file: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show("No changes were made.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
                 }
-
-                // Save the modified XML back to the file
-                xml.Save(filePath);
-
-                MessageBox.Show("Code style updated successfully.", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
             }
-            else
-            {
-                MessageBox.Show("Error: SyntaxDefinition element not found in the XML file.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-
-        private void BackButton_Click(object sender, RoutedEventArgs e)
-        {
-            MainGrid.Children.Clear();
-            var initialPanel = new StackPanel { Orientation = Orientation.Vertical, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(10) };
-            var modifyCodeStyleButton = new Button { Content = "Modify Code Style", Margin = new Thickness(5) };
-            var modifyThemeButton = new Button { Content = "Modify Theme", Margin = new Thickness(5) };
-            var closeSettingsButton = new Button { Content = "Close Settings", Margin = new Thickness(5) };
-            modifyCodeStyleButton.Click += ModifyCodeStyle_Click;
-            modifyThemeButton.Click += ModifyTheme_Click;
-            closeSettingsButton.Click += CloseButton_Click;
-            initialPanel.Children.Add(modifyCodeStyleButton);
-            initialPanel.Children.Add(modifyThemeButton);
-            initialPanel.Children.Add(closeSettingsButton);
-            MainGrid.Children.Add(initialPanel);
-            communicator.ApplyTheme(this);
-
         }
 
         private void CloseButton_Click(object sender, RoutedEventArgs e)
@@ -217,45 +237,85 @@ namespace client_side
 
         private void ModifyTheme_Click(object sender, RoutedEventArgs e)
         {
-            MainGrid.Children.Clear();
+            dynamicContentPanel.Children.Clear();
 
-            StackPanel panel = new StackPanel { Orientation = Orientation.Vertical };
-            ScrollViewer scrollViewer = new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+            List<string> themes = new List<string> { "Light", "Dark", "Blue", "Green", "Red", "CyberPunk", "Matrix" };
 
-            ComboBox themeSelector = new ComboBox { Margin = new Thickness(5) };
-            themeSelector.Items.Add("Light");
-            themeSelector.Items.Add("Dark");
-            themeSelector.Items.Add("Blue");
-            themeSelector.Items.Add("Green");
-            themeSelector.Items.Add("Red");
-            themeSelector.Items.Add("CyberPunk");
-            themeSelector.Items.Add("Matrix");
-            themeSelector.SelectionChanged += ThemeSelector_SelectionChanged;
-            panel.Children.Add(themeSelector);
+            foreach (var theme in themes)
+            {
+                CheckBox themeCheckBox = new CheckBox
+                {
+                    Content = new TextBlock
+                    {
+                        Text = theme,
+                        Foreground = communicator.AppTheme.TextColor
+                    },
+                    Margin = new Thickness(5)
+                };
 
-            MainGrid.Children.Add(scrollViewer);
+                if (theme == GetCurrentTheme())
+                {
+                    themeCheckBox.IsChecked = true;
+                }
 
-            Button backButton = new Button { Content = "Back", Margin = new Thickness(5) };
-            backButton.Click += BackButton_Click;
-            panel.Children.Add(backButton);
-            Button closeButton = new Button { Content = "Close Settings", Margin = new Thickness(5) };
-            closeButton.Click += CloseButton_Click;
-            panel.Children.Add(closeButton);
+                themeCheckBox.Checked += ThemeCheckBox_Checked;
+
+                dynamicContentPanel.Children.Add(themeCheckBox);
+            }
+
+        }
+
+        private void ThemeCheckBox_Checked(object sender, RoutedEventArgs e)
+        {
+            CheckBox selectedCheckBox = sender as CheckBox;
+            string selectedTheme = null;
+
+            if (selectedCheckBox.Content is TextBlock textBlock)
+            {
+                selectedTheme = textBlock.Text;
+            }
+
+            foreach (var child in dynamicContentPanel.Children)
+            {
+                if (child is CheckBox checkBox && checkBox != selectedCheckBox)
+                {
+                    if (checkBox.IsChecked == true)
+                    {
+                        checkBox.IsChecked = false;
+                    }
+                }
+            }
+
+            selectedCheckBox.IsChecked = true;
+
+            // Apply the theme for the newly selected CheckBox
+            SetTheme(selectedTheme);
+        }
+
+        private string GetCurrentTheme()
+        {
+            return communicator.AppTheme.theame;
+        }
+
+        private void SetTheme(string theme)
+        {
+            communicator.ModifyTheme(theme);
             communicator.ApplyTheme(this);
 
-        }
-
-        private void ThemeSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            ComboBox comboBox = sender as ComboBox;
-            string selectedTheme = comboBox.SelectedItem as string;
-
-            if (selectedTheme != null)
+            foreach (var child in dynamicContentPanel.Children)
             {
-                communicator.ModifyTheme(selectedTheme);
-                communicator.ApplyTheme(this);
+                if (child is CheckBox checkBox )
+                {
+                    if (checkBox.Content is TextBlock textBlock)
+                    {
+                        textBlock.Foreground = communicator.AppTheme.TextColor;
+                    }
+                }
             }
+
+            theame = communicator.AppTheme.theame;
         }
+
 
         private async void settings_CloseFile(object sender, EventArgs e)
         {

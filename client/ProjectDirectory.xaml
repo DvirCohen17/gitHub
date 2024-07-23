@@ -57,10 +57,12 @@
                                Margin="5,5,10,5"
                                FontSize="16"
                                ShowLineNumbers="True"
-                               Background="Black"
+                               Background="Transparent"
                                Foreground="White"
                                IsEnabled="True"
-                               Width="870"/>
+                               Width="870"
+                               BorderBrush="Gray"
+                               BorderThickness="1"/>
 
         <!-- Right-side panel for chat and user list -->
         <StackPanel Grid.Column="2" Grid.RowSpan="2" Orientation="Vertical" Width="200">
@@ -92,7 +94,7 @@
 
             <!-- User List section -->
 
-            <Border Background="Transparent" BorderBrush="White" Margin="-15,0,00,0" Height="203" Width="200" BorderThickness="1" CornerRadius="50" />
+            <Border Background="Transparent" BorderBrush="White" Margin="-15,0,00,0" Height="203" Width="203" BorderThickness="1" CornerRadius="50" />
 
             <StackPanel>
                 <TextBlock Text="   User List" FontWeight="Bold" Foreground="White" Margin="0,-420,0,0" Height="23"/>
@@ -112,14 +114,17 @@
                                         <Style TargetType="TextBlock">
                                             <Setter Property="Foreground" Value="White" />
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding Status}" Value="Online">
+                                                <DataTrigger Binding="{Binding Status}" Value="Online_defualt">
                                                     <Setter Property="Foreground" Value="Green" />
                                                 </DataTrigger>
-                                                <DataTrigger Binding="{Binding Status}" Value="Offline">
+                                                <DataTrigger Binding="{Binding Status}" Value="Offline_defualt">
                                                     <Setter Property="Foreground" Value="Red" />
                                                 </DataTrigger>
-                                                <DataTrigger Binding="{Binding Status}" Value="search">
+                                                <DataTrigger Binding="{Binding Status}" Value="search_defualt">
                                                     <Setter Property="Foreground" Value="White" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Status}" Value="search_Light">
+                                                    <Setter Property="Foreground" Value="black" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>

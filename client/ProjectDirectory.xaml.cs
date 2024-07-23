@@ -40,6 +40,7 @@ namespace client_side
         private Thread receiveServerUpdatesThread;
 
         bool disconnect = true; // if window closed by the user disconnect
+        private string theame;
 
         private bool isListeningToServer = true;
         private bool isCapsLockPressed = false;
@@ -68,6 +69,8 @@ namespace client_side
                 Friends = new ObservableCollection<User>();
                 lstFriends.ItemsSource = Friends;
 
+                communicator.ApplyTheme(this);
+                theame = communicator.AppTheme.theame;
 
                 ReceiveInitialChat(projectId);     // Receive initial content from the server
                 ReceiveInitialUsers();              // Receive initial content from the server
@@ -83,7 +86,6 @@ namespace client_side
 
                 //txtFileContent.CaretIndex = communicator.UserFileIndex; 
                 Closing += ProjectDirectory_CloseFile; // Hook up the closing event handler
-                communicator.ApplyTheme(this);
 
             }
             catch (Exception)
@@ -142,6 +144,11 @@ namespace client_side
                         {
                             isFriend = false;
                             isFriendRequest = true;
+
+                            if (theame == "Light")
+                            {
+                                onlineStatus = "4";
+                            }
                         }
 
                         updatedFriends.Add(new User
@@ -1576,19 +1583,21 @@ namespace client_side
         {
             return statusCode switch
             {
-                "0" => Status.Offline,
-                "1" => Status.Online,
-                "2" => Status.search,
-                "3" => Status.search,
+                "0" => Status.Offline_defualt,
+                "1" => Status.Online_defualt,
+                "2" => Status.search_defualt,
+                "3" => Status.search_defualt,
+                "4" => Status.search_Light,
                 _ => throw new ArgumentException($"Invalid status code: {statusCode}"),
             };
         }
 
         public enum Status
         {
-            Offline,
-            Online,
-            search
+            Offline_defualt,
+            Online_defualt,
+            search_defualt,
+            search_Light
         }
 
         public class BoolToVisibilityConverter : IValueConverter

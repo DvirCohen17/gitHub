@@ -69,7 +69,7 @@
                 <TextBlock Text="{Binding UserName}" FontSize="16" FontWeight="Bold"/>
                 <TextBlock Text="{Binding Email}" FontSize="14"/>
                 <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
-                    <TextBox x:Name="BioTextBox" Text="{Binding Bio, Mode=TwoWay}" Width="300" Height="Auto" TextWrapping="Wrap" VerticalAlignment="Top" Visibility="{Binding IsCurrentUserProfile, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    <TextBox x:Name="BioTextBox" Text="{Binding Bio, Mode=TwoWay}" Background="Transparent" Width="300" Height="Auto" TextWrapping="Wrap" VerticalAlignment="Top" Visibility="{Binding IsCurrentUserProfile, Converter={StaticResource BoolToVisibilityConverter}}"/>
                     <TextBlock x:Name="BioTextBlock" Text="{Binding Bio}" Width="300" Visibility="{Binding IsCurrentUserProfile, Converter={StaticResource InverseBoolToVisibilityConverter}}" TextWrapping="Wrap"/>
                     <Button x:Name="editButton" Content="Edit" Width="50" Height="22" Margin="5,0,0,0" Visibility="{Binding IsCurrentUserProfile, Converter={StaticResource BoolToVisibilityConverter}}" Click="EditBio_Click"/>
                 </StackPanel>
@@ -126,12 +126,12 @@
                                 Click="AcceptInvite_Click" CommandParameter="{Binding}" />
 
                             <!-- 'info' button to see project info -->
-                            <Button x:Name="InfoButton" Grid.Column="4" Content="Info" Width="50" Height="20" Margin="0,0,0,0" Background="Transparent" Foreground="White" BorderThickness="0"
+                            <Button x:Name="InfoButton" Grid.Column="4" Content="Info" Width="50" Height="20" Margin="0,0,0,0" Background="Transparent" Foreground="white" BorderThickness="0"
                                 Visibility="{Binding Role, Converter={StaticResource RegularToVisibilityConverter}}"
                                 Click="ViewProjectInfo_Click" CommandParameter="{Binding}" />
 
                             <!-- 'edit' button for editing project info -->
-                            <Button x:Name="EditButton" Grid.Column="4" Content="Edit" Width="50" Height="20" Margin="0,0,0,0" Background="Transparent" Foreground="White" BorderThickness="0"
+                            <Button x:Name="EditButton" Grid.Column="4" Content="Edit" Width="50" Height="20" Margin="0,0,0,0" Background="Transparent" Foreground="white" BorderThickness="0"
                                 Visibility="{Binding Role, Converter={StaticResource AdminToVisibilityConverter}}"
                                 Click="EditProjectInfo_Click" CommandParameter="{Binding}" />
 
@@ -149,7 +149,7 @@
         </StackPanel>
 
 
-        <Button x:Name="settingsBtn" Click="Settings_Click" Content="settings" Visibility="Visible" Width="53" Height="23" Margin="234,8,0,0" Background="Transparent" Foreground="white" BorderThickness="0" Grid.Column="1" HorizontalAlignment="Left" VerticalAlignment="Top" />
+        <Button x:Name="settingsBtn" Click="Settings_Click" HorizontalAlignment="Center"  VerticalAlignment="Top" Content="settings" Visibility="Visible" Width="70" Height="25" Margin="140,8,0,0" Background="Transparent" Foreground="white" BorderThickness="0" Grid.Column="1"  />
 
         <!-- Friends Section -->
         <StackPanel Grid.Column="1" Grid.Row="0" Grid.RowSpan="2" Margin="10,60,0,0">
@@ -177,14 +177,17 @@
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Foreground" Value="White" />
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Status}" Value="Online">
+                                            <DataTrigger Binding="{Binding Status}" Value="Online_defualt">
                                                 <Setter Property="Foreground" Value="Green" />
                                             </DataTrigger>
-                                            <DataTrigger Binding="{Binding Status}" Value="Offline">
+                                            <DataTrigger Binding="{Binding Status}" Value="Offline_defualt">
                                                 <Setter Property="Foreground" Value="Red" />
                                             </DataTrigger>
-                                            <DataTrigger Binding="{Binding Status}" Value="search">
+                                            <DataTrigger Binding="{Binding Status}" Value="search_defualt">
                                                 <Setter Property="Foreground" Value="White" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Status}" Value="search_Light">
+                                                <Setter Property="Foreground" Value="black" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -206,7 +209,7 @@
                                 CommandParameter="{Binding}"/>
 
                             <!-- 'removeUser' button for removing user, visible only for friends -->
-                            <Button Grid.Column="3" Content="Remove User" Margin="60,0,0,0" Width="85" Height="20" Background="Transparent" Foreground="White" BorderThickness="0"
+                            <Button Grid.Column="3" Content="Remove User" Margin="60,0,0,0" Width="85" Height="20" Background="Transparent" Foreground="white" BorderThickness="0"
                                 Visibility="{Binding IsFriend, Converter={StaticResource BoolToVisibilityConverter}}"
                                 Click="RemoveFriend_Click"
                                 CommandParameter="{Binding}"/>

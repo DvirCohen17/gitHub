@@ -115,6 +115,7 @@ namespace client_side
             Style = (Style)FindResource(typeof(Window));
             communicator = _communicator;
             Closing += login_CloseFile; // Hook up the closing event handler
+            communicator.ApplyTheme(this);
         }
 
         private void btnLogin_Click(object sender, RoutedEventArgs e)
