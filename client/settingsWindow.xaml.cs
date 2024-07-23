@@ -239,7 +239,7 @@ namespace client_side
         {
             dynamicContentPanel.Children.Clear();
 
-            List<string> themes = new List<string> { "Light", "Dark", "Blue", "Green", "Red", "CyberPunk", "Matrix" };
+            List<string> themes = new List<string> { "Light", "Dark", "Blue", "Green", "Red", "CyberPunk", "Matrix", "Solarized Light", "Solarized Dark", "Vintage", "Neon", "Pastel" };
 
             foreach (var theme in themes)
             {

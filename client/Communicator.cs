@@ -178,6 +178,10 @@ namespace client_side
         private Socket m_socket;
         public int UserId { get; set; }
         public string UserName { get; set; }
+
+        private const string SettingsFilePath = @"C:\githubDemo\settings.txt";
+
+
         public Communicator(string ip, int port)
         {
             m_socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
@@ -188,7 +192,40 @@ namespace client_side
 
             m_socket.Connect(ip, port);
 
-            ModifyTheme("cyberpunk");
+            LoadSettings();
+        }
+
+        private void LoadSettings()
+        {
+            if (!File.Exists(SettingsFilePath))
+            {
+                // Create the settings file with default theme
+                File.WriteAllText(SettingsFilePath, "AppTheme = Dark;");
+                // Set the default theme
+                ModifyTheme("dark");
+            }
+            else
+            {
+                // Read the theme from the settings file
+                string settingsContent = File.ReadAllText(SettingsFilePath);
+                string theme = ParseThemeFromSettings(settingsContent);
+
+                // Apply the theme
+                ModifyTheme(theme);
+            }
+        }
+
+        private string ParseThemeFromSettings(string settingsContent)
+        {
+            // Extract theme value from the settings content
+            // Example format: "AppTheme = Dark;"
+            var parts = settingsContent.Split(new[] { '=' }, 2);
+            if (parts.Length > 1)
+            {
+                var theme = parts[1].Trim().Trim(';');
+                return theme;
+            }
+            return "Dark"; // Default theme if parsing fails
         }
 
         ~Communicator()
@@ -210,7 +247,7 @@ namespace client_side
                         Brushes.DarkGreen,
                         Brushes.LightCoral,
                         Brushes.DarkRed,
-                        Brushes.Black, "Light"); // Set text color for light theme
+                        Brushes.Black, "Light");
                     break;
                 case "dark":
                     AppTheme = new Theme(
@@ -222,7 +259,7 @@ namespace client_side
                         Brushes.White,
                         Brushes.DarkRed,
                         Brushes.White,
-                        Brushes.White, "Dark"); // Set text color for dark theme
+                        Brushes.White, "Dark");
                     break;
                 case "blue":
                     AppTheme = new Theme(
@@ -234,7 +271,7 @@ namespace client_side
                         Brushes.DarkGreen,
                         Brushes.LightCoral,
                         Brushes.DarkRed,
-                        Brushes.DarkBlue, "Blue"); // Set text color for blue theme
+                        Brushes.DarkBlue, "Blue");
                     break;
                 case "green":
                     AppTheme = new Theme(
@@ -246,7 +283,7 @@ namespace client_side
                         Brushes.DarkGreen,
                         Brushes.LightCoral,
                         Brushes.DarkRed,
-                        Brushes.DarkGreen, "Green"); // Set text color for green theme
+                        Brushes.DarkGreen, "Green");
                     break;
                 case "red":
                     AppTheme = new Theme(
@@ -258,31 +295,91 @@ namespace client_side
                         Brushes.DarkGreen,
                         Brushes.LightCoral,
                         Brushes.DarkRed,
-                        Brushes.DarkRed, "Red"); // Set text color for red theme
+                        Brushes.DarkRed, "Red");
                     break;
                 case "cyberpunk":
                     AppTheme = new Theme(
-                        new SolidColorBrush(Color.FromRgb(10, 0, 50)), // Dark blue background
-                        new SolidColorBrush(Color.FromRgb(0, 255, 255)), // Cyan text
-                        new SolidColorBrush(Color.FromRgb(255, 20, 147)), // Deep pink button
+                        new SolidColorBrush(Color.FromRgb(10, 0, 50)),
+                        new SolidColorBrush(Color.FromRgb(0, 255, 255)),
+                        new SolidColorBrush(Color.FromRgb(255, 20, 147)),
                         Brushes.White,
-                        new SolidColorBrush(Color.FromRgb(0, 255, 0)), // Green approve button
+                        new SolidColorBrush(Color.FromRgb(0, 255, 0)),
                         Brushes.White,
-                        new SolidColorBrush(Color.FromRgb(255, 0, 0)), // Red reject button
+                        new SolidColorBrush(Color.FromRgb(255, 0, 0)),
                         Brushes.White,
-                        new SolidColorBrush(Color.FromRgb(0, 255, 255)), "CyberPunk"); // Cyan text color
+                        new SolidColorBrush(Color.FromRgb(0, 255, 255)), "CyberPunk");
                     break;
                 case "matrix":
                     AppTheme = new Theme(
                         Brushes.Black,
-                        new SolidColorBrush(Color.FromRgb(0, 255, 0)), // Green text
+                        new SolidColorBrush(Color.FromRgb(0, 255, 0)),
                         Brushes.Black,
-                        new SolidColorBrush(Color.FromRgb(0, 255, 0)), // Green text
-                        Brushes.DarkGreen, // Green approve button
+                        new SolidColorBrush(Color.FromRgb(0, 255, 0)),
+                        Brushes.DarkGreen,
                         Brushes.White,
-                        Brushes.DarkRed, // Red reject button
+                        Brushes.DarkRed,
                         Brushes.White,
-                        new SolidColorBrush(Color.FromRgb(0, 255, 0)), "Matrix"); // Green text color
+                        new SolidColorBrush(Color.FromRgb(0, 255, 0)), "Matrix");
+                    break;
+                case "solarized light":
+                    AppTheme = new Theme(
+                        new SolidColorBrush(Color.FromRgb(253, 246, 227)),
+                        new SolidColorBrush(Color.FromRgb(101, 123, 131)),
+                        new SolidColorBrush(Color.FromRgb(238, 232, 213)),
+                        new SolidColorBrush(Color.FromRgb(88, 110, 117)),
+                        new SolidColorBrush(Color.FromRgb(42, 161, 152)),
+                        new SolidColorBrush(Color.FromRgb(133, 153, 0)),
+                        new SolidColorBrush(Color.FromRgb(203, 75, 75)),
+                        new SolidColorBrush(Color.FromRgb(139, 0, 0)),
+                        new SolidColorBrush(Color.FromRgb(101, 123, 131)), "Solarized Light");
+                    break;
+                case "solarized dark":
+                    AppTheme = new Theme(
+                        new SolidColorBrush(Color.FromRgb(0, 43, 54)),
+                        new SolidColorBrush(Color.FromRgb(131, 148, 153)),
+                        new SolidColorBrush(Color.FromRgb(7, 54, 33)),
+                        new SolidColorBrush(Color.FromRgb(147, 161, 161)),
+                        new SolidColorBrush(Color.FromRgb(38, 139, 210)),
+                        new SolidColorBrush(Color.FromRgb(42, 161, 152)),
+                        new SolidColorBrush(Color.FromRgb(203, 75, 75)),
+                        new SolidColorBrush(Color.FromRgb(253, 246, 227)),
+                        new SolidColorBrush(Color.FromRgb(131, 148, 153)), "Solarized Dark");
+                    break;
+                case "vintage":
+                    AppTheme = new Theme(
+                        new SolidColorBrush(Color.FromRgb(244, 227, 227)),
+                        new SolidColorBrush(Color.FromRgb(108, 79, 79)),
+                        new SolidColorBrush(Color.FromRgb(208, 182, 182)),
+                        new SolidColorBrush(Color.FromRgb(108, 79, 79)),
+                        new SolidColorBrush(Color.FromRgb(155, 109, 109)),
+                        new SolidColorBrush(Color.FromRgb(108, 79, 79)),
+                        new SolidColorBrush(Color.FromRgb(244, 227, 227)),
+                        new SolidColorBrush(Color.FromRgb(108, 79, 79)),
+                        new SolidColorBrush(Color.FromRgb(108, 79, 79)), "Vintage");
+                    break;
+                case "neon":
+                    AppTheme = new Theme(
+                        Brushes.Black,
+                        new SolidColorBrush(Color.FromRgb(57, 255, 20)),
+                        new SolidColorBrush(Color.FromRgb(255, 0, 127)),
+                        Brushes.White,
+                        new SolidColorBrush(Color.FromRgb(0, 255, 255)),
+                        Brushes.White,
+                        new SolidColorBrush(Color.FromRgb(255, 0, 0)),
+                        Brushes.White,
+                        new SolidColorBrush(Color.FromRgb(57, 255, 20)), "Neon");
+                    break;
+                case "pastel":
+                    AppTheme = new Theme(
+                        new SolidColorBrush(Color.FromRgb(251, 232, 235)),
+                        new SolidColorBrush(Color.FromRgb(195, 162, 176)),
+                        new SolidColorBrush(Color.FromRgb(245, 227, 230)),
+                        new SolidColorBrush(Color.FromRgb(176, 58, 106)),
+                        new SolidColorBrush(Color.FromRgb(247, 198, 199)),
+                        new SolidColorBrush(Color.FromRgb(227, 182, 178)),
+                        new SolidColorBrush(Color.FromRgb(251, 232, 235)),
+                        new SolidColorBrush(Color.FromRgb(176, 58, 106)),
+                        new SolidColorBrush(Color.FromRgb(195, 162, 176)), "Pastel");
                     break;
                 default:
                     AppTheme = new Theme(
@@ -294,10 +391,13 @@ namespace client_side
                         Brushes.DarkGreen,
                         Brushes.LightCoral,
                         Brushes.DarkRed,
-                        Brushes.Black, "Light"); // Default text color
+                        Brushes.Black, "Light");
                     break;
             }
+            SaveSettings(theme);
+
         }
+
 
         public void ApplyTheme(Window window)
         {
@@ -399,6 +499,12 @@ namespace client_side
                 DependencyObject child = VisualTreeHelper.GetChild(listBoxItem, i);
                 ApplyThemeToControl(child);
             }
+        }
+
+        private void SaveSettings(string theme)
+        {
+            // Save the selected theme to the settings file
+            File.WriteAllText(SettingsFilePath, $"AppTheme = {theme};");
         }
 
 
