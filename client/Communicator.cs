@@ -179,9 +179,6 @@ namespace client_side
         public int UserId { get; set; }
         public string UserName { get; set; }
 
-        private const string SettingsFilePath = @"C:\githubDemo\settings.txt";
-
-
         public Communicator(string ip, int port)
         {
             m_socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
@@ -197,35 +194,18 @@ namespace client_side
 
         private void LoadSettings()
         {
-            if (!File.Exists(SettingsFilePath))
-            {
-                // Create the settings file with default theme
-                File.WriteAllText(SettingsFilePath, "AppTheme = Dark;");
-                // Set the default theme
-                ModifyTheme("dark");
-            }
-            else
-            {
-                // Read the theme from the settings file
-                string settingsContent = File.ReadAllText(SettingsFilePath);
-                string theme = ParseThemeFromSettings(settingsContent);
+            string theme = Properties.Settings.Default.Theme;
 
-                // Apply the theme
-                ModifyTheme(theme);
-            }
-        }
-
-        private string ParseThemeFromSettings(string settingsContent)
-        {
-            // Extract theme value from the settings content
-            // Example format: "AppTheme = Dark;"
-            var parts = settingsContent.Split(new[] { '=' }, 2);
-            if (parts.Length > 1)
+            if (string.IsNullOrEmpty(theme))
             {
-                var theme = parts[1].Trim().Trim(';');
-                return theme;
+                // First run, set default theme to Dark
+                theme = "Dark";
+                Properties.Settings.Default.Theme = theme;
+                Properties.Settings.Default.Save();
             }
-            return "Dark"; // Default theme if parsing fails
+
+            // Apply the theme
+            ModifyTheme(theme);
         }
 
         ~Communicator()
@@ -503,10 +483,24 @@ namespace client_side
 
         private void SaveSettings(string theme)
         {
-            // Save the selected theme to the settings file
-            File.WriteAllText(SettingsFilePath, $"AppTheme = {theme};");
+            // Save the selected theme to the application settings
+            Properties.Settings.Default.Theme = theme;
+            Properties.Settings.Default.Save();
         }
 
+        public void SaveCredentials(string username, string hashedPassword)
+        {
+            Properties.Settings.Default.Username = username;
+            Properties.Settings.Default.HashedPassword = hashedPassword;
+            Properties.Settings.Default.Save();
+        }
+
+        public void ClearCredentials()
+        {
+            Properties.Settings.Default.Username = string.Empty;
+            Properties.Settings.Default.HashedPassword = string.Empty;
+            Properties.Settings.Default.Save();
+        }
 
         public string HashPassword(string password)
         {

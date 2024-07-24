@@ -897,6 +897,7 @@ namespace client_side
             disconnect = false;
             isListeningToServer = false;
 
+            communicator.ClearCredentials();
             Dispatcher.Invoke(() =>
             {
                 LoginWindow loginWindow = new LoginWindow(communicator);

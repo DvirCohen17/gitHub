@@ -12,6 +12,8 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using System.Xml.Linq;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 
 namespace client_side
 {
@@ -76,7 +78,7 @@ namespace client_side
                     }
                 }
                 communicator.ApplyTheme(this);
-
+                LoadSavedCredentials();
             }
             catch (Exception)
             {
@@ -85,6 +87,65 @@ namespace client_side
                 Environment.Exit(0);
             }
 
+        }
+
+        private void LoadSavedCredentials()
+        {
+            string savedUsername = Properties.Settings.Default.Username;
+            string savedHashedPassword = Properties.Settings.Default.HashedPassword;
+
+            if (!string.IsNullOrEmpty(savedUsername) && !string.IsNullOrEmpty(savedHashedPassword))
+            {
+                txtUsername.Text = savedUsername;
+                pwdPassword.Password = savedHashedPassword; // Assuming the hashed password is used as a placeholder
+                chkRememberMe.IsChecked = true;
+                AttemptLogin(savedUsername, savedHashedPassword);
+            }
+        }
+
+        private void AttemptLogin(string username, string hashedPassword)
+        {
+            try
+            {
+                string code = ((int)MessageCodes.MC_LOGIN_REQUEST).ToString();
+                communicator.SendData($"{code}{username.Length:D5}{username}{hashedPassword.Length:D5}{hashedPassword}");
+
+                string update = communicator.ReceiveData();
+                string rep = update.Substring(0, 3);
+
+                if (rep == ((int)MessageCodes.MC_LOGIN_RESP).ToString())
+                {
+                    string lengthString = update.Substring(3, 5);
+                    int Namelength = int.Parse(lengthString);
+                    string userName = update.Substring(8, Namelength);
+
+                    string Id = update.Substring(8 + Namelength);
+                    communicator.UserName = userName;
+                    communicator.UserId = int.Parse(Id);
+                    disconnect = false;
+
+                    if (chkRememberMe.IsChecked == true)
+                    {
+                        communicator.SaveCredentials(username, hashedPassword);
+                    }
+                    else
+                    {
+                        communicator.ClearCredentials();
+                    }
+
+                    HomePage filesWindow = new HomePage(communicator);
+                    filesWindow.Show();
+                    Close();
+                }
+                else if (rep == ((int)MessageCodes.MC_ERROR_RESP).ToString())
+                {
+                    lblErrMsg.Text = update.Substring(3);
+                }
+            }
+            catch (Exception ex)
+            {
+                lblErrMsg.Text = ex.Message;
+            }
         }
 
         private async void login_CloseFile(object sender, EventArgs e)
@@ -129,32 +190,9 @@ namespace client_side
                     return;
                 }
 
-                string code = ((int)MessageCodes.MC_LOGIN_REQUEST).ToString();
                 string name = txtUsername.Text;
                 string pass = communicator.HashPassword(pwdPassword.Password);
-                communicator.SendData($"{code}{name.Length:D5}{name}{pass.Length:D5}{pass}");
-
-                string update = communicator.ReceiveData();
-                string rep = update.Substring(0, 3);
-
-                if (rep == ((int)MessageCodes.MC_LOGIN_RESP).ToString())
-                {
-                    string lengthString = update.Substring(3 , 5);
-                    int Namelength = int.Parse(lengthString);
-                    string userName = update.Substring(8, Namelength);
-
-                    string Id = update.Substring(8 + Namelength);
-                    communicator.UserName = userName;
-                    communicator.UserId = int.Parse(Id);
-                    disconnect = false;
-                    HomePage filesWindow = new HomePage(communicator);
-                    filesWindow.Show();
-                    Close();
-                }
-                else if (rep == ((int)MessageCodes.MC_ERROR_RESP).ToString()) 
-                {
-                    lblErrMsg.Text = update.Substring(3);
-                }
+                AttemptLogin(name, pass);
             }
             catch(Exception ex)
             {

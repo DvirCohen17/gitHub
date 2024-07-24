@@ -13,8 +13,9 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="24"/>
+            <RowDefinition Height="auto"/>
+            <RowDefinition Height="auto"/>
+            <RowDefinition Height="auto"/>
             <RowDefinition/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
@@ -30,6 +31,8 @@
         <Label Grid.Row="2" VerticalAlignment="Center">Password:</Label>
         <PasswordBox x:Name="pwdPassword" MaxLength="30" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" Margin="0,0,5,0"></PasswordBox>
 
+        <CheckBox x:Name="chkRememberMe" Content="Remember Me" Grid.Row="3" Grid.ColumnSpan="2" HorizontalAlignment="Center" Margin="0,10,0,0" />
+
         <Button Grid.Row="6" HorizontalAlignment="Center" Width="150" Height="28" Click="btnLogin_Click" Grid.Column="1" Margin="-62,66,0,0" VerticalAlignment="Top">Login</Button>
 
         <TextBlock Grid.Row="6" HorizontalAlignment="Left" Margin="126,100,0,0" Grid.Column="1">Don't have an account?
@@ -39,6 +42,6 @@
         <TextBlock Grid.Row="6" HorizontalAlignment="Left" Margin="34,100,0,19" Grid.ColumnSpan="2">
             <Hyperlink Click="hprlnkForgotPassword">Forgot Password?</Hyperlink>
         </TextBlock>
-        <TextBlock x:Name="lblErrMsg" HorizontalAlignment="Left" Foreground="Red" FontWeight="Bold" Margin="56,10,0,115" Width="288" Grid.ColumnSpan="2" Grid.Row="6"/>
+        <TextBlock x:Name="lblErrMsg" HorizontalAlignment="Left" Foreground="Red" FontWeight="Bold" Margin="100,10,0,115" Width="288" Grid.ColumnSpan="2" Grid.Row="6"/>
     </Grid>
 </Window>
