@@ -19,7 +19,7 @@ namespace client_side
         MC_CREATE_FILE_REQUEST = 105,
         MC_GET_FILES_REQUEST = 106,
         MC_CLOSE_FILE_REQUEST = 108,
-        MC_GET_MESSAGES_REQUEST = 109,
+        MC_GET_CHAT_MESSAGES_REQUEST = 109,
         MC_GET_USERS_ON_FILE_REQUEST = 110,
         MC_POST_MSG_REQUEST = 111,
         MC_ENTER_FILE_REQUEST = 112,
@@ -62,6 +62,12 @@ namespace client_side
         MC_MODIFY_PROJECT_INFO_REQUEST = 149,
         MC_GET_CODE_STYLES_REQUEST = 150,
         MC_SETTINGS_REQUEST = 151,
+        MC_GET_MAIL_IMAGES_REQUEST = 152,
+        MC_GET_MESSAGES_REQUEST = 153,
+        MC_MOVE_TO_MESSAGES_REQUEST = 154,
+        MC_GET_MSG_COUNT_REQUEST = 155,
+        MC_SEND_MSG_REQUEST = 156,
+        MC_MARK_AS_READ_REQUEST = 157,
 
         MC_ERROR_RESP = 200, //responses
         MC_INITIAL_RESP = 201,
@@ -72,7 +78,7 @@ namespace client_side
         MC_GET_FILES_RESP = 206,
         MC_ADD_FILE_RESP = 207,
         MC_CLOSE_FILE_RESP = 208,
-        MC_GET_MESSAGES_RESP = 209,
+        MC_GET_CHAT_MESSAGES_RESP = 209,
         MC_GET_USERS_ON_FILE_RESP = 210,
         MC_POST_MSG_RESP = 211,
         MC_ENTER_FILE_RESP = 212,
@@ -115,6 +121,12 @@ namespace client_side
         MC_MODIFY_PROJECT_INFO_RESP = 249,
         MC_GET_CODE_STYLES_RESP = 250,
         MC_SETTINGS_RESP = 251,
+        MC_GET_MAIL_IMAGES_RESP = 252,
+        MC_GET_MESSAGES_RESP = 253,
+        MC_MOVE_TO_MESSAGES_RESP = 254,
+        MC_GET_MSG_COUNT_RESP = 255,
+        MC_SEND_MSG_RESP = 256,
+        MC_MARK_AS_READ_RESP = 257,
 
         MC_DISCONNECT = 300, //user
         MC_LOGIN_REQUEST = 301,
@@ -172,7 +184,8 @@ namespace client_side
 
     public class Communicator
     {
-        public string DirectoryPath = @"C:\githubDemo\codeStyles";
+        public string CodeStylesDir = @"C:\githubDemo\codeStyles";
+        public string MailImagesDir = @"C:\githubDemo\MailImages";
         public Theme AppTheme;
 
         private Socket m_socket;
@@ -547,22 +560,19 @@ namespace client_side
             return rep;
         }
 
-        public byte[] ReceiveImage(int imageSize)
+        public string ReceiveImage(int imageSize)
         {
-            byte[] buffer = new byte[imageSize];  // Adjust the buffer size as needed
-            int totalBytesReceived = 0;
+            byte[] buffer = new byte[imageSize];
+            int received = 0;
 
-            while (totalBytesReceived < imageSize)
+            while (received < imageSize)
             {
-                int bytesReceived = m_socket.Receive(buffer, totalBytesReceived, imageSize - totalBytesReceived, SocketFlags.None);
-                if (bytesReceived == 0)
-                {
-                    throw new IOException("Connection closed unexpectedly while receiving image.");
-                }
-                totalBytesReceived += bytesReceived;
+                int bytes = m_socket.Receive(buffer, received, imageSize - received, SocketFlags.None);
+                if (bytes == 0) throw new Exception("Connection closed prematurely.");
+                received += bytes;
             }
 
-            return buffer;
+            return Convert.ToBase64String(buffer);
         }
 
         /*

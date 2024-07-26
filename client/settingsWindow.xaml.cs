@@ -14,6 +14,8 @@ namespace client_side
         private Communicator communicator;
         private bool disconnect = true;
         private string theame;
+        private CheckBox currentlyCheckedCheckBox;
+
 
         public settingsWindow(Communicator communicator)
         {
@@ -256,9 +258,11 @@ namespace client_side
                 if (theme == GetCurrentTheme())
                 {
                     themeCheckBox.IsChecked = true;
+                    currentlyCheckedCheckBox = themeCheckBox;
                 }
 
                 themeCheckBox.Checked += ThemeCheckBox_Checked;
+                themeCheckBox.Unchecked += ThemeCheckBox_Unchecked;
 
                 dynamicContentPanel.Children.Add(themeCheckBox);
             }
@@ -275,21 +279,37 @@ namespace client_side
                 selectedTheme = textBlock.Text;
             }
 
+            if (currentlyCheckedCheckBox != null && currentlyCheckedCheckBox != selectedCheckBox)
+            {
+                currentlyCheckedCheckBox.IsChecked = false;
+            }
+
+            currentlyCheckedCheckBox = selectedCheckBox;
+
+            // Apply the theme for the newly selected CheckBox
+            SetTheme(selectedTheme);
+        }
+
+        private void ThemeCheckBox_Unchecked(object sender, RoutedEventArgs e)
+        {
+            CheckBox selectedCheckBox = sender as CheckBox;
+            bool isThereChecked = false;
+
             foreach (var child in dynamicContentPanel.Children)
             {
-                if (child is CheckBox checkBox && checkBox != selectedCheckBox)
+                if (child is CheckBox checkBox)
                 {
                     if (checkBox.IsChecked == true)
                     {
-                        checkBox.IsChecked = false;
+                        isThereChecked = true;
                     }
                 }
             }
 
-            selectedCheckBox.IsChecked = true;
-
-            // Apply the theme for the newly selected CheckBox
-            SetTheme(selectedTheme);
+            if (selectedCheckBox == currentlyCheckedCheckBox && !isThereChecked)
+            {
+                selectedCheckBox.IsChecked = true;
+            }
         }
 
         private string GetCurrentTheme()

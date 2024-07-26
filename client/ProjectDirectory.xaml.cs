@@ -201,13 +201,13 @@ namespace client_side
         {
             try
             {
-                string code = ((int)MessageCodes.MC_GET_MESSAGES_REQUEST).ToString();
+                string code = ((int)MessageCodes.MC_GET_CHAT_MESSAGES_REQUEST).ToString();
                 communicator.SendData($"{code}{projectId}");
 
                 string initialContent = communicator.ReceiveData();
                 string codeString = initialContent.Substring(0, 3);
 
-                if (codeString == ((int)MessageCodes.MC_GET_MESSAGES_RESP).ToString() &&
+                if (codeString == ((int)MessageCodes.MC_GET_CHAT_MESSAGES_RESP).ToString() &&
                     initialContent.Length > 3)
                 {
                     int currentIndex = 3;
@@ -755,20 +755,20 @@ namespace client_side
             switch (codeLanguage)
             {
                 case "cpp":
-                    filePath = $"{communicator.DirectoryPath}\\C++-Mode.xshd";
+                    filePath = $"{communicator.CodeStylesDir}\\C++-Mode.xshd";
                     break;
                 case "python":
-                    filePath = $"{communicator.DirectoryPath}\\Python-Mode.xshd";
+                    filePath = $"{communicator.CodeStylesDir}\\Python-Mode.xshd";
                     codeLaneguage = "py";
                     break;
                 case "cs":
-                    filePath = $"{communicator.DirectoryPath}\\C#-Mode.xshd";
+                    filePath = $"{communicator.CodeStylesDir}\\C#-Mode.xshd";
                     break;
                 case "java":
-                    filePath = $"{communicator.DirectoryPath}\\Java-Mode.xshd";
+                    filePath = $"{communicator.CodeStylesDir}\\Java-Mode.xshd";
                     break;
                 case "JavaScript":
-                    filePath = $"{communicator.DirectoryPath}\\JavaScript-Mode.xshd";
+                    filePath = $"{communicator.CodeStylesDir}\\JavaScript-Mode.xshd";
                     break;
                 default:
                     txtFileContent.SyntaxHighlighting = null;

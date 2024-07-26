@@ -19,6 +19,8 @@ using System.IO;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 using static System.Net.WebRequestMethods;
 using Microsoft.VisualBasic;
+using System.Windows.Media;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.ListView;
 
 namespace client_side
 {
@@ -30,17 +32,23 @@ namespace client_side
         private bool isListeningToServer = true;
         private UserProfile loggedUserProfile;
         private UserProfile displayedUserProfile;
-
         private bool waitingForImage = false;
         private int imageSize;
         private string theame;
 
+
         private bool inSearch = false;
+        private int MessageCount = 0;
+        private string _messageCountStr;
 
         private ObservableCollection<User> friends { get; set; }
         private ObservableCollection<ProjectInfo> projects { get; set; }
 
         public event PropertyChangedEventHandler PropertyChanged;
+
+        private string mailImage;
+        private string imageMode;
+        private bool inMessagesMode = false;
 
         public HomePage(Communicator communicator)
         {
@@ -49,9 +57,11 @@ namespace client_side
             this.communicator = communicator;
             DataContext = this;
 
+            communicator.ApplyTheme(this);
+
+
             lstFriends.MouseDoubleClick += LstFriends_MouseDoubleClick;
             lstProjects.MouseDoubleClick += LstProjects_MouseDoubleClick;
-
 
             // Initialize Friends collection
             Friends = new ObservableCollection<User>();
@@ -62,8 +72,11 @@ namespace client_side
 
             theame = communicator.AppTheme.theame;
 
-            start();
+            EnableAllButtonsAndLists();
 
+            start();
+            openMailImage();
+            msgBtn.Background = Brushes.Transparent;
             receiveServerUpdatesThread = new Thread(() => ReceiveServerUpdates())
             {
                 IsBackground = true
@@ -71,7 +84,189 @@ namespace client_side
             receiveServerUpdatesThread.Start();
 
             Closing += HomePage_CloseFile;
-            communicator.ApplyTheme(this);
+        }
+
+        private void EnableAllButtonsAndLists()
+        {
+            SetButtonsAndListsEnabledState(true);
+            EnableDoubleClickEvents();
+        }
+
+        private void DisableAllButtonsAndLists()
+        {
+            SetButtonsAndListsEnabledState(false);
+            DisableDoubleClickEvents();
+        }
+
+        private void SetButtonsAndListsEnabledState(bool isEnabled)
+        {
+            AddProjectBtn.IsEnabled = isEnabled;
+            settingsBtn.IsEnabled = isEnabled;
+            backButton.IsEnabled = isEnabled;
+            msgBtn.IsEnabled = isEnabled;
+            closeSerachBtn.IsEnabled = isEnabled;
+            addFriendBtn.IsEnabled = isEnabled;
+            editButton.IsEnabled = isEnabled;
+            LogoutBtn.IsEnabled = isEnabled;
+            searchBarTextBox.IsEnabled = isEnabled;
+            BioTextBox.IsEnabled = isEnabled;
+
+            foreach (var item in lstProjects.Items)
+            {
+                ListViewItem container = lstProjects.ItemContainerGenerator.ContainerFromItem(item) as ListViewItem;
+                if (container != null)
+                {
+                    SetButtonsInContainerEnabledState(container, isEnabled);
+                }
+            }
+
+            foreach (var item in lstFriends.Items)
+            {
+                ListBoxItem container = lstFriends.ItemContainerGenerator.ContainerFromItem(item) as ListBoxItem;
+                if (container != null)
+                {
+                    SetButtonsInContainerEnabledState(container, isEnabled);
+                }
+            }
+        }
+
+        private void EnableDoubleClickEvents()
+        {
+            lstProjects.MouseDoubleClick += LstProjects_MouseDoubleClick;
+            lstFriends.MouseDoubleClick += LstFriends_MouseDoubleClick;
+        }
+
+        private void DisableDoubleClickEvents()
+        {
+            lstProjects.MouseDoubleClick -= LstProjects_MouseDoubleClick;
+            lstFriends.MouseDoubleClick -= LstFriends_MouseDoubleClick;
+        }
+
+        private void SetButtonsInContainerEnabledState(DependencyObject container, bool isEnabled)
+        {
+            foreach (var child in GetChildren(container))
+            {
+                if (child is System.Windows.Controls.Button button)
+                {
+                    button.IsEnabled = isEnabled;
+                }
+            }
+        }
+
+        private IEnumerable<DependencyObject> GetChildren(DependencyObject parent)
+        {
+            if (parent == null) yield break;
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                yield return child;
+                foreach (var grandChild in GetChildren(child))
+                {
+                    yield return grandChild;
+                }
+            }
+        }
+
+        private void openMailImage()
+        {
+            if (MessageCount == 0)
+            {
+
+                switch (communicator.AppTheme.theame)
+                {
+                    case "Light":
+                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Light\\No_Dot.png";
+                        break;
+                    case "Dark":
+                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Light\\No_Dot.png";
+                        break;
+                    case "Blue":
+                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Blue\\No_Dot.png";
+                        break;
+                    case "Green":
+                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Green\\No_Dot.png";
+                        break;
+                    case "Red":
+                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Red\\No_Dot.png";
+                        break;
+                    case "CyberPunk":
+                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_CyberPunk\\No_Dot.png";
+                        break;
+                    case "Matrix":
+                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Matrix\\No_Dot.png";
+                        break;
+                    case "Solarized Dark":
+                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_SolarizedDark\\No_Dot.png";
+                        break;
+                    case "Solarized Light":
+                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_SolarizedLight\\No_Dot.png";
+                        break;
+                    case "Vintage":
+                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Vintage\\No_Dot.png";
+                        break;
+                    case "Neon":
+                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Matrix\\No_Dot.png";
+                        break;
+                    case "Pastel":
+                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Vintage\\No_Dot.png";
+                        break;
+
+                        // Handle other themes if needed
+                }
+            }
+            else
+            {
+                switch (communicator.AppTheme.theame)
+                {
+                    case "Light":
+                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Light\\Dot.png";
+                        break;
+                    case "Dark":
+                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Light\\Dot.png";
+                        break;
+                    case "Blue":
+                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Blue\\Dot.png";
+                        break;
+                    case "Green":
+                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Green\\Dot.png";
+                        break;
+                    case "Red":
+                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Red\\Dot.png";
+                        break;
+                    case "CyberPunk":
+                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_CyberPunk\\Dot.png";
+                        break;
+                    case "Matrix":
+                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Matrix\\Dot.png";
+                        break;
+                    case "Solarized Dark":
+                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_SolarizedDark\\Dot.png";
+                        break;
+                    case "Solarized Light":
+                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_SolarizedLight\\Dot.png";
+                        break;
+                    case "Vintage":
+                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Vintage\\Dot.png";
+                        break;
+                    case "Neon":
+                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Matrix\\Dot.png";
+                        break;
+                    case "Pastel":
+                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Vintage\\Dot.png";
+                        break;
+
+                        // Handle other themes if needed
+                }
+            }
+
+            BitmapImage bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.UriSource = new Uri(mailImage, UriKind.Absolute);
+            bitmap.CacheOption = BitmapCacheOption.OnLoad; // Cache image for better performance
+            bitmap.EndInit();
+
+            MailImage.Source = bitmap;
+            
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -91,6 +286,34 @@ namespace client_side
             LoadProfileInfo();
             LoadFriendsList();
             LoadProjectsList();
+            LoadMessagesCount();
+        }
+
+        private void LoadMessagesCount()
+        {
+            string projectsListCode = ((int)MessageCodes.MC_GET_MSG_COUNT_REQUEST).ToString();
+            communicator.SendData($"{projectsListCode}{communicator.UserName.Length:D5}{communicator.UserName}");
+
+            string response = communicator.ReceiveData();
+            string responseCodee = response.Substring(0, 3);
+            if (responseCodee == ((int)MessageCodes.MC_GET_MESSAGES_RESP).ToString())
+            {
+                MessageCount = int.Parse(response.Substring(3, 5));
+                Dispatcher.Invoke(() =>
+                {
+                    msgCountTextBlock.Text = MessageCount.ToString();
+                });
+                if (MessageCount > 0)
+                {
+                    msgCountTextBlock.Visibility = Visibility.Visible;
+                    imageMode = "dot";
+                }
+                else
+                {
+                    msgCountTextBlock.Visibility = Visibility.Collapsed;
+                    imageMode = "no dot";
+                }
+            }
         }
 
         private void LoadProfileInfo()
@@ -134,7 +357,6 @@ namespace client_side
 
                 displayedUserProfile = new UserProfile
                 {
-                    ProfileImage = receivedImage,
                     UserName = userName,
                     Email = email,
                     Bio = bio,
@@ -388,11 +610,17 @@ namespace client_side
                         case "229":
                             HandleMoveToCreateWindow(update);
                             break;
+                        case "254":
+                            HandleMoveToMessagesWindow(update);
+                            break;
                         case "300":
                             HandleDisconnect(update);
                             break;
                         case "251":
                             HandleMoveToSettings(update);
+                            break;
+                        case "256":
+                            HandleAddMsg(update);
                             break;
                         default:
                             throw new InvalidOperationException($"{code}");
@@ -405,6 +633,33 @@ namespace client_side
                 string msg = await Task.Run(() => communicator.ReceiveData());
             }
         }
+
+        private void HandleAddMsg(string msg)
+        {
+            try
+            {
+
+                Dispatcher.Invoke(() =>
+                {
+                    MessageCount++;
+
+                    if (MessageCount == 1)
+                    {
+                        imageMode = "dot";
+                        msgCountTextBlock.Visibility = Visibility.Visible;
+                        openMailImage();
+
+                    }
+                        
+                    msgCountTextBlock.Text = MessageCount.ToString();
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error handling Remove User response: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
 
         private void HandleLeaveProject(string msg)
         {
@@ -690,6 +945,32 @@ namespace client_side
             });
         }
 
+        private void HandleMoveToMessagesWindow(string update)
+        {
+            isListeningToServer = false;
+            inMessagesMode = true;
+            Dispatcher.Invoke(() =>
+            {
+                DisableAllButtonsAndLists();
+                MessagesWindow messagesWindow = new MessagesWindow(communicator);
+                messagesWindow.Closed += MessagesWindow_Closed; // Attach the event handler
+                messagesWindow.Show();
+            });
+        }
+
+        private void MessagesWindow_Closed(object sender, EventArgs e)
+        {
+            EnableAllButtonsAndLists();
+            start();
+            isListeningToServer = true;
+            inMessagesMode = false;
+            receiveServerUpdatesThread = new Thread(() => ReceiveServerUpdates())
+            {
+                IsBackground = true
+            };
+            receiveServerUpdatesThread.Start();
+        }
+
         private void HandleMoveToSettings(string update)
         {
             disconnect = false;
@@ -936,25 +1217,31 @@ namespace client_side
 
         private void LstFriends_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
-            e.Handled = true;
-            var selectedFriend = lstFriends.SelectedItem as User;
-            if (selectedFriend != null)
+            if (!inMessagesMode)
             {
-                string profileInfoCode = ((int)MessageCodes.MC_PROFILE_INFO_REQUEST).ToString();
-                string userProjects = ((int)MessageCodes.MC_USER_PROJECTS_LIST_REQUEST).ToString();
-                communicator.SendData($"{profileInfoCode}{selectedFriend.Name.Length:D5}{selectedFriend.Name}");
-                communicator.SendData($"{userProjects}{selectedFriend.Name.Length:D5}{selectedFriend.Name}");
+                e.Handled = true;
+                var selectedFriend = lstFriends.SelectedItem as User;
+                if (selectedFriend != null)
+                {
+                    string profileInfoCode = ((int)MessageCodes.MC_PROFILE_INFO_REQUEST).ToString();
+                    string userProjects = ((int)MessageCodes.MC_USER_PROJECTS_LIST_REQUEST).ToString();
+                    communicator.SendData($"{profileInfoCode}{selectedFriend.Name.Length:D5}{selectedFriend.Name}");
+                    communicator.SendData($"{userProjects}{selectedFriend.Name.Length:D5}{selectedFriend.Name}");
+                }
             }
         }
 
         private void LstProjects_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
-            e.Handled = true;
-            var selectedProject = lstProjects.SelectedItem as ProjectInfo;
-            if (selectedProject != null)
+            if (!inMessagesMode)
             {
-                string joinProjectCode = ((int)MessageCodes.MC_ENTER_PROJECT_REQUEST).ToString();
-                communicator.SendData($"{joinProjectCode}{selectedProject.ProjectId.ToString().Length:D5}{selectedProject.ProjectId}");
+                e.Handled = true;
+                var selectedProject = lstProjects.SelectedItem as ProjectInfo;
+                if (selectedProject != null)
+                {
+                    string joinProjectCode = ((int)MessageCodes.MC_ENTER_PROJECT_REQUEST).ToString();
+                    communicator.SendData($"{joinProjectCode}{selectedProject.ProjectId.ToString().Length:D5}{selectedProject.ProjectId}");
+                }
             }
         }
 
@@ -998,7 +1285,7 @@ namespace client_side
                 int bioLen = int.Parse(profileRep.Substring(bioLenPos, 5));
                 string bio = profileRep.Substring(bioLenPos + 5, bioLen);
 
-                displayedUserProfile = new UserProfile { ProfileImage = null, UserName = userNameResp, Email = email, Bio = bio };
+                displayedUserProfile = new UserProfile {UserName = userNameResp, Email = email, Bio = bio };
 
                 // Check if it's the current user's profile
                 if (userNameResp == communicator.UserName)
@@ -1159,18 +1446,6 @@ namespace client_side
 
         public class UserProfile : INotifyPropertyChanged
         {
-            private BitmapImage _profileImage;
-
-            public BitmapImage ProfileImage
-            {
-                get { return _profileImage; }
-                set
-                {
-                    _profileImage = value;
-                    RaisePropertyChanged(nameof(ProfileImage));
-                }
-            }
-
             // Implement INotifyPropertyChanged
             public event PropertyChangedEventHandler PropertyChanged;
 
@@ -1272,6 +1547,11 @@ namespace client_side
             }
         }
 
+        private void Messages_Click(object sender, RoutedEventArgs e)
+        {
+            string code = ((int)MessageCodes.MC_MOVE_TO_MESSAGES_REQUEST).ToString();
+            communicator.SendData($"{code}");
+        }
 
         public class User
         {
