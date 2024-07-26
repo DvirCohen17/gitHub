@@ -14,6 +14,15 @@ struct Chat
 	std::string data;
 };
 
+struct Message
+{
+	int senderId;
+	std::string data;
+	int id;
+	int mode;
+	int itemId;
+};
+
 struct PermissionReq
 {
 	int fileId;
@@ -111,6 +120,9 @@ public:
 	virtual ProfileInfo getUsersInfo(int userId) = 0;
 	virtual std::list<std::string> searchUsers(std::string searchCommand) = 0;
 
+	// ******* MESSAGES *******
+	virtual std::list<Message> getUserMessages(int userId) = 0;
+
 	// ******* CHATS *******
 	virtual std::string GetChatData(const int projectId) = 0;
 	
@@ -142,6 +154,11 @@ public:
 
 
 	// ******* MODIFIRES *******
+
+	// ******* MESSAGES *******
+	virtual void AddMsg(const int senderId, const int reciverId, const std::string& data, const int mode, const int itemId) = 0;
+	virtual void MarkAsRead(const int messageId) = 0;
+	virtual void DeleteMessage(const int itemId, const int userId) = 0;
 
 	// ******* CHATS *******
 	virtual void UpdateChat(const int projectId, const std::string& data) = 0;

@@ -214,6 +214,32 @@ int callback_ProjectJoinInvite(void* data, int argc, char** argv, char** azColNa
 	return 0;
 }
 
+int callback_Messages(void* data, int argc, char** argv, char** azColName)
+{
+	std::list<Message>* list_messages = (std::list<Message>*)data;
+	Message msg;
+
+	for (int i = 0; i < argc; i++) {
+		if (std::string(azColName[i]) == "Text") {
+			msg.data = argv[i];
+		}
+		else if (std::string(azColName[i]) == "senderId") {
+			msg.senderId = std::stoi(argv[i]);
+		}
+		else if (std::string(azColName[i]) == "id") {
+			msg.id = std::stoi(argv[i]);
+		}
+		else if (std::string(azColName[i]) == "itemId") {
+			msg.itemId = std::stoi(argv[i]);
+		}
+		else if (std::string(azColName[i]) == "mode") {
+			msg.mode = std::stoi(argv[i]);
+		}
+	}
+	list_messages->push_back(msg);
+	return 0;
+}
+
 int callback_ClientVersion(void* data, int argc, char** argv, char** azColName)
 {
 	std::list<std::string>* list_invites = (std::list<std::string>*)data;
@@ -398,6 +424,17 @@ bool SqliteDataBase::send_ClientVersion(sqlite3* db, std::string msg, std::list<
 	return true;
 }
 
+bool SqliteDataBase::send_Messages(sqlite3* db, std::string msg, std::list<Message>* data)
+{
+	const char* sqlStatement = msg.c_str();
+	char* errMessage = nullptr;
+	int res = sqlite3_exec(db, sqlStatement, callback_Messages, data, &errMessage);
+	if (res != SQLITE_OK)
+		return false;
+
+	return true;
+}
+
 bool SqliteDataBase::send_Friends(sqlite3* db, std::string msg, std::list<Friends>* data)
 {
 	const char* sqlStatement = msg.c_str();
@@ -537,6 +574,18 @@ bool SqliteDataBase::open()
 			"Data	TEXT,"
 			"FOREIGN KEY(FileId) REFERENCES Files(fileId),"
 			"PRIMARY KEY(Id AUTOINCREMENT)"
+			"); ";
+		send(_db, msg);
+		msg = "CREATE TABLE Messages ("
+			"Text	TEXT,"
+			"id	INTEGER,"
+			"reciverId	INTEGER,"
+			"senderId	INTEGER,"
+			"mode	INTEGER,"
+			"itemId	INTEGER,"
+			"FOREIGN KEY(reciverId) REFERENCES users(id),"
+			"FOREIGN KEY(senderId) REFERENCES users(id),"
+			"PRIMARY KEY(id AUTOINCREMENT)"
 			"); ";
 		send(_db, msg);
 		msg = "CREATE TABLE ClientVersion ("
@@ -938,6 +987,41 @@ void SqliteDataBase::createProfile(std::string username, std::string email, std:
 
 }
 
+std::list<Message> SqliteDataBase::getUserMessages(int userId)
+{
+	std::string msg;
+	std::list<Message> messagesList;
+
+	msg = "SELECT * FROM Messages WHERE reciverId = " + std::to_string(userId) + ";";
+
+
+	send_Messages(_db, msg, &messagesList);
+
+	return messagesList;
+}
+
+void SqliteDataBase::AddMsg(const int senderId, const int reciverId, const std::string& data, const int mode, const int itemId)
+{
+	std::string msg = "INSERT INTO Messages (reciverId, senderId, Text, mode, itemId) VALUES "
+		"(" + std::to_string(reciverId) + "," + std::to_string(senderId) + ", \'" + data + "\'," 
+		+ std::to_string(mode) + "," + std::to_string(itemId) + "); ";
+
+	send(_db, msg);
+}
+
+void SqliteDataBase::MarkAsRead(const int messageId)
+{
+	std::string msg = "DELETE FROM Messages WHERE id = " + std::to_string(messageId) + ";";
+	send(_db, msg);
+}
+
+void SqliteDataBase::DeleteMessage(const int itemId, const int userId)
+{
+	std::string msg = "DELETE FROM Messages WHERE itemId = " + std::to_string(itemId) + " AND reciverId = " + std::to_string(userId) + ";";
+	send(_db, msg);
+}
+
+
 void SqliteDataBase::modifyProfile(std::string username, std::string email, std::string bio, int userId)
 {
 	std::string msg;
@@ -1135,7 +1219,6 @@ void SqliteDataBase::createProject(std::string projectName, std::map<ProfileInfo
 	}
 }
 
-
 void SqliteDataBase::deleteProject(const std::string projectName)
 {
 	std::string msg = "DELETE FROM UserProjects WHERE ProjectName = \'" + projectName + "\';";
@@ -1149,7 +1232,6 @@ void SqliteDataBase::leaveProject(const std::string projectName, int userId)
 		+ " AND userId = " + std::to_string(userId) + ";";
 	send(_db, msg);
 }
-
 
 void SqliteDataBase::createProjectPermission(int projectId, int userId, std::string role)
 {
@@ -1274,7 +1356,6 @@ std::list<FriendReq> SqliteDataBase::getCurrentUserReqSent(int userId)
 
 	return friendsList;
 }
-
 
 void SqliteDataBase::addFriend(int userId, std::string friendsList)
 {

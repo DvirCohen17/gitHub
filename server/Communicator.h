@@ -87,7 +87,10 @@ struct Action
     std::string modeStr;
     bool mode;
 
+    int messageId;
+
     int size;
+    int userIdLen;
     int userId;
 };
 
@@ -136,7 +139,7 @@ public:
 
     void notifyAllClients(const std::string& updatedContent, SOCKET client_sock, const bool isOnFile);
     void notifyAllfriends(const std::string& updatedContent, SOCKET client_sock);
-    void notifyAllclientsOnProject(const std::string& updatedContent, SOCKET client_sock);
+    void notifyAllclientsOnProject(const std::string& updatedContent, SOCKET client_sock, std::string msg);
 
     Action deconstructReq(const std::string& req);
     Action adjustIndexForSync(const int fileId, int projectId, Action reqDetail);
@@ -154,22 +157,22 @@ public:
     void exitFile(SOCKET client_sock);
     void exitProject(SOCKET client_sock);
     void leaveProject(SOCKET client_sock, int projectId, std::string userName);
-    void acceptProjectInvite(SOCKET client_sock, int ProjectId, std::string userName, std::string role);
+    void acceptProjectInvite(SOCKET client_sock, int ProjectId, std::string userName);
     void declineProjectInvite(SOCKET client_sock, int ProjectId, std::string userName);
-    void getMesegges(SOCKET client_sock, std::string projectName);
+    void getChatMesegges(SOCKET client_sock, std::string projectName);
     void getUsersOnFile(SOCKET client_sock, std::string fileName);
     void getUsers(SOCKET client_sock);
     void moveToCreateWindow(SOCKET client_sock);
     void getUserPermissionReq(SOCKET client_sock);
-    void postMsg( SOCKET client_sock, int projectId, std::string data, std::string dataLen);
+    void postChatMsg( SOCKET client_sock, int projectId, std::string data, std::string dataLen);
     void approvePermissionReq(SOCKET client_sock, std::string username, std::string filename);
     void rejectPermissionReq(SOCKET client_sock, std::string username, std::string filename);
     void permissionFileReq(SOCKET client_sock, std::string username, std::string filename, std::string fileNameLen);
     void getProfileInfo(SOCKET client_sock, std::string userName);
     void getProfileImage(SOCKET client_sock, std::string userName);
     void getUserFriends(SOCKET client_sock, std::string userName);
-    void approveFriendReq(SOCKET client_sock, std::string userName);
-    void rejectFriendReq(SOCKET client_sock, std::string userName);
+    void approveFriendReq(SOCKET client_sock, int userId);
+    void rejectFriendReq(SOCKET client_sock, int userId);
     void addFriend(SOCKET client_sock, std::string userName);
     void getProjectsList(SOCKET client_sock, std::string userName);
     void getUserProjectsList(SOCKET client_sock, std::string userName);
@@ -186,8 +189,13 @@ public:
     void viewProjectInfo(SOCKET client_sock, int projectId);
     void modifyProjectInfo(SOCKET client_sock, int projectId, std::string newProjectName, std::string friendList, std::string codeLan);
     void getProjectInfo(SOCKET client_sock, std::string projectName);
-    
+    void getMessages(SOCKET client_sock, std::string userName);
+    void markMessageAsRead(SOCKET client_sock, int messageId);
+    void getMessagesCount(SOCKET client_sock, std::string userName);
+
     void getCodeStyles(SOCKET client_sock);
+    void getMailImages(SOCKET client_sock);
     void moveToSettings(SOCKET client_sock);
+    void moveToMessages(SOCKET client_sock);
 
 };

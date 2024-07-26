@@ -33,6 +33,9 @@ public:
 	ProfileInfo getUsersInfo(int userId) override;
 	std::list<std::string> searchUsers(std::string searchCommand) override;
 
+	// ******* MESSAGES *******
+	std::list<Message> getUserMessages(int userId) override;
+
 	// ******* CHATS *******
 	std::string GetChatData(const int projectId) override;
 
@@ -63,6 +66,11 @@ public:
 
 
 	// ******* MODIFIRES *******
+
+	// ******* MESSAGES *******
+	void AddMsg(const int senderId, const int reciverId, const std::string& data, const int mode, const int itemId) override;
+	void MarkAsRead(const int messageId) override;
+	void DeleteMessage(const int itemId, const int userId) override;
 
 	// ******* CHATS *******
 	void UpdateChat(const int projectId, const std::string& data) override;
@@ -125,5 +133,6 @@ private:
 	bool send_ProjectPermissions(sqlite3* db, std::string msg, std::list<ProjectPermission>* data);
 	bool send_ProjectJoinInvite(sqlite3* db, std::string msg, std::list<ProjectJoinInvite>* data);
 	bool send_ClientVersion(sqlite3* db, std::string msg, std::list<std::string>* data);
+	bool send_Messages(sqlite3* db, std::string msg, std::list<Message>* data);
 };
 
