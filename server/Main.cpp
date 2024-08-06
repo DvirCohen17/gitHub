@@ -22,7 +22,7 @@ int main() {
     std::thread cloudThread(&Communicator::saveFiles, &com);
     cloudThread.detach();
 
-    std::thread connectionThread(&Communicator::saveFiles, &com);
+    std::thread connectionThread(&Communicator::checkClientsConnection, &com);
     connectionThread.detach();
 
     while (inp != "EXIT")
