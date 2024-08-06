@@ -84,6 +84,7 @@ namespace client_side
         MC_MOVE_TO_PROJECT_PAGE_REQUEST = 169,
         MC_BACK_TO_TO_DO_LIST_PAGE_REQUEST = 170,
         MC_MODIFY_ISSUE_REQUEST = 171,
+        MC_MARK_ALL_AS_READ_REQUEST = 172,
 
         MC_ERROR_RESP = 200, //responses
         MC_INITIAL_RESP = 201,
@@ -157,6 +158,7 @@ namespace client_side
         MC_MOVE_TO_PROJECT_PAGE_RESP = 269,
         MC_BACK_TO_TO_DO_LIST_PAGE_RESP = 270,
         MC_MODIFY_ISSUE_RESP = 271,
+        MC_MARK_ALL_AS_READ_RESP = 272,
 
         MC_DISCONNECT = 300, //user
         MC_LOGIN_REQUEST = 301,

@@ -186,8 +186,9 @@ namespace client_side
             if (sender is Button button && button.CommandParameter is Message message)
             {
                 message.IsRead = true;
-                string chatMessageCode = ((int)MessageCodes.MC_MARK_AS_READ_REQUEST).ToString();
-                string fullMessage = $"{chatMessageCode}{message.Id:D5}";
+                string chatMessageCode = ((int)MessageCodes.MC_MARK_ALL_AS_READ_REQUEST).ToString();
+                string fullMessage = $"{chatMessageCode}";
+                HandleLoadMessagesList();
             }
         }
 
