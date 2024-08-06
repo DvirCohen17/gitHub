@@ -77,6 +77,7 @@ public:
 	// ******* MESSAGES *******
 	void AddMsg(const int senderId, const int reciverId, const std::string& data, const int mode, const int itemId) override;
 	void MarkAsRead(const int messageId) override;
+	void MarkAllAsRead(const int reciverId) override;
 	void DeleteMessage(const int itemId, const int userId) override;
 
 	// ******* ISSUES *******

@@ -1905,6 +1905,11 @@ void Communicator::markMessageAsRead(SOCKET client_sock, int messageId)
 	m_database->MarkAsRead(messageId);
 }
 
+void Communicator::markAllMessageAsRead(SOCKET client_sock)
+{
+	m_database->MarkAllAsRead(m_database->getUserId(m_clients[client_sock]->getUsername()));
+}
+
 void Communicator::getMessagesCount(SOCKET client_sock, std::string userName)
 {
 	std::string lengthString;
@@ -2396,6 +2401,9 @@ void Communicator::handleNewClient(SOCKET client_sock)
 				break;
 			case MC_MARK_AS_READ_REQUEST:
 				markMessageAsRead(client_sock, reqDetail.messageId);
+				break;
+			case MC_MARK_ALL_AS_READ_REQUEST:
+				markAllMessageAsRead(client_sock);
 				break;
 			case MC_GET_MSG_COUNT_REQUEST:
 				getMessagesCount(client_sock, reqDetail.userName);
@@ -3008,6 +3016,8 @@ Action Communicator::deconstructReq(const std::string& req) {
 	case MC_MARK_AS_READ_REQUEST:
 		newAction.messageId = std::stoi(action.substr(0, 5));
 		break;
+	case MC_MARK_ALL_AS_READ_REQUEST:
+		break;
 	case MC_GET_CURRENT_PROJECT_ISSUES_REQUEST:
 		newAction.projectId = std::stoi(action.substr());
 		break;
@@ -3373,7 +3383,7 @@ void Communicator::checkClientsConnection(/* Parameters for communication */) {
 	try {
 		while (true) {
 			
-			std::this_thread::sleep_for(std::chrono::seconds(60));
+			std::this_thread::sleep_for(std::chrono::seconds(20));
 
 			// Locking mechanism to ensure thread safety if needed
 			// std::lock_guard<std::mutex> lock(m_mutex); // Assuming m_mutex is defined elsewhere

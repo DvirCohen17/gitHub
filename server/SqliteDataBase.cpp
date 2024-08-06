@@ -1066,6 +1066,12 @@ void SqliteDataBase::MarkAsRead(const int messageId)
 	send(_db, msg);
 }
 
+void SqliteDataBase::MarkAllAsRead(const int reciverId)
+{
+	std::string msg = "DELETE FROM Messages WHERE reciverId = " + std::to_string(reciverId) + " AND mode = 0;";
+	send(_db, msg);
+}
+
 void SqliteDataBase::DeleteMessage(const int itemId, const int userId)
 {
 	std::string msg = "DELETE FROM Messages WHERE itemId = " + std::to_string(itemId) + " AND reciverId = " + std::to_string(userId) + ";";

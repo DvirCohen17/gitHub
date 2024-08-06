@@ -175,6 +175,7 @@ public:
 	// ******* MESSAGES *******
 	virtual void AddMsg(const int senderId, const int reciverId, const std::string& data, const int mode, const int itemId) = 0;
 	virtual void MarkAsRead(const int messageId) = 0;
+	virtual void MarkAllAsRead(const int reciverId) = 0;
 	virtual void DeleteMessage(const int itemId, const int userId) = 0;
 
 	// ******* ISSUES *******

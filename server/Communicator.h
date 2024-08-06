@@ -214,6 +214,7 @@ public:
     void getProjectInfo(SOCKET client_sock, std::string projectName);
     void getMessages(SOCKET client_sock, std::string userName);
     void markMessageAsRead(SOCKET client_sock, int messageId);
+    void markAllMessageAsRead(SOCKET client_sock);
     void getMessagesCount(SOCKET client_sock, std::string userName);
     void loadCurrentIssues(SOCKET client_sock, int projectId);
     void loadCompletedIssues(SOCKET client_sock, int projectId);
