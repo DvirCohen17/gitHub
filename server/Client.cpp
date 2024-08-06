@@ -41,6 +41,11 @@ std::string ClientHandler::getProjectName() const
 int ClientHandler::getProjectId() const
 {
     return _projectId;
+}
+
+int ClientHandler::getIssueId() const
+{
+    return _issueId;
 
 }
 
@@ -100,4 +105,9 @@ void ClientHandler::setPass(const std::string& newPass)
 void ClientHandler::setId(int id)
 {
     _id = id;
+}
+
+void ClientHandler::setIssue(int id)
+{
+    _issueId = id;
 }

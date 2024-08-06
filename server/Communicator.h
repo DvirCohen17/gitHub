@@ -6,6 +6,8 @@
 #include <exception>
 #include <unordered_map>
 #include <sys/stat.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #include <filesystem>
 #include <mutex>
 #include <chrono>
@@ -24,6 +26,15 @@
 #define PORT 12345
 #define CLOUD_PORT 5555
 #define BUFFER_SIZE 4096
+
+#define HOME_PAGE "HomePage"
+#define PROJECT_PAGE "ProjectPage"
+#define CREATE_PROJECT_PAGE "CreateProjectPage"
+#define TO_TO_LIST_PAGE "ToDoListPage"
+#define ISSUE_DATA_PAGE "IssueDataPage"
+#define MESSAGES_PAGE "MessagesPage"
+#define SETTINGS_PAGE "SettingsPage"
+#define SEARCH_PAGE "SearchPage"
 
 struct Action
 {
@@ -89,6 +100,16 @@ struct Action
 
     int messageId;
 
+    int issueId;
+    std::string issueData;
+    int issueDataLength;
+    
+    std::string issueDate;
+    int issueDateLength;
+
+    std::string assignedPeople;
+    int assignedPeopleLength;
+
     int size;
     int userIdLen;
     int userId;
@@ -128,10 +149,12 @@ public:
     void startHandleRequests();
     void bindAndListen();
     void handleNewClient(SOCKET client_sock);
+    bool isSocketConnected(SOCKET socket);
 
     void updateFileOnServerold(const std::string& filePath, const Action& reqDetail);
     void updateFileOnServer(const int fileId, const Action& reqDetail);
     void saveFiles();
+    void checkClientsConnection();
 
     void handleClientDisconnect(SOCKET client_sock);
     void handleError(SOCKET client_sock, std::exception a);
@@ -140,6 +163,7 @@ public:
     void notifyAllClients(const std::string& updatedContent, SOCKET client_sock, const bool isOnFile);
     void notifyAllfriends(const std::string& updatedContent, SOCKET client_sock);
     void notifyAllclientsOnProject(const std::string& updatedContent, SOCKET client_sock, std::string msg);
+    void notifyAllclientsOnIssueWindow(const std::string& updatedContent, SOCKET client_sock, std::string msg);
 
     Action deconstructReq(const std::string& req);
     Action adjustIndexForSync(const int fileId, int projectId, Action reqDetail);
@@ -180,7 +204,6 @@ public:
     void removeFriend(SOCKET client_sock, std::string userName, std::string userNameToRemove);
     void editInfo(SOCKET client_sock, std::string bio);
     void createProject(SOCKET client_sock, std::string projectName, std::string friendList, std::string codeLan, int mode);
-    void backToMainPage(SOCKET client_sock);
     void deleteProject(SOCKET client_sock,int projectId);
     void renameFile(SOCKET client_sock, std::string fileName, std::string oldFileName, int projectId);
     void searchUsers(SOCKET client_sock, std::string searchCommand);
@@ -192,10 +215,23 @@ public:
     void getMessages(SOCKET client_sock, std::string userName);
     void markMessageAsRead(SOCKET client_sock, int messageId);
     void getMessagesCount(SOCKET client_sock, std::string userName);
-
+    void loadCurrentIssues(SOCKET client_sock, int projectId);
+    void loadCompletedIssues(SOCKET client_sock, int projectId);
+    void getIssue(SOCKET client_sock, int issueId);
+    void markIssueAsComplete(SOCKET client_sock, int issueId);
+    void markIssueAsNotComplete(SOCKET client_sock, int issueId);
+    void addTask(SOCKET client_sock, std::string issueData, std::string assignedPeople, std::string issueDate);
+    void modifyIssue(SOCKET client_sock, std::string issueData, std::string assignedPeople, std::string issueDate, int issueId);
+    void deleteTask(SOCKET client_sock, int issueId);
+    void getProjectParticipants(SOCKET client_sock, int projectId);
     void getCodeStyles(SOCKET client_sock);
     void getMailImages(SOCKET client_sock);
     void moveToSettings(SOCKET client_sock);
     void moveToMessages(SOCKET client_sock);
+    void moveToToDoWindow(SOCKET client_sock);
+    void moveToProjectWindow(SOCKET client_sock, int projectId);
+    void moveToIssueData(SOCKET client_sock, int issueId);
+    void backToMainPage(SOCKET client_sock);
+    void backToProjectPage(SOCKET client_sock);
 
 };

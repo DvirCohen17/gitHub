@@ -240,6 +240,35 @@ int callback_Messages(void* data, int argc, char** argv, char** azColName)
 	return 0;
 }
 
+int callback_Issues(void* data, int argc, char** argv, char** azColName)
+{
+	std::list<Issues>* list_issues = (std::list<Issues>*)data;
+	Issues issue;
+
+	for (int i = 0; i < argc; i++) {
+		if (std::string(azColName[i]) == "data") {
+			issue.data = argv[i];
+		}
+		else if (std::string(azColName[i]) == "projectId") {
+			issue.projectId = std::stoi(argv[i]);
+		}
+		else if (std::string(azColName[i]) == "id") {
+			issue.id = std::stoi(argv[i]);
+		}
+		else if (std::string(azColName[i]) == "status") {
+			issue.status = std::stoi(argv[i]);
+		}
+		else if (std::string(azColName[i]) == "date") {
+			issue.date = argv[i];
+		}
+		else if (std::string(azColName[i]) == "usersAssigment") {
+			issue.usersAssigment = argv[i];
+		}
+	}
+	list_issues->push_back(issue);
+	return 0;
+}
+
 int callback_ClientVersion(void* data, int argc, char** argv, char** azColName)
 {
 	std::list<std::string>* list_invites = (std::list<std::string>*)data;
@@ -435,6 +464,17 @@ bool SqliteDataBase::send_Messages(sqlite3* db, std::string msg, std::list<Messa
 	return true;
 }
 
+bool SqliteDataBase::send_Issues(sqlite3* db, std::string msg, std::list<Issues>* data)
+{
+	const char* sqlStatement = msg.c_str();
+	char* errMessage = nullptr;
+	int res = sqlite3_exec(db, sqlStatement, callback_Issues, data, &errMessage);
+	if (res != SQLITE_OK)
+		return false;
+
+	return true;
+}
+
 bool SqliteDataBase::send_Friends(sqlite3* db, std::string msg, std::list<Friends>* data)
 {
 	const char* sqlStatement = msg.c_str();
@@ -586,6 +626,17 @@ bool SqliteDataBase::open()
 			"FOREIGN KEY(reciverId) REFERENCES users(id),"
 			"FOREIGN KEY(senderId) REFERENCES users(id),"
 			"PRIMARY KEY(id AUTOINCREMENT)"
+			"); ";
+		send(_db, msg);
+		msg = "CREATE TABLE Issues ("
+			"id	INTEGER,"
+			"projectId	INTEGER,"
+			"data	TEXT,"
+			"usersAssigment	TEXT,"
+			"date	TEXT,"
+			"status	INTEGER,"
+			"PRIMARY KEY(id AUTOINCREMENT),"
+			"FOREIGN KEY(projectId) REFERENCES UserProjects(Id)"
 			"); ";
 		send(_db, msg);
 		msg = "CREATE TABLE ClientVersion ("
@@ -1095,6 +1146,7 @@ int SqliteDataBase::getNextAdmin(int projectId)
 		{
 			deleteAllProjectFiles(project.projectId);
 			DeleteChat(project.projectId);
+			DeleteAllIssue(projectId);
 			deleteProject(project.name);
 			return -1;
 		}
@@ -1120,7 +1172,6 @@ std::map<std::string, std::string> SqliteDataBase::getProjectParticipants(int pr
 	}
 	return result;
 }
-
 
 std::string SqliteDataBase::getUserRoleInProject(int userId, int projectId)
 {
@@ -1203,20 +1254,23 @@ void SqliteDataBase::createProject(std::string projectName, std::map<ProfileInfo
 	{
 		msg = "INSERT INTO UserProjects (creatorId, projectName, codeLan) "
 			"VALUES (" + std::to_string(creatorId) + ", \'" + projectName + "\', \'" + codeLan + "\');";
+
+		send(_db, msg);
+
+		Project project = getProject(projectName, -1);
+
+		for (auto user : addedUsers)
+		{
+			createProjectJoinInvite(project.projectId, user.first.userId, user.second);
+		}
 	}
 	else
 	{
 		msg = "INSERT INTO UserProjects (creatorId, projectName, codeLan, Id) "
 			"VALUES (" + std::to_string(creatorId) + ", \'" + projectName + "\', \'" + codeLan + "\', " + std::to_string(projectId) + ");";
+		send(_db, msg);
 	}
-	send(_db, msg);
-
-	Project project = getProject(projectName, -1);
-
-	for (auto user : addedUsers)
-	{
-		createProjectJoinInvite(project.projectId, user.first.userId, user.second);
-	}
+	
 }
 
 void SqliteDataBase::deleteProject(const std::string projectName)
@@ -1430,4 +1484,138 @@ std::string SqliteDataBase::getLatestVersion()
 			return item;
 		}
 	}
+}
+
+std::list<Issues> SqliteDataBase::getCurrentProjectIssues(int projectId)
+{
+	std::string msg;
+	std::list<Issues> issuesList;
+
+	msg = "SELECT * FROM Issues WHERE projectId = " + std::to_string(projectId) + " AND status = 0;";
+
+	send_Issues(_db, msg, &issuesList);
+
+	return issuesList;
+}
+
+std::list<Issues> SqliteDataBase::getCompletedProjectIssues(int projectId)
+{
+	std::string msg;
+	std::list<Issues> issuesList;
+
+	msg = "SELECT * FROM Issues WHERE projectId = " + std::to_string(projectId) + " AND status = 1;";
+
+
+	send_Issues(_db, msg, &issuesList);
+
+	return issuesList;
+}
+
+std::list<Issues> SqliteDataBase::getAllProjectIssues(int projectId)
+{
+	std::string msg;
+	std::list<Issues> issuesList;
+
+	msg = "SELECT * FROM Issues WHERE projectId = " + std::to_string(projectId) + ";";
+
+
+	send_Issues(_db, msg, &issuesList);
+
+	return issuesList;
+}
+
+Issues SqliteDataBase::getIssue(int issueId)
+{
+	std::string msg;
+	std::list<Issues> issuesList;
+
+	msg = "SELECT * FROM Issues WHERE id = " + std::to_string(issueId) + ";";
+
+
+	send_Issues(_db, msg, &issuesList);
+
+	for (auto issue : issuesList)
+	{
+		if (issue.id == issueId)
+		{
+			return issue;
+		}
+	}
+}
+
+bool SqliteDataBase::inIssue(int issueId, std::string name)
+{
+	std::string msg;
+	std::list<Issues> issuesList;
+
+	msg = "SELECT * FROM Issues WHERE id = " + std::to_string(issueId) + ";";
+
+
+	send_Issues(_db, msg, &issuesList);
+
+	for (auto issue : issuesList)
+	{
+		if (issue.id == issueId)
+		{
+			int index = 0;
+			while (index < issue.usersAssigment.length())
+			{
+				int length = std::stoi(issue.usersAssigment.substr(index, 5));
+				index += 5;
+				std::string extractedName = issue.usersAssigment.substr(index, length);
+				index += length;
+				if (extractedName == name)
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+	}
+}
+
+void SqliteDataBase::AddIssue(const int projectId, const std::string& data, const std::string& date, const std::string& usersAssigment)
+{
+	std::string msg = "INSERT INTO Issues (projectId, data, usersAssigment, date, status) VALUES "
+		"(" + std::to_string(projectId) + ", \'" + data + "\', \'" + usersAssigment + "\', \'" + date + "\', 0); ";
+
+	send(_db, msg);
+}
+
+void SqliteDataBase::UpdateIssue(const int issueId, const std::string& data, const std::string& date, const std::string& usersAssigment)
+{
+	std::string msg = "UPDATE Issues SET data = \'" + data + "\', usersAssigment = \'" + usersAssigment +
+		"\', date = \'" + date + "\' WHERE "
+		"id = " + std::to_string(issueId) + "; ";
+	send(_db, msg);
+}
+
+void SqliteDataBase::MarkAsComplete(const int issueId)
+{
+	std::string msg = "UPDATE Issues SET status = 1 WHERE id = " + std::to_string(issueId) + "; ";
+	send(_db, msg);
+}
+
+void SqliteDataBase::MarkAsNotComplete(const int issueId)
+{
+	std::string msg = "UPDATE Issues SET status = 0 WHERE id = " + std::to_string(issueId) + "; ";
+	send(_db, msg);
+}
+
+void SqliteDataBase::DeleteIssue(const int issueId)
+{
+	std::string msg = "DELETE FROM Issues WHERE id = " + std::to_string(issueId) + ";";
+	send(_db, msg);
+}
+
+void SqliteDataBase::DeleteAllIssue(const int projectId)
+{
+	std::string msg = "DELETE FROM Issues WHERE projectId = " + std::to_string(projectId) + ";";
+	send(_db, msg);
+}
+
+void SqliteDataBase::DeleteProjectIssues(const int ptojectId)
+{
+	std::string msg = "DELETE FROM Issues WHERE projectId = " + std::to_string(ptojectId) + ";";
+	send(_db, msg);
 }

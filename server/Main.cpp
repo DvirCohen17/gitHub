@@ -15,12 +15,15 @@ int main() {
     database->open();
     com.setDB(database);
 
-    std::thread t1(&Communicator::startHandleRequests, &com);
-    t1.detach();
+    std::thread listner(&Communicator::startHandleRequests, &com);
+    listner.detach();
     std::string inp;
 
     std::thread cloudThread(&Communicator::saveFiles, &com);
     cloudThread.detach();
+
+    std::thread connectionThread(&Communicator::saveFiles, &com);
+    connectionThread.detach();
 
     while (inp != "EXIT")
     {

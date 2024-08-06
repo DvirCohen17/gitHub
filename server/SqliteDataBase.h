@@ -36,6 +36,13 @@ public:
 	// ******* MESSAGES *******
 	std::list<Message> getUserMessages(int userId) override;
 
+	// ******* ISSUES *******
+	std::list<Issues> getCurrentProjectIssues(int projectId) override;
+	std::list<Issues> getCompletedProjectIssues(int projectId) override;
+	std::list<Issues> getAllProjectIssues(int projectId) override;
+	Issues getIssue(int issueId) override;
+	bool inIssue(int issueId, std::string name) override;
+
 	// ******* CHATS *******
 	std::string GetChatData(const int projectId) override;
 
@@ -71,6 +78,15 @@ public:
 	void AddMsg(const int senderId, const int reciverId, const std::string& data, const int mode, const int itemId) override;
 	void MarkAsRead(const int messageId) override;
 	void DeleteMessage(const int itemId, const int userId) override;
+
+	// ******* ISSUES *******
+	void AddIssue(const int projectId, const std::string& data, const std::string& date, const std::string& usersAssigment) override;
+	void UpdateIssue(const int issueId, const std::string& data, const std::string& date, const std::string& usersAssigment) override;
+	void MarkAsComplete(const int issueId) override;
+	void MarkAsNotComplete(const int issueId) override;
+	void DeleteIssue(const int issueId) override;
+	void DeleteAllIssue(const int projectId) override;
+	void DeleteProjectIssues(const int projectId) override;
 
 	// ******* CHATS *******
 	void UpdateChat(const int projectId, const std::string& data) override;
@@ -134,5 +150,6 @@ private:
 	bool send_ProjectJoinInvite(sqlite3* db, std::string msg, std::list<ProjectJoinInvite>* data);
 	bool send_ClientVersion(sqlite3* db, std::string msg, std::list<std::string>* data);
 	bool send_Messages(sqlite3* db, std::string msg, std::list<Message>* data);
+	bool send_Issues(sqlite3* db, std::string msg, std::list<Issues>* data);
 };
 

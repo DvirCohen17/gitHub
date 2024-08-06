@@ -14,6 +14,16 @@ struct Chat
 	std::string data;
 };
 
+struct Issues
+{
+	int id;
+	std::string data;
+	int projectId;
+	int status;
+	std::string date;
+	std::string usersAssigment;
+};
+
 struct Message
 {
 	int senderId;
@@ -123,6 +133,13 @@ public:
 	// ******* MESSAGES *******
 	virtual std::list<Message> getUserMessages(int userId) = 0;
 
+	// ******* ISSUES *******
+	virtual std::list<Issues> getCurrentProjectIssues(int projectId) = 0;
+	virtual std::list<Issues> getCompletedProjectIssues(int projectId) = 0;
+	virtual std::list<Issues> getAllProjectIssues(int projectId) = 0;
+	virtual Issues getIssue(int issueId) = 0;
+	virtual bool inIssue(int issueId, std::string name) = 0;
+
 	// ******* CHATS *******
 	virtual std::string GetChatData(const int projectId) = 0;
 	
@@ -159,6 +176,15 @@ public:
 	virtual void AddMsg(const int senderId, const int reciverId, const std::string& data, const int mode, const int itemId) = 0;
 	virtual void MarkAsRead(const int messageId) = 0;
 	virtual void DeleteMessage(const int itemId, const int userId) = 0;
+
+	// ******* ISSUES *******
+	virtual void AddIssue(const int projectId, const std::string& data, const std::string& date, const std::string& usersAssigment) = 0;
+	virtual void UpdateIssue(const int issueId, const std::string& data, const std::string& date, const std::string& usersAssigment) = 0;
+	virtual void MarkAsComplete(const int issueId) = 0;
+	virtual void MarkAsNotComplete(const int issueId) = 0;
+	virtual void DeleteIssue(const int issueId) = 0;
+	virtual void DeleteAllIssue(const int projectId) = 0;
+	virtual void DeleteProjectIssues(const int projectId) = 0;
 
 	// ******* CHATS *******
 	virtual void UpdateChat(const int projectId, const std::string& data) = 0;

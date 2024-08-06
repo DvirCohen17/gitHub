@@ -8,6 +8,7 @@ private:
     int _fileId;
     std::string _fileName;
     std::string _fileContent;
+    int _issueId;
     int _projectId;
     std::string _projectName;
     std::string window;
@@ -26,6 +27,7 @@ public:
     int getFileId() const;
     std::string getProjectName() const;
     int getProjectId() const;
+    int getIssueId() const;
     std::string getPass() const;
     std::string getEmail() const;
     std::string getUsername() const;
@@ -38,4 +40,6 @@ public:
     void setEmail(const std::string& newEmail);
     void setWindow(const std::string& newWindow);
     void setId(int id);
+    void setIssue(int id);
+
 };

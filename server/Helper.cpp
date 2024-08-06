@@ -1,5 +1,53 @@
 #include "Helper.h"
 
+bool Helper::isSocketConnected(const SOCKET sockfd)
+{
+    if (sockfd == INVALID_SOCKET) {
+        return false;
+    }
+
+    // Use a non-blocking I/O operation to test the socket
+    fd_set readfds;
+    FD_ZERO(&readfds);
+    FD_SET(sockfd, &readfds);
+
+    timeval timeout = { 0 };
+    int result = select(0, &readfds, nullptr, nullptr, &timeout);
+
+    if (result == SOCKET_ERROR) {
+        // Handle socket error
+        int error = WSAGetLastError();
+        if (error == WSAENOTCONN || error == WSAECONNABORTED || error == WSAECONNRESET) {
+            return false;
+        }
+        return false;
+    }
+
+    if (result == 0) {
+        // No data available for read, but socket may still be alive
+        return true;
+    }
+
+    // Check if the socket is readable
+    char buffer[1];
+    int bytesRead = recv(sockfd, buffer, sizeof(buffer), MSG_PEEK);
+
+    if (bytesRead == SOCKET_ERROR) {
+        int error = WSAGetLastError();
+        if (error == WSAENOTCONN || error == WSAECONNABORTED || error == WSAECONNRESET) {
+            return false;
+        }
+        return false;
+    }
+
+    // If recv returns 0, the connection is closed
+    if (bytesRead == 0) {
+        return false;
+    }
+
+    // Socket is connected and functioning
+    return true;
+}
 
 void Helper::sendData(const SOCKET sc, const BUFFER message)
 {
