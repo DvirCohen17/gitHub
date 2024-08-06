@@ -101,7 +101,7 @@
             <Button x:Name="backButton" Margin="40,-400,0,0" Width="50" Content="Back" Visibility="Collapsed" Click="BackButton_Click"/>
         </StackPanel>
 
-        <Button x:Name="LogoutBtn"  Content="Logout" HorizontalAlignment="Center"  VerticalAlignment="Top" Width="75" Margin="500,10,10,0" Click="LogoutButton_Click" />
+        <Button x:Name="LogoutBtn" Content="Logout" HorizontalAlignment="Center"  VerticalAlignment="Top" Width="75" Margin="500,10,10,0" Click="LogoutButton_Click" />
 
         <!-- Projects Section -->
         <Border Background="Transparent" BorderBrush="White" Margin="3,210,00,0" Height="330" Width="754" BorderThickness="1" CornerRadius="50" />
@@ -139,23 +139,14 @@
                             <TextBlock Grid.Column="1" Text="{Binding ProjectName}" Margin="5,0,0,0" VerticalAlignment="Center" />
 
                             <TextBlock Grid.Column="2" Text="Accept?" Margin="-60,0,0,0" VerticalAlignment="Center" Visibility="{Binding Role, Converter={StaticResource RoleToVisibilityConverter}}"/>
-                            <!-- 'x' button for declining invite -->
-                            <Button x:Name="DeclineInviteButton" Grid.Column="3" Content="X" Width="20" Height="20" Margin="0,0,0,0" Background="Transparent" Foreground="Red" BorderThickness="0"
-                                Visibility="{Binding Role, Converter={StaticResource RoleToVisibilityConverter}}"
-                                Click="DeclineInvite_Click" CommandParameter="{Binding}" />
-
-                            <!-- 'v' button for accepting invite -->
-                            <Button x:Name="AcceptInviteButton" Grid.Column="2" Content="v" Width="20" Height="20" Margin="0,0,0,0" Background="Transparent" Foreground="Green" BorderThickness="0"
-                                Visibility="{Binding Role, Converter={StaticResource RoleToVisibilityConverter}}"
-                                Click="AcceptInvite_Click" CommandParameter="{Binding}" />
 
                             <!-- 'info' button to see project info -->
-                            <Button x:Name="InfoButton" Grid.Column="4" Content="Info" Width="50" Height="20" Margin="0,0,0,0" Background="Transparent" Foreground="white" BorderThickness="0"
+                            <Button x:Name="InfoButton" Grid.Column="4" Content="Info" Width="50" Height="20" Margin="0,0,0,0" Background="Transparent" BorderThickness="0"
                                 Visibility="{Binding Role, Converter={StaticResource RegularToVisibilityConverter}}"
                                 Click="ViewProjectInfo_Click" CommandParameter="{Binding}" />
 
                             <!-- 'edit' button for editing project info -->
-                            <Button x:Name="EditButton" Grid.Column="4" Content="Edit" Width="50" Height="20" Margin="0,0,0,0" Background="Transparent" Foreground="white" BorderThickness="0"
+                            <Button x:Name="EditButton" Grid.Column="4" Content="Edit" Width="50" Height="20" Margin="0,0,0,0" Background="Transparent"  BorderThickness="0"
                                 Visibility="{Binding Role, Converter={StaticResource AdminToVisibilityConverter}}"
                                 Click="EditProjectInfo_Click" CommandParameter="{Binding}" />
 
@@ -220,20 +211,8 @@
 
                             <TextBlock Grid.Column="2" Text="Accept?" FontWeight="Bold" Margin="-80,0,0,0" VerticalAlignment="Center" Visibility="{Binding IsFriendRequest, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
-                            <!-- 'X' button for removing friend -->
-                            <Button Grid.Column="2" Content="X" Width="20" Height="20" Margin="10,0,0,0" Background="Transparent" Foreground="Red" BorderThickness="0"
-                                Visibility="{Binding IsFriendRequest, Converter={StaticResource BoolToVisibilityConverter}}"
-                                Click="declineRequest_Click"
-                                CommandParameter="{Binding}"/>
-
-                            <!-- 'v' button for friend request -->
-                            <Button Grid.Column="1" Content="V" Width="20" Height="20" Margin="80,0,0,0" Background="Transparent" Foreground="Green" BorderThickness="0"
-                                Visibility="{Binding IsFriendRequest, Converter={StaticResource BoolToVisibilityConverter}}"
-                                Click="approveRequest_Click"
-                                CommandParameter="{Binding}"/>
-
                             <!-- 'removeUser' button for removing user, visible only for friends -->
-                            <Button Grid.Column="3" Content="Remove User" Margin="60,0,0,0" Width="85" Height="20" Background="Transparent" Foreground="white" BorderThickness="0"
+                            <Button Grid.Column="3" Content="Remove User" Margin="60,0,0,0" Width="85" Height="20" Background="Transparent"  BorderThickness="0"
                                 Visibility="{Binding IsFriend, Converter={StaticResource BoolToVisibilityConverter}}"
                                 Click="RemoveFriend_Click"
                                 CommandParameter="{Binding}"/>

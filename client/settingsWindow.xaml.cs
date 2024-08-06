@@ -24,6 +24,12 @@ namespace client_side
             this.communicator = communicator;
             communicator.ApplyTheme(this);
             theame = communicator.AppTheme.theame;
+            communicator.ThemeChanged += OnThemeChanged;
+        }
+
+        private void OnThemeChanged(object sender, EventArgs e)
+        {
+            communicator.ApplyTheme(this);
         }
 
         private void ModifyCodeStyle_Click(object sender, RoutedEventArgs e)
@@ -221,22 +227,6 @@ namespace client_side
             }
         }
 
-        private void CloseButton_Click(object sender, RoutedEventArgs e)
-        {
-            string code = ((int)MessageCodes.MC_BACK_TO_HOME_PAGE_REQUEST).ToString();
-            communicator.SendData($"{code}");
-            string msg = communicator.ReceiveData();
-            disconnect = false;
-            Dispatcher.Invoke(() =>
-            {
-                //AddProjectWindow addProjectWindow = new AddProjectWindow(communicator);
-                HomePage addProjectWindow = new HomePage(communicator);
-                addProjectWindow.Show();
-                Close();
-            });
-
-        }
-
         private void ModifyTheme_Click(object sender, RoutedEventArgs e)
         {
             dynamicContentPanel.Children.Clear();
@@ -336,23 +326,5 @@ namespace client_side
             theame = communicator.AppTheme.theame;
         }
 
-
-        private async void settings_CloseFile(object sender, EventArgs e)
-        {
-            if (disconnect)
-            {
-                try
-                {
-                    string chatMessageCode = ((int)MessageCodes.MC_DISCONNECT).ToString();
-                    string fullMessage = $"{chatMessageCode}{communicator.UserId:D5}";
-                    communicator.SendData(fullMessage);
-                    await Dispatcher.InvokeAsync(() => Close());
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Error during closing: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-            }
-        }
     }
 }

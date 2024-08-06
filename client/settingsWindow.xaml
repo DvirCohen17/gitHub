@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:client_side"
         mc:Ignorable="d"
-        Title="settingsWindow" Height="600" Width="1000" Closing="settings_CloseFile">
+        Title="settingsWindow" Height="600" Width="1000" >
     <Grid x:Name="MainGrid">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -15,8 +15,7 @@
             <ColumnDefinition Width="200"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
-        <Button x:Name="closeSettings" Content="Close Settings" Click="CloseButton_Click" 
-                HorizontalAlignment="Center" VerticalAlignment="Top" Margin="5,10,0,10" Visibility="Visible"/>
+
         <StackPanel Grid.Row="1" Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="10">
             <Button Content="Code Style" Width="140" Height="30" FontSize="17" Click="ModifyCodeStyle_Click" Margin="5,10"/>
             <Button x:Name="modifyThemeButton" Width="140" Height="30" Content="Theme" FontSize="17" Click="ModifyTheme_Click" Margin="5, 80"/>

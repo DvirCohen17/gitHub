@@ -22,7 +22,7 @@
                         <Border x:Name="bg"
                             Background="{TemplateBinding Background}"
                             BorderThickness="2"
-                            BorderBrush="White">
+                            BorderBrush="{TemplateBinding BorderBrush}">
                             <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
                                 VerticalAlignment="{TemplateBinding VerticalAlignment}" />
                         </Border>

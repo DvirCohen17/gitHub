@@ -7,6 +7,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Security.Cryptography;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace client_side
 {
@@ -68,6 +70,20 @@ namespace client_side
         MC_GET_MSG_COUNT_REQUEST = 155,
         MC_SEND_MSG_REQUEST = 156,
         MC_MARK_AS_READ_REQUEST = 157,
+        MC_ADD_TASK_REQUEST = 158,
+        MC_MARK_TASK_AS_COMPLETED_REQUEST = 159,
+        MC_MARK_TASK_AS_NOT_COMPLETED_REQUEST = 160,
+        MC_DELETE_TASK_REQUEST = 161,
+        MC_GET_CURRENT_PROJECT_ISSUES_REQUEST = 162,
+        MC_GET_COMPLETED_PROJECT_ISSUES_REQUEST = 163,
+        MC_GET_PROJECT_PATICIPANTS_REQUEST = 164,
+        MC_MOVE_TO_ISSUE_DATA_WINDOW_REQUEST = 165,
+        MC_GET_ISSUE_REQUEST = 166,
+        MC_BACK_TO_PROJECT_PAGE_REQUEST = 167,
+        MC_MOVE_TO_TO_DO_LIST_REQUEST = 168,
+        MC_MOVE_TO_PROJECT_PAGE_REQUEST = 169,
+        MC_BACK_TO_TO_DO_LIST_PAGE_REQUEST = 170,
+        MC_MODIFY_ISSUE_REQUEST = 171,
 
         MC_ERROR_RESP = 200, //responses
         MC_INITIAL_RESP = 201,
@@ -127,12 +143,27 @@ namespace client_side
         MC_GET_MSG_COUNT_RESP = 255,
         MC_SEND_MSG_RESP = 256,
         MC_MARK_AS_READ_RESP = 257,
+        MC_ADD_TASK_RESP = 258,
+        MC_MARK_TASK_AS_COMPLETED_RESP = 259,
+        MC_MARK_TASK_AS_NOT_COMPLETED_RESP = 260,
+        MC_DELETE_TASK_RESP = 261,
+        MC_GET_CURRENT_PROJECT_ISSUES_RESP = 262,
+        MC_GET_COMPLETED_PROJECT_ISSUES_RESP = 263,
+        MC_GET_PROJECT_PATICIPANTS_RESP = 264,
+        MC_MOVE_TO_ISSUE_DATA_WINDOW_RESP = 265,
+        MC_GET_ISSUE_RESP = 266,
+        MC_BACK_TO_PROJECT_PAGE_RESP = 267,
+        MC_MOVE_TO_TO_DO_LIST_RESP = 268,
+        MC_MOVE_TO_PROJECT_PAGE_RESP = 269,
+        MC_BACK_TO_TO_DO_LIST_PAGE_RESP = 270,
+        MC_MODIFY_ISSUE_RESP = 271,
 
         MC_DISCONNECT = 300, //user
         MC_LOGIN_REQUEST = 301,
         MC_LOGOUT_REQUEST = 306,
         MC_SIGNUP_REQUEST = 303,
         MC_FORGOT_PASSW_REQUEST = 304,
+        MC_HEARTBEAT_REQUEST = 307,
 
         MC_APPROVE_REQ_RESP = 302,
         MC_APPROVE_JOIN_RESP = 305,
@@ -141,7 +172,6 @@ namespace client_side
         MC_SIGNUP_RESP = 403,
         MC_FORGOT_PASSW_RESP = 404,
         MC_LOGOUT_RESP = 406
-
     };
 
     public class Theme
@@ -150,33 +180,24 @@ namespace client_side
         public Brush Foreground { get; set; }
         public Brush ButtonBackground { get; set; }
         public Brush ButtonForeground { get; set; }
-        public Brush ApproveButtonBackground { get; set; }
-        public Brush ApproveButtonForeground { get; set; }
-        public Brush RejectButtonBackground { get; set; }
-        public Brush RejectButtonForeground { get; set; }
+        public SolidColorBrush ButtonBorder { get; }
         public Brush TextColor { get; set; } 
         public string theame {  get; set; }
 
         public Theme(
-            Brush background,
-            Brush foreground,
-            Brush buttonBackground,
-            Brush buttonForeground,
-            Brush approveButtonBackground,
-            Brush approveButtonForeground,
-            Brush rejectButtonBackground,
-            Brush rejectButtonForeground,
-            Brush textColor,
+            SolidColorBrush background,
+            SolidColorBrush foreground,
+            SolidColorBrush buttonBackground,
+            SolidColorBrush buttonForeground,
+            SolidColorBrush buttonBorder,
+            SolidColorBrush textColor,
             string theame)
         {
             Background = background;
             Foreground = foreground;
             ButtonBackground = buttonBackground;
             ButtonForeground = buttonForeground;
-            ApproveButtonBackground = approveButtonBackground;
-            ApproveButtonForeground = approveButtonForeground;
-            RejectButtonBackground = rejectButtonBackground;
-            RejectButtonForeground = rejectButtonForeground;
+            ButtonBorder = buttonBorder;
             TextColor = textColor;
             this.theame = theame;
         }
@@ -192,6 +213,7 @@ namespace client_side
         public int UserId { get; set; }
         public string UserName { get; set; }
 
+        public event EventHandler ThemeChanged;
         public Communicator(string ip, int port)
         {
             m_socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
@@ -234,12 +256,9 @@ namespace client_side
                     AppTheme = new Theme(
                         Brushes.White,
                         Brushes.Black,
-                        Brushes.Black,
                         Brushes.White,
-                        Brushes.LightGreen,
-                        Brushes.DarkGreen,
-                        Brushes.LightCoral,
-                        Brushes.DarkRed,
+                        Brushes.Black,
+                        Brushes.Black,
                         Brushes.Black, "Light");
                     break;
                 case "dark":
@@ -248,9 +267,6 @@ namespace client_side
                         Brushes.White,
                         Brushes.Black,
                         Brushes.White,
-                        Brushes.Yellow,
-                        Brushes.White,
-                        Brushes.DarkRed,
                         Brushes.White,
                         Brushes.White, "Dark");
                     break;
@@ -260,10 +276,7 @@ namespace client_side
                         Brushes.DarkBlue,
                         Brushes.LightBlue,
                         Brushes.DarkBlue,
-                        Brushes.LightGreen,
-                        Brushes.DarkGreen,
-                        Brushes.LightCoral,
-                        Brushes.DarkRed,
+                        Brushes.DarkBlue,
                         Brushes.DarkBlue, "Blue");
                     break;
                 case "green":
@@ -272,10 +285,7 @@ namespace client_side
                         Brushes.DarkGreen,
                         Brushes.LightGreen,
                         Brushes.DarkGreen,
-                        Brushes.LightGreen,
                         Brushes.DarkGreen,
-                        Brushes.LightCoral,
-                        Brushes.DarkRed,
                         Brushes.DarkGreen, "Green");
                     break;
                 case "red":
@@ -284,9 +294,6 @@ namespace client_side
                         Brushes.DarkRed,
                         Brushes.LightCoral,
                         Brushes.DarkRed,
-                        Brushes.LightGreen,
-                        Brushes.DarkGreen,
-                        Brushes.LightCoral,
                         Brushes.DarkRed,
                         Brushes.DarkRed, "Red");
                     break;
@@ -296,9 +303,6 @@ namespace client_side
                         new SolidColorBrush(Color.FromRgb(0, 255, 255)),
                         new SolidColorBrush(Color.FromRgb(255, 20, 147)),
                         Brushes.White,
-                        new SolidColorBrush(Color.FromRgb(0, 255, 0)),
-                        Brushes.White,
-                        new SolidColorBrush(Color.FromRgb(255, 0, 0)),
                         Brushes.White,
                         new SolidColorBrush(Color.FromRgb(0, 255, 255)), "CyberPunk");
                     break;
@@ -308,10 +312,7 @@ namespace client_side
                         new SolidColorBrush(Color.FromRgb(0, 255, 0)),
                         Brushes.Black,
                         new SolidColorBrush(Color.FromRgb(0, 255, 0)),
-                        Brushes.DarkGreen,
-                        Brushes.White,
-                        Brushes.DarkRed,
-                        Brushes.White,
+                        new SolidColorBrush(Color.FromRgb(0, 255, 0)),
                         new SolidColorBrush(Color.FromRgb(0, 255, 0)), "Matrix");
                     break;
                 case "solarized light":
@@ -320,10 +321,7 @@ namespace client_side
                         new SolidColorBrush(Color.FromRgb(101, 123, 131)),
                         new SolidColorBrush(Color.FromRgb(238, 232, 213)),
                         new SolidColorBrush(Color.FromRgb(88, 110, 117)),
-                        new SolidColorBrush(Color.FromRgb(42, 161, 152)),
-                        new SolidColorBrush(Color.FromRgb(133, 153, 0)),
-                        new SolidColorBrush(Color.FromRgb(203, 75, 75)),
-                        new SolidColorBrush(Color.FromRgb(139, 0, 0)),
+                        new SolidColorBrush(Color.FromRgb(88, 110, 117)),
                         new SolidColorBrush(Color.FromRgb(101, 123, 131)), "Solarized Light");
                     break;
                 case "solarized dark":
@@ -332,10 +330,7 @@ namespace client_side
                         new SolidColorBrush(Color.FromRgb(131, 148, 153)),
                         new SolidColorBrush(Color.FromRgb(7, 54, 33)),
                         new SolidColorBrush(Color.FromRgb(147, 161, 161)),
-                        new SolidColorBrush(Color.FromRgb(38, 139, 210)),
-                        new SolidColorBrush(Color.FromRgb(42, 161, 152)),
-                        new SolidColorBrush(Color.FromRgb(203, 75, 75)),
-                        new SolidColorBrush(Color.FromRgb(253, 246, 227)),
+                        new SolidColorBrush(Color.FromRgb(147, 161, 161)),
                         new SolidColorBrush(Color.FromRgb(131, 148, 153)), "Solarized Dark");
                     break;
                 case "vintage":
@@ -344,9 +339,6 @@ namespace client_side
                         new SolidColorBrush(Color.FromRgb(108, 79, 79)),
                         new SolidColorBrush(Color.FromRgb(208, 182, 182)),
                         new SolidColorBrush(Color.FromRgb(108, 79, 79)),
-                        new SolidColorBrush(Color.FromRgb(155, 109, 109)),
-                        new SolidColorBrush(Color.FromRgb(108, 79, 79)),
-                        new SolidColorBrush(Color.FromRgb(244, 227, 227)),
                         new SolidColorBrush(Color.FromRgb(108, 79, 79)),
                         new SolidColorBrush(Color.FromRgb(108, 79, 79)), "Vintage");
                     break;
@@ -356,9 +348,6 @@ namespace client_side
                         new SolidColorBrush(Color.FromRgb(57, 255, 20)),
                         new SolidColorBrush(Color.FromRgb(255, 0, 127)),
                         Brushes.White,
-                        new SolidColorBrush(Color.FromRgb(0, 255, 255)),
-                        Brushes.White,
-                        new SolidColorBrush(Color.FromRgb(255, 0, 0)),
                         Brushes.White,
                         new SolidColorBrush(Color.FromRgb(57, 255, 20)), "Neon");
                     break;
@@ -368,9 +357,6 @@ namespace client_side
                         new SolidColorBrush(Color.FromRgb(195, 162, 176)),
                         new SolidColorBrush(Color.FromRgb(245, 227, 230)),
                         new SolidColorBrush(Color.FromRgb(176, 58, 106)),
-                        new SolidColorBrush(Color.FromRgb(247, 198, 199)),
-                        new SolidColorBrush(Color.FromRgb(227, 182, 178)),
-                        new SolidColorBrush(Color.FromRgb(251, 232, 235)),
                         new SolidColorBrush(Color.FromRgb(176, 58, 106)),
                         new SolidColorBrush(Color.FromRgb(195, 162, 176)), "Pastel");
                     break;
@@ -380,15 +366,13 @@ namespace client_side
                         Brushes.Black,
                         Brushes.White,
                         Brushes.Black,
-                        Brushes.LightGreen,
-                        Brushes.DarkGreen,
-                        Brushes.LightCoral,
-                        Brushes.DarkRed,
-                        Brushes.Black, "Light");
+                        Brushes.Black,
+                        Brushes.Black,
+                        "Light");
                     break;
             }
             SaveSettings(theme);
-
+            ThemeChanged?.Invoke(this, EventArgs.Empty);
         }
 
 
@@ -396,11 +380,15 @@ namespace client_side
         {
             if (AppTheme != null)
             {
+                var resourceDictionary = new ResourceDictionary();
+
                 window.Background = AppTheme.Background;
                 window.Foreground = AppTheme.Foreground;
 
-                // Apply theme to all child controls
-                ApplyThemeToControls(window.Content as Panel);
+                if (window.Content is Panel panel)
+                {
+                    ApplyThemeToControls(panel);
+                }
             }
         }
 
@@ -427,7 +415,7 @@ namespace client_side
                 button.Foreground = AppTheme.ButtonForeground;
 
                 // Apply the border color for buttons
-                button.BorderBrush = AppTheme.ButtonForeground;
+                button.BorderBrush = AppTheme.ButtonBorder;
             }
             else if (control is TextBlock textBlock)
             {
@@ -472,11 +460,39 @@ namespace client_side
                     }
                 }
             }
+            else if (control is ListView listView)
+            {
+                listView.Foreground = AppTheme.TextColor;
+                foreach (var item in listView.Items)
+                {
+                    ListViewItem listViewItem = listView.ItemContainerGenerator.ContainerFromItem(item) as ListViewItem;
+                    if (listViewItem != null)
+                    {
+                        ApplyThemeToControl(listViewItem);
+                    }
+                }
+            }
             else if (control is Panel childPanel)
             {
                 foreach (var child in childPanel.Children)
                 {
                     ApplyThemeToControl(child as DependencyObject); // Cast to DependencyObject
+                }
+            }
+            else if (control is ListBoxItem listBoxItem)
+            {
+                for (int i = 0; i < VisualTreeHelper.GetChildrenCount(listBoxItem); i++)
+                {
+                    DependencyObject child = VisualTreeHelper.GetChild(listBoxItem, i);
+                    ApplyThemeToControl(child);
+                }
+            }
+            else if (control is ListViewItem listViewItem)
+            {
+                for (int i = 0; i < VisualTreeHelper.GetChildrenCount(listViewItem); i++)
+                {
+                    DependencyObject child = VisualTreeHelper.GetChild(listViewItem, i);
+                    ApplyThemeToControl(child);
                 }
             }
         }
@@ -532,8 +548,8 @@ namespace client_side
         public void SendData(string message)
         {
             //LogAction(message);
-            byte[] data = Encoding.UTF8.GetBytes(message);
-            m_socket.Send(data);
+           byte[] data = Encoding.UTF8.GetBytes(message);
+           m_socket.Send(data); 
         }
 
         public void SendImage(byte[] message)

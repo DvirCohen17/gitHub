@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.VisualBasic;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -17,9 +18,9 @@ namespace client_side
 
         public ObservableCollection<User> SearchResults { get; set; }
         public ObservableCollection<User> SelectedUsers { get; set; }
+        public List<User> UserFriends { get; set; }
 
         private bool disconnect = true;
-        private Thread receiveServerUpdatesThread;
         private bool isListeningToServer = true;
 
         private int ProjectId = -1;
@@ -187,6 +188,7 @@ namespace client_side
 
             SearchResults = new ObservableCollection<User>();
             SelectedUsers = new ObservableCollection<User>();
+            UserFriends = new List<User>();
 
             SearchResultsListBox.ItemsSource = SearchResults;
             SelectedUsersListBox.ItemsSource = SelectedUsers;
@@ -212,6 +214,12 @@ namespace client_side
 
                 string update = communicator.ReceiveData();
                 string code = update.Substring(0, 3);
+
+                if (code == ((int)MessageCodes.MC_HEARTBEAT_REQUEST).ToString())
+                {
+                    update = communicator.ReceiveData();
+                    code = update.Substring(0, 3);
+                }
 
                 if (code == ((int)MessageCodes.MC_GET_PROJECT_INFO_RESP).ToString() && update.Length > 3)
                 {
@@ -344,13 +352,40 @@ namespace client_side
                 editBtn.Visibility = Visibility.Collapsed;
                 PrivateCheckBox.IsEnabled = true;
             }
-            receiveServerUpdatesThread = new Thread(() => ReceiveServerUpdates())
-            {
-                IsBackground = true
-            };
-            receiveServerUpdatesThread.Start();
 
-            Closing += createProject_CloseFile;
+            string friends = ((int)MessageCodes.MC_FRIENDS_LIST_REQUEST).ToString();
+
+            communicator.SendData($"{friends}{communicator.UserName.Length:D5}{communicator.UserName}");
+
+            string result = communicator.ReceiveData();
+            string friendsRepCode = result.Substring(0, 3);
+
+            if (friendsRepCode == ((int)MessageCodes.MC_HEARTBEAT_REQUEST).ToString())
+            {
+                result = communicator.ReceiveData();
+                friendsRepCode = result.Substring(0, 3);
+            }
+
+            if (friendsRepCode == ((int)MessageCodes.MC_FRIENDS_LIST_RESP).ToString())
+            {
+                int index = 3;
+
+                while (index < result.Length)
+                {
+                    int friendNameLen = int.Parse(result.Substring(index, 5));
+                    index += 5;
+                    string friendName = result.Substring(index, friendNameLen);
+                    index += friendNameLen;
+                    index += 1;
+
+                    UserFriends.Add(new User
+                    {
+                        Name = friendName,
+                        IsAdmin = false, // Initialize admin and participant status
+                        IsParticipant = false,
+                    });
+                }
+            }
         }
 
         private async void CreateProject_Click(object sender, RoutedEventArgs e)
@@ -398,6 +433,24 @@ namespace client_side
 
             communicator.SendData($"{createProjectCode}{projectName.Length:D5}{projectName}{selectedUsersData.Length:D5}" +
                 $"{selectedUsersData}{codeLanguage.Length:D5}{codeLanguage}{isPrivate}");
+
+            string update = communicator.ReceiveData();
+            string code = update.Substring(0, 3);
+
+            if (code == ((int)MessageCodes.MC_HEARTBEAT_REQUEST).ToString())
+            {
+                update = communicator.ReceiveData();
+                code = update.Substring(0, 3);
+            }
+
+            if (code == ((int)MessageCodes.MC_BACK_TO_HOME_PAGE_RESP).ToString())
+            {
+                HandleBackToMainPage();
+            }
+            else if (code == ((int)MessageCodes.MC_ERROR_RESP).ToString())
+            {
+                HandleError(update);
+            }
         }
 
         private async void EditProject_Click(object sender, RoutedEventArgs e)
@@ -444,38 +497,23 @@ namespace client_side
 
             communicator.SendData($"{createProjectCode}{ProjectId.ToString().Length:D5}{ProjectId}{projectName.Length:D5}{projectName}{selectedUsersData.Length:D5}" +
                 $"{selectedUsersData}{codeLanguage.Length:D5}{codeLanguage}{isPrivate}");
-        }
 
-        private async void ReceiveServerUpdates()
-        {
-            try
+            string update = communicator.ReceiveData();
+            string code = update.Substring(0, 3);
+
+            if (code == ((int)MessageCodes.MC_HEARTBEAT_REQUEST).ToString())
             {
-                while (isListeningToServer)
-                {
-                    string update = communicator.ReceiveData();
-                    string code = update.Substring(0, 3);
-
-                    switch (code)
-                    {
-                        case "200": // MC_ERR_RESP
-                            HandleError(update);
-                            break;
-                        case "239":
-                            HandleSearchFriends(update);
-                            break;
-                        case "240":
-                            HandleBackToMainPage();
-                            break;
-
-                        default:
-                            throw new InvalidOperationException($"{code}");
-                    }
-                }
+                update = communicator.ReceiveData();
+                code = update.Substring(0, 3);
             }
-            catch (Exception ex)
+
+            if (code == ((int)MessageCodes.MC_BACK_TO_HOME_PAGE_RESP).ToString())
             {
-                System.Windows.MessageBox.Show($"Error receiving server updates: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                string msg = await Task.Run(() => communicator.ReceiveData());
+                HandleBackToMainPage();
+            }
+            else if (code == ((int)MessageCodes.MC_ERROR_RESP).ToString())
+            {
+                HandleError(update);
             }
         }
 
@@ -486,50 +524,41 @@ namespace client_side
 
             Dispatcher.Invoke(() =>
             {
-                HomePage homePageWindow = new HomePage(communicator);
-                homePageWindow.Show();
                 Close();
-            });
-        }
-
-        private void HandleSearchFriends(string update)
-        {
-            Dispatcher.Invoke(() =>
-            {
-                SearchResults.Clear();
-
-                int startIndex = 3;
-                if (update.Length == 3)
-                {
-                    borderSerachBlock.Visibility = Visibility.Collapsed;
-                }
-                else
-                {
-                    borderSerachBlock.Visibility = Visibility.Visible;
-                }
-
-                while (startIndex < update.Length)
-                {
-                    int nameLength = int.Parse(update.Substring(startIndex, 5));
-                    string userName = update.Substring(startIndex + 5, nameLength);
-                    startIndex += nameLength + 5;
-
-                    // Add user to search results
-                    SearchResults.Add(new User
-                    {
-                        Name = userName,
-                        IsAdmin = false, // Initialize admin and participant status
-                        IsParticipant = false,
-                    });
-                }
             });
         }
 
         private void UserSearchTextBox_KeyUp(object sender, KeyEventArgs e)
         {
-            string searchCommand = UserSearchTextBox.Text;
-            string searchRequestCode = ((int)MessageCodes.MC_SEARCH_FRIENDS_REQUEST).ToString();
-            communicator.SendData($"{searchRequestCode}{searchCommand.Length:D5}{searchCommand}");
+            var query = UserSearchTextBox.Text.ToLower();
+            if (query.Length > 0)
+            {
+                var filteredUsers = UserFriends
+            .           Where(u => !string.IsNullOrEmpty(u.Name) &&
+                        u.Name.ToLower().Contains(query) &&
+                        u.Name.ToLower() != communicator.UserName.ToLower()).ToList();
+
+                Dispatcher.Invoke(() =>
+                {
+                    SearchResults.Clear();
+                    borderSerachBlock.Visibility = filteredUsers.Any() ? Visibility.Visible : Visibility.Collapsed;
+
+                    foreach (var user in filteredUsers)
+                    {
+                        SearchResults.Add(new User
+                        {
+                            Name = user.Name,
+                            IsAdmin = false, // Initialize admin and participant status
+                            IsParticipant = false,
+                        });
+                    }
+                });
+            }
+            else
+            {
+                SearchResults.Clear();
+                borderSerachBlock.Visibility = Visibility.Collapsed;
+            }
         }
 
         private void SearchResultsListBox_MouseDoubleClick(object sender, MouseButtonEventArgs e)
@@ -557,24 +586,6 @@ namespace client_side
             }
         }
 
-        private async void createProject_CloseFile(object sender, EventArgs e)
-        {
-            if (disconnect)
-            {
-                try
-                {
-                    string disconnectCode = ((int)MessageCodes.MC_DISCONNECT).ToString();
-                    string fullMessage = $"{disconnectCode}{communicator.UserId:D5}";
-                    communicator.SendData(fullMessage);
-                    await Dispatcher.InvokeAsync(() => Close());
-                }
-                catch (Exception ex)
-                {
-                    System.Windows.MessageBox.Show($"Error during closing: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-            }
-        }
-
         private void HandleError(string update)
         {
             string errorMessage = update;
@@ -584,13 +595,6 @@ namespace client_side
                 ErrorTextBlock.Text = errorMessage;
                 ErrorTextBlock.Visibility = Visibility.Visible;
             });
-        }
-
-        private void BackButton_Click(object sender, RoutedEventArgs e)
-        {
-            string disconnectCode = ((int)MessageCodes.MC_BACK_TO_HOME_PAGE_REQUEST).ToString();
-            string fullMessage = $"{disconnectCode}{communicator.UserId:D5}";
-            communicator.SendData(fullMessage);
         }
     }
 

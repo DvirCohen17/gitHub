@@ -84,6 +84,11 @@ namespace client_side
             string update = communicator.ReceiveData();
             string messageRepCode = update.Substring(0, 3);
 
+            if (messageRepCode == ((int)MessageCodes.MC_HEARTBEAT_REQUEST).ToString())
+            {
+                update = communicator.ReceiveData();
+                messageRepCode = update.Substring(0, 3);
+            }
             if (messageRepCode == ((int)MessageCodes.MC_GET_MESSAGES_RESP).ToString())
             {
                 int index = 3;
@@ -171,7 +176,7 @@ namespace client_side
                 message.IsRead = true;
                 string chatMessageCode = ((int)MessageCodes.MC_MARK_AS_READ_REQUEST).ToString();
                 string fullMessage = $"{chatMessageCode}{message.Id:D5}";
-                //communicator.SendData(fullMessage);
+                communicator.SendData(fullMessage);
 
             }
         }

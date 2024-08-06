@@ -96,6 +96,7 @@ namespace client_side
                     communicator.UserName = name;
                     communicator.UserId = int.Parse(update.Substring(3));
                     disconnect = false;
+
                     HomePage filesWindow = new HomePage(communicator);
                     filesWindow.Show();
                     Close();

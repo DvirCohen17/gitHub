@@ -24,7 +24,7 @@
         </Grid.ColumnDefinitions>
 
         <!-- File List section -->
-        <StackPanel Grid.Column="0" Grid.RowSpan="2"  Margin="0,0,10,0">
+        <StackPanel Grid.Column="0" Grid.RowSpan="2"  Margin="0,0,10,98">
             <Button Content="Return to Main Page" Margin="10" Click="ReturnToMainPage_Click"/>
             <ListBox x:Name="lstFileList" FontSize="14" Background="Transparent" Foreground="White" Margin="45,60,5,5" MouseDoubleClick="LstFiles_MouseDoubleClick" PreviewKeyDown="LstFiles_PreviewKeyDown">
                 <ListBox.ItemTemplate>
@@ -87,18 +87,17 @@
                          Height="54"
                          Width="180"
                          Background="Transparent"
-                         Foreground="White"
                          KeyDown="TxtChatInput_KeyDown"/>
                 <Label x:Name="lblErr" Foreground="Red" FontSize="12" FontWeight="Bold" Height="39" Width="188"/>
             </StackPanel>
 
             <!-- User List section -->
 
-            <Border Background="Transparent" BorderBrush="White" Margin="-15,0,00,0" Height="203" Width="203" BorderThickness="1" CornerRadius="50" />
+            <Border Background="Transparent" Margin="-15,0,00,0" Height="203" Width="203" BorderThickness="1" CornerRadius="50" />
 
             <StackPanel>
-                <TextBlock Text="   User List" FontWeight="Bold" Foreground="White" Margin="0,-420,0,0" Height="23"/>
-                <ListBox x:Name="lstFriends" ItemsSource="{Binding Friends}" Height="150" Width="195" Margin="0,-200,0,0" Background="Transparent" Foreground="White" >
+                <TextBlock Text="   User List" FontWeight="Bold" Margin="0,-420,0,0" Height="23"/>
+                <ListBox x:Name="lstFriends" ItemsSource="{Binding Friends}" Height="150" Width="195" Margin="0,-200,0,0" Background="Transparent" >
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <Grid>
@@ -133,20 +132,8 @@
 
                                 <TextBlock Grid.Column="2" Text="Accept?" FontWeight="Bold" Margin="-80,0,0,0" VerticalAlignment="Center" Visibility="{Binding IsFriendRequest, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
-                                <!-- 'X' button for removing friend -->
-                                <Button Grid.Column="1" Content="X" Width="20" Height="20" Margin="80,0,0,0" Background="Transparent" Foreground="Red" BorderThickness="0"
-        Visibility="{Binding IsFriendRequest, Converter={StaticResource BoolToVisibilityConverter}}"
-        Click="declineRequest_Click"
-        CommandParameter="{Binding}"/>
-
-                                <!-- 'v' button for friend request -->
-                                <Button Grid.Column="2" Content="V" Width="20" Height="20" Margin="10,0,0,0" Background="Transparent" Foreground="Green" BorderThickness="0"
-        Visibility="{Binding IsFriendRequest, Converter={StaticResource BoolToVisibilityConverter}}"
-        Click="approveRequest_Click"
-        CommandParameter="{Binding}"/>
-
                                 <!-- 'removeUser' button for removing user, visible only for friends -->
-                                <Button Grid.Column="3" Content="Remove User" Margin="60,0,0,0" Width="85" Height="20" Background="Transparent" Foreground="White" BorderThickness="0"
+                                <Button Grid.Column="3" Content="Remove User" Margin="60,0,0,0" Width="85" Height="20" Background="Transparent"  BorderThickness="0"
         Visibility="{Binding IsFriend, Converter={StaticResource BoolToVisibilityConverter}}"
         Click="RemoveFriend_Click"
         CommandParameter="{Binding}"/>
@@ -156,5 +143,8 @@
                 </ListBox>
             </StackPanel>
         </StackPanel>
+        <Button x:Name="ToDoListBtn" Content="To do list" Margin="0,0,0,-1100" Width="85" Height="20" Background="Transparent"  BorderThickness="0"
+            Visibility="Visible"
+            Click="ToDoList_Click"/>
     </Grid>
 </Window>

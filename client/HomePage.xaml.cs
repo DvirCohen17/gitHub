@@ -49,6 +49,8 @@ namespace client_side
         private string mailImage;
         private string imageMode;
         private bool inMessagesMode = false;
+        private bool inSettings = false;
+        private bool inCreate = false;
 
         public HomePage(Communicator communicator)
         {
@@ -58,7 +60,7 @@ namespace client_side
             DataContext = this;
 
             communicator.ApplyTheme(this);
-
+            communicator.ThemeChanged += OnThemeChanged;
 
             lstFriends.MouseDoubleClick += LstFriends_MouseDoubleClick;
             lstProjects.MouseDoubleClick += LstProjects_MouseDoubleClick;
@@ -86,6 +88,36 @@ namespace client_side
             Closing += HomePage_CloseFile;
         }
 
+        private void RefreshUIElements()
+        {
+            lstProjects.ItemsSource = null;
+            lstProjects.ItemsSource = Projects;
+
+            lstFriends.ItemsSource = null;
+            lstFriends.ItemsSource = Friends;
+
+            SortFriendsList(Friends);
+            SortProjectsList(Projects);
+        }
+
+        private void OnThemeChanged(object sender, EventArgs e)
+        {
+            communicator.ApplyTheme(this);
+            openMailImage();
+            msgBtn.Background = Brushes.Transparent;
+
+            RefreshUIElements();
+
+            if (inSettings || inMessagesMode)
+            {
+                DisableAllButtonsAndLists();
+            }
+            else
+            {
+                EnableAllButtonsAndLists();
+            }
+        }
+
         private void EnableAllButtonsAndLists()
         {
             SetButtonsAndListsEnabledState(true);
@@ -110,6 +142,9 @@ namespace client_side
             LogoutBtn.IsEnabled = isEnabled;
             searchBarTextBox.IsEnabled = isEnabled;
             BioTextBox.IsEnabled = isEnabled;
+
+            lstProjects.UpdateLayout();
+            lstFriends.UpdateLayout();
 
             foreach (var item in lstProjects.Items)
             {
@@ -266,7 +301,7 @@ namespace client_side
             bitmap.EndInit();
 
             MailImage.Source = bitmap;
-            
+
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -295,8 +330,14 @@ namespace client_side
             communicator.SendData($"{projectsListCode}{communicator.UserName.Length:D5}{communicator.UserName}");
 
             string response = communicator.ReceiveData();
-            string responseCodee = response.Substring(0, 3);
-            if (responseCodee == ((int)MessageCodes.MC_GET_MESSAGES_RESP).ToString())
+            string responseCode = response.Substring(0, 3);
+
+            if (responseCode == ((int)MessageCodes.MC_HEARTBEAT_REQUEST).ToString())
+            {
+                response = communicator.ReceiveData();
+                responseCode = response.Substring(0, 3);
+            }
+            if (responseCode == ((int)MessageCodes.MC_GET_MESSAGES_RESP).ToString())
             {
                 MessageCount = int.Parse(response.Substring(3, 5));
                 Dispatcher.Invoke(() =>
@@ -324,6 +365,12 @@ namespace client_side
             string profileRep = communicator.ReceiveData();
             string profileRepCode = profileRep.Substring(0, 3);
 
+            if (profileRepCode == ((int)MessageCodes.MC_HEARTBEAT_REQUEST).ToString())
+            {
+                profileRep = communicator.ReceiveData();
+                profileRepCode = profileRep.Substring(0, 3);
+            }
+
             if (profileRepCode == ((int)MessageCodes.MC_PROFILE_INFO_RESP).ToString() && profileRep.Length > 3)
             {
                 int userNameLen = int.Parse(profileRep.Substring(3, 5));
@@ -338,7 +385,7 @@ namespace client_side
                 string bio = profileRep.Substring(bioLenPos + 5, bioLen);
                 BitmapImage receivedImage = null;
 
-                
+
                 /*
                 int imageLenPos = bioLenPos + 5 + bioLen;
                 int imageSize = int.Parse(profileRep.Substring(imageLenPos, 6));
@@ -403,6 +450,11 @@ namespace client_side
             communicator.SendData($"{friendsListCode}{communicator.UserName.Length:D5}{communicator.UserName}");
 
             string friendsRep = communicator.ReceiveData();
+            if (friendsRep.Substring(0,3) == ((int)MessageCodes.MC_HEARTBEAT_REQUEST).ToString())
+            {
+                friendsRep = communicator.ReceiveData();
+            }
+
             HandleLoadFriendsList(friendsRep);
         }
 
@@ -549,7 +601,7 @@ namespace client_side
             {
                 while (isListeningToServer)
                 {
-                    if(waitingForImage)
+                    if (waitingForImage)
                     {
                         communicator.ReceiveImage(imageSize);
                     }
@@ -603,7 +655,7 @@ namespace client_side
                             break;
                         case "406":
                             HandleLogout(update);
-                             break;
+                            break;
                         case "401" or "403":
                             HandleLogin(update);
                             break;
@@ -621,6 +673,8 @@ namespace client_side
                             break;
                         case "256":
                             HandleAddMsg(update);
+                            break;
+                        case "307":
                             break;
                         default:
                             throw new InvalidOperationException($"{code}");
@@ -650,7 +704,7 @@ namespace client_side
                         openMailImage();
 
                     }
-                        
+
                     msgCountTextBlock.Text = MessageCount.ToString();
                 });
             }
@@ -804,7 +858,7 @@ namespace client_side
                                 Status = ParseStatus(status).ToString(),
                                 IsFriend = true,
                                 IsFriendRequest = false,
-                            }); 
+                            });
                             SortFriendsList(friends);
                         }
                     }
@@ -815,7 +869,7 @@ namespace client_side
                 MessageBox.Show($"Error handling Login response: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-        
+
         private void HandleRejectFriendReq(string update)
         {
             try
@@ -934,15 +988,29 @@ namespace client_side
             }
             string mode = update.Substring(index);
 
-            disconnect = false;
             isListeningToServer = false;
+            inCreate = true;
             Dispatcher.Invoke(() =>
             {
                 //AddProjectWindow addProjectWindow = new AddProjectWindow(communicator);
+                DisableAllButtonsAndLists();
                 AddProjectWindow addProjectWindow = new AddProjectWindow(communicator, mode, name, id);
+                addProjectWindow.Closed += CreateWindow_Closed; // Attach the event handler
                 addProjectWindow.Show();
-                Close();
             });
+        }
+
+        private void CreateWindow_Closed(object sender, EventArgs e)
+        {
+            EnableAllButtonsAndLists();
+            start();
+            isListeningToServer = true;
+            inCreate = false;
+            receiveServerUpdatesThread = new Thread(() => ReceiveServerUpdates())
+            {
+                IsBackground = true
+            };
+            receiveServerUpdatesThread.Start();
         }
 
         private void HandleMoveToMessagesWindow(string update)
@@ -962,6 +1030,7 @@ namespace client_side
         {
             EnableAllButtonsAndLists();
             start();
+            openMailImage();
             isListeningToServer = true;
             inMessagesMode = false;
             receiveServerUpdatesThread = new Thread(() => ReceiveServerUpdates())
@@ -973,17 +1042,38 @@ namespace client_side
 
         private void HandleMoveToSettings(string update)
         {
-            disconnect = false;
             isListeningToServer = false;
+            inSettings = true;
             Dispatcher.Invoke(() =>
             {
-                //AddProjectWindow addProjectWindow = new AddProjectWindow(communicator);
-                settingsWindow addProjectWindow = new settingsWindow(communicator);
-                addProjectWindow.Show();
-                Close();
+                DisableAllButtonsAndLists();
+                settingsWindow messagesWindow = new settingsWindow(communicator);
+                messagesWindow.Closed += SettingsWindow_Closed; // Attach the event handler
+                messagesWindow.Show();
             });
         }
-        
+
+        private void SettingsWindow_Closed(object sender, EventArgs e)
+        {
+            isListeningToServer = true;
+            inSettings = false;
+
+            communicator.ApplyTheme(this);
+            theame = communicator.AppTheme.theame;
+
+            EnableAllButtonsAndLists();
+
+            start();
+            openMailImage();
+            msgBtn.Background = Brushes.Transparent;
+            
+            receiveServerUpdatesThread = new Thread(() => ReceiveServerUpdates())
+            {
+                IsBackground = true
+            };
+            receiveServerUpdatesThread.Start();
+        }
+
         private void HandleDisconnect(string update)
         {
             try
@@ -1005,7 +1095,7 @@ namespace client_side
                                 Status = ParseStatus("0").ToString(),
                                 IsFriend = true,
                                 IsFriendRequest = false,
-                            }); 
+                            });
                             SortFriendsList(friends);
                         }
                     }
@@ -1038,7 +1128,7 @@ namespace client_side
                                 Status = ParseStatus("1").ToString(),
                                 IsFriend = true,
                                 IsFriendRequest = false,
-                            }); 
+                            });
                             SortFriendsList(friends);
                         }
                     }
@@ -1068,7 +1158,7 @@ namespace client_side
                 string bio = msg.Substring(bioLenPos + 5, bioLen);
 
                 string friendStatus = msg.Substring(bioLenPos + 5 + bioLen);
-                bool isFriend = (friendStatus == "0") ? (true) : (false) ;
+                bool isFriend = (friendStatus == "0") ? (true) : (false);
                 Dispatcher.Invoke(() =>
                 {
                     displayedUserProfile = new UserProfile { UserName = userName, Email = email, Bio = bio };
@@ -1087,7 +1177,7 @@ namespace client_side
                         AddProjectBtn.Visibility = Visibility.Visible;
                         return;
                     }
-                    else if(inSearch && !isFriend)
+                    else if (inSearch && !isFriend)
                     {
                         displayedUserProfile.IsCurrentUserProfile = false;
                         editButton.Visibility = Visibility.Collapsed; // Hide edit button for other users' profiles
@@ -1217,7 +1307,7 @@ namespace client_side
 
         private void LstFriends_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
-            if (!inMessagesMode)
+            if (!inMessagesMode || !inCreate || !inSettings)
             {
                 e.Handled = true;
                 var selectedFriend = lstFriends.SelectedItem as User;
@@ -1233,7 +1323,7 @@ namespace client_side
 
         private void LstProjects_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
-            if (!inMessagesMode)
+            if (!inMessagesMode || !inCreate || !inSettings)
             {
                 e.Handled = true;
                 var selectedProject = lstProjects.SelectedItem as ProjectInfo;
@@ -1285,7 +1375,7 @@ namespace client_side
                 int bioLen = int.Parse(profileRep.Substring(bioLenPos, 5));
                 string bio = profileRep.Substring(bioLenPos + 5, bioLen);
 
-                displayedUserProfile = new UserProfile {UserName = userNameResp, Email = email, Bio = bio };
+                displayedUserProfile = new UserProfile { UserName = userNameResp, Email = email, Bio = bio };
 
                 // Check if it's the current user's profile
                 if (userNameResp == communicator.UserName)
@@ -1324,7 +1414,7 @@ namespace client_side
                 }
 
                 DataContext = displayedUserProfile;
-                
+
             }
         }
 
@@ -1342,13 +1432,13 @@ namespace client_side
             addFriendBtn.Visibility = Visibility.Collapsed;
             AddProjectBtn.Visibility = Visibility.Visible;
         }
-        
+
         private void Settings_Click(object sender, RoutedEventArgs e)
         {
             string code = ((int)MessageCodes.MC_SETTINGS_REQUEST).ToString();
             communicator.SendData($"{code}");
         }
-        
+
         private void AddProject_Click(object sender, RoutedEventArgs e)
         {
             string command = ((int)MessageCodes.MC_MOVE_TO_CREATE_PROJ_WINDOW_REQUEST).ToString();
@@ -1424,7 +1514,7 @@ namespace client_side
             var sortedFriends = new ObservableCollection<User>(friends.OrderBy(u => u.Name));
             lstFriends.ItemsSource = sortedFriends;
         }
-        
+
         private void SortProjectsList(ObservableCollection<ProjectInfo> projects)
         {
             var sortedProject = new ObservableCollection<ProjectInfo>(projects.OrderBy(u => u.ProjectName));

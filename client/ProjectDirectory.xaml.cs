@@ -64,6 +64,8 @@ namespace client_side
             ApplayNameChangeBtn.Visibility = isEditable ? Visibility.Visible : Visibility.Collapsed;
             closeFileBtn.Visibility = Visibility.Collapsed;
             txtNewFileName.Visibility = isEditable ? Visibility.Visible : Visibility.Collapsed;
+            ToDoListBtn.Visibility = isEditable ? Visibility.Visible : Visibility.Collapsed;
+
             try
             {
                 Friends = new ObservableCollection<User>();
@@ -117,6 +119,12 @@ namespace client_side
 
                 string friendsRep = communicator.ReceiveData();
                 string friendsRepCode = friendsRep.Substring(0, 3);
+
+                if (friendsRepCode == ((int)MessageCodes.MC_HEARTBEAT_REQUEST).ToString())
+                {
+                    friendsRep = communicator.ReceiveData();
+                    friendsRepCode = friendsRep.Substring(0, 3);
+                }
 
                 if (friendsRepCode == ((int)MessageCodes.MC_FRIENDS_LIST_RESP).ToString() && friendsRep.Length > 3)
                 {
@@ -207,6 +215,12 @@ namespace client_side
                 string initialContent = communicator.ReceiveData();
                 string codeString = initialContent.Substring(0, 3);
 
+                if (codeString == ((int)MessageCodes.MC_HEARTBEAT_REQUEST).ToString())
+                {
+                    initialContent = communicator.ReceiveData();
+                    codeString = initialContent.Substring(0, 3);
+                }
+
                 if (codeString == ((int)MessageCodes.MC_GET_CHAT_MESSAGES_RESP).ToString() &&
                     initialContent.Length > 3)
                 {
@@ -255,6 +269,12 @@ namespace client_side
 
                 string initialContent = communicator.ReceiveData();
                 string codeString = initialContent.Substring(0, 3);
+
+                if (codeString == ((int)MessageCodes.MC_HEARTBEAT_REQUEST).ToString())
+                {
+                    initialContent = communicator.ReceiveData();
+                    codeString = initialContent.Substring(0, 3);
+                }
 
                 if (codeString == ((int)MessageCodes.MC_GET_PROJECT_FILES_RESP).ToString() &&
                     initialContent.Length > 3)
@@ -871,7 +891,11 @@ namespace client_side
                         case "231":
                             HandleBackToMainPage();
                             break;
-
+                        case "268":
+                            HandleToDoListPage();
+                            break;
+                        case "307":
+                            break;
                         default:
                             throw new InvalidOperationException($"Unknown message code: {code}");
                     }
@@ -1429,6 +1453,34 @@ namespace client_side
             });
         }
 
+        private void ToDoList_Click(object sender, RoutedEventArgs e)
+        {
+            if (insideFile)
+            {
+                string MessageCode = ((int)MessageCodes.MC_EXIT_FILE_REQUEST).ToString();
+                string Message = $"{MessageCode}";
+                communicator.SendData(Message);
+            }
+            string chatMessageCode = ((int)MessageCodes.MC_MOVE_TO_TO_DO_LIST_REQUEST).ToString();
+
+            string fullMessage = $"{chatMessageCode}";
+            communicator.SendData(fullMessage);
+            return;
+        }
+
+        private void HandleToDoListPage()
+        {
+            disconnect = false;
+            isListeningToServer = false;
+
+            Dispatcher.Invoke(() =>
+            {
+                ToDoListWindow homePageWindow = new ToDoListWindow(communicator, ProjectId);
+                homePageWindow.Show();
+                Close();
+            });
+        }
+
         private void ApplyFileNameChange_Click(object sender, RoutedEventArgs e)
         {
             string newFileName = txtFileName.Text.Trim();
@@ -1457,34 +1509,6 @@ namespace client_side
             string chatMessageCode = ((int)MessageCodes.MC_RENAME_FILE_REQUEST).ToString();
             string fullMessage = $"{chatMessageCode}{newFileName.Length:D5}{newFileName}{ProjectId.ToString().Length:D5}{ProjectId}";
             communicator.SendData(fullMessage);
-        }
-
-        private void approveRequest_Click(object sender, RoutedEventArgs e)
-        {
-            System.Windows.Controls.Button button = sender as System.Windows.Controls.Button;
-            if (button != null)
-            {
-                User user = button.CommandParameter as User;
-                if (user != null)
-                {
-                    string addFriendCode = ((int)MessageCodes.MC_APPROVE_FRIEND_REQ_REQUEST).ToString();
-                    communicator.SendData($"{addFriendCode}{user.Name.Length:D5}{user.Name}");
-                }
-            }
-        }
-
-        private void declineRequest_Click(object sender, RoutedEventArgs e)
-        {
-            System.Windows.Controls.Button button = sender as System.Windows.Controls.Button;
-            if (button != null)
-            {
-                User user = button.CommandParameter as User;
-                if (user != null)
-                {
-                    string rejectFriendCode = ((int)MessageCodes.MC_REJECT_FRIEND_REQ_REQUEST).ToString();
-                    communicator.SendData($"{rejectFriendCode}{user.Name.Length:D5}{user.Name}");
-                }
-            }
         }
 
         private void RemoveFriend_Click(object sender, RoutedEventArgs e)
