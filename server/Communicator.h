@@ -145,6 +145,8 @@ public:
     // Destructor
     ~Communicator();
 
+    void sendFile(SOCKET clientSocket, const std::string& filePath);
+
     void setDB(IDatabase* db);
     void startHandleRequests();
     void bindAndListen();
@@ -155,6 +157,7 @@ public:
     void updateFileOnServer(const int fileId, const Action& reqDetail);
     void saveFiles();
     void checkClientsConnection();
+    void getVersion(SOCKET client_sock);
 
     void handleClientDisconnect(SOCKET client_sock);
     void handleError(SOCKET client_sock, std::exception a);

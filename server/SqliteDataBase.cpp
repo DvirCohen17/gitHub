@@ -276,13 +276,12 @@ int callback_ClientVersion(void* data, int argc, char** argv, char** azColName)
 
 	for (int i = 0; i < argc; i++) {
 		if (std::string(azColName[i]) == "Version") {
-			invite = std::stoi(argv[i]);
+			invite = argv[i];
 		}
 	}
 	list_invites->push_back(invite);
 	return 0;
 }
-
 
 int callback_Friend(void* data, int argc, char** argv, char** azColName)
 {
@@ -446,7 +445,7 @@ bool SqliteDataBase::send_ClientVersion(sqlite3* db, std::string msg, std::list<
 {
 	const char* sqlStatement = msg.c_str();
 	char* errMessage = nullptr;
-	int res = sqlite3_exec(db, sqlStatement, callback_ProjectJoinInvite, data, &errMessage);
+	int res = sqlite3_exec(db, sqlStatement, callback_ClientVersion, data, &errMessage);
 	if (res != SQLITE_OK)
 		return false;
 

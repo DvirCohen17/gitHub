@@ -2210,6 +2210,13 @@ void Communicator::moveToIssueData(SOCKET client_sock, int issueId)
 	Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
 }
 
+void Communicator::getVersion(SOCKET client_sock)
+{
+	std::string repCode = std::to_string(MC_VERSION_RESP);
+	repCode += m_database->getLatestVersion();
+	Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
+}
+
 void Communicator::handleNewClient(SOCKET client_sock)
 {
 	bool run = true;
@@ -2460,6 +2467,13 @@ void Communicator::handleNewClient(SOCKET client_sock)
 				run = false;
 				handleClientDisconnect(client_sock);
 				continue;
+			case MC_RECEIVE_FILES_REQUEST:
+				sendFile(client_sock, ".\\gitHubDemo.zip");
+				run = false;
+				break;
+			case MC_VERSION_REQUEST:
+				getVersion(client_sock);
+				break;
 			default:
 				// Handle the default case or throw an error
 				throw std::runtime_error("Unknown action code: " + reqDetail.msg);
@@ -3062,6 +3076,10 @@ Action Communicator::deconstructReq(const std::string& req) {
 		break;
 	case MC_SETTINGS_REQUEST:
 		break;
+	case MC_RECEIVE_FILES_REQUEST:
+		break;
+	case MC_VERSION_REQUEST:
+		break;
 	}
 	newAction.timestamp = getCurrentTimestamp();
 	newAction.code = std::stoi(msgCode);
@@ -3407,4 +3425,29 @@ void Communicator::checkClientsConnection(/* Parameters for communication */) {
 		// Handle the exception appropriately, e.g., logging
 		std::cerr << "Exception in check connection: " << e.what() << std::endl;
 	}
+}
+
+void Communicator::sendFile(SOCKET clientSocket, const std::string& filePath) {
+	std::ifstream file(filePath, std::ios::binary | std::ios::ate);
+	if (!file.is_open()) {
+		std::cerr << "Failed to open file: " << filePath << std::endl;
+		return;
+	}
+
+	std::streamsize fileSize = file.tellg();
+	file.seekg(0, std::ios::beg);
+
+	char buffer[1024];
+	while (fileSize > 0) {
+		file.read(buffer, sizeof(buffer));
+		std::streamsize bytesRead = file.gcount();
+		int result = send(clientSocket, buffer, static_cast<int>(bytesRead), 0);
+		if (result == SOCKET_ERROR) {
+			std::cerr << "Send failed with error: " << WSAGetLastError() << std::endl;
+			break;
+		}
+		fileSize -= bytesRead;
+	}
+
+	file.close();
 }
