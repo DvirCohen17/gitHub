@@ -1,4 +1,5 @@
-﻿using System;
+﻿using client_side.Properties;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -31,7 +32,7 @@ namespace client_side
             InitializeComponent();
             Style = (Style)FindResource(typeof(Window));
 
-            StreamReader sr = new StreamReader(".\\config.txt");
+            StreamReader sr = new StreamReader("C:\\githubDemo\\data\\config.txt");
             string? line = sr.ReadLine();
             sr.Close();
             if (line == null)
@@ -43,92 +44,7 @@ namespace client_side
             {
                 communicator = new Communicator(ip_port[0], int.Parse(ip_port[1]));
                 Closing += login_CloseFile; // Hook up the closing event handler
-                if (!Directory.Exists(communicator.CodeStylesDir))
-                {
-                    Directory.CreateDirectory(communicator.CodeStylesDir);
-                    string chatMessageCode = ((int)MessageCodes.MC_GET_CODE_STYLES_REQUEST).ToString();
 
-                    string fullMessage = $"{chatMessageCode}";
-
-                    communicator.SendData(fullMessage);
-                    string codeStyles = communicator.ReceiveFileData();
-                    string codeString = codeStyles.Substring(0, 3);
-
-                    if (codeString == ((int)MessageCodes.MC_GET_CODE_STYLES_RESP).ToString() &&
-                        codeStyles.Length > 3)
-                    {
-                        int currentIndex = 3;
-
-                        while (currentIndex < codeStyles.Length)
-                        {
-                            // Extract data length for each message
-                            int codeLanLen = int.Parse(codeStyles.Substring(currentIndex, 3));
-                            currentIndex += 3;
-                            string codeLan = codeStyles.Substring(currentIndex, codeLanLen);
-                            currentIndex += codeLanLen;
-
-                            int dataLen = int.Parse(codeStyles.Substring(currentIndex, 7));
-                            currentIndex += 7;
-                            string data = codeStyles.Substring(currentIndex, dataLen);
-                            currentIndex += dataLen;
-
-                            string filePath = System.IO.Path.Combine(communicator.CodeStylesDir, $"{codeLan}.xshd");
-                            File.WriteAllText(filePath, data);
-                        }
-                    }
-                }
-
-
-                if (!Directory.Exists(communicator.MailImagesDir))
-                {
-                    Directory.CreateDirectory(communicator.MailImagesDir);
-                    string chatMessageCode = ((int)MessageCodes.MC_GET_MAIL_IMAGES_REQUEST).ToString();
-
-                    string fullMessage = $"{chatMessageCode}";
-
-                    communicator.SendData(fullMessage);
-                    string codeStyles = communicator.ReceiveFileData();
-                    string codeString = codeStyles.Substring(0, 3);
-
-                    
-                    /*
-                    if (codeString == ((int)MessageCodes.MC_GET_MAIL_IMAGES_RESP).ToString() && codeStyles.Length > 3)
-                    {
-                        int currentIndex = 3;
-
-                        // Extract the number of images
-                        int imageCount = int.Parse(codeStyles.Substring(currentIndex, 3));
-                        currentIndex += 3;
-
-                        for (int i = 0; i < imageCount; i++)
-                        {
-                            currentIndex = 0;
-                            string imageData = communicator.ReceiveData();
-                            // Extract data length for each message
-                            
-                            int imageNameLen = int.Parse(imageData.Substring(currentIndex, 3));
-                            currentIndex += 3;
-                            string imageName = imageData.Substring(currentIndex, imageNameLen);
-                            currentIndex += imageNameLen;
-
-                            int dataLen = int.Parse(imageData.Substring(currentIndex, 5));
-                            currentIndex += 5;
-
-                            string image = communicator.ReceiveImage(dataLen);
-                            string data = imageData.Substring(currentIndex);
-
-                            string filePath = System.IO.Path.Combine(communicator.MailImagesDir, $"{imageName}.png");
-
-                            // Convert the base64 string back to binary data
-                            byte[] imageBytes = Convert.FromBase64String(data);
-
-                            // Save the binary data to a file
-                            System.IO.File.WriteAllBytes(filePath, imageBytes);
-                        }
-                    }
-                    */
-                    
-                }
                 communicator.ApplyTheme(this);
                 LoadSavedCredentials();
             }
@@ -177,15 +93,19 @@ namespace client_side
                     disconnect = false;
 
                     if (chkRememberMe.IsChecked == true)
-                    {
-                        communicator.SaveCredentials(username, hashedPassword);
+                    { 
+                        communicator.settings.UserName = username;
+                        communicator.settings.Pass = hashedPassword;
+
+                        communicator.SaveSettings(communicator.settingsFilePath, communicator.settings);
+                        
                     }
                     else
                     {
                         communicator.ClearCredentials();
                     }
 
-                    HomePage filesWindow = new HomePage(communicator);
+                    ToDoListWindow filesWindow = new ToDoListWindow(communicator, 2);
                     filesWindow.Show();
                     Close();
                 }

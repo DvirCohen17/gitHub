@@ -210,40 +210,40 @@ namespace client_side
                 switch (communicator.AppTheme.theame)
                 {
                     case "Light":
-                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Light\\No_Dot.png";
+                        mailImage = "C:\\githubDemo\\data\\MailImages\\mail_image_Light\\No_Dot.png";
                         break;
                     case "Dark":
-                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Light\\No_Dot.png";
+                        mailImage = "C:\\githubDemo\\data\\MailImages\\mail_image_Light\\No_Dot.png";
                         break;
                     case "Blue":
-                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Blue\\No_Dot.png";
+                        mailImage = "C:\\githubDemo\\data\\MailImages\\mail_image_Blue\\No_Dot.png";
                         break;
                     case "Green":
-                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Green\\No_Dot.png";
+                        mailImage = "C:\\githubDemo\\data\\MailImages\\mail_image_Green\\No_Dot.png";
                         break;
                     case "Red":
-                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Red\\No_Dot.png";
+                        mailImage = "C:\\githubDemo\\data\\MailImages\\mail_image_Red\\No_Dot.png";
                         break;
                     case "CyberPunk":
-                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_CyberPunk\\No_Dot.png";
+                        mailImage = "C:\\githubDemo\\data\\MailImages\\mail_image_CyberPunk\\No_Dot.png";
                         break;
                     case "Matrix":
-                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Matrix\\No_Dot.png";
+                        mailImage = "C:\\githubDemo\\data\\MailImages\\mail_image_Matrix\\No_Dot.png";
                         break;
                     case "Solarized Dark":
-                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_SolarizedDark\\No_Dot.png";
+                        mailImage = "C:\\githubDemo\\data\\MailImages\\mail_image_SolarizedDark\\No_Dot.png";
                         break;
                     case "Solarized Light":
-                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_SolarizedLight\\No_Dot.png";
+                        mailImage = "C:\\githubDemo\\data\\MailImages\\mail_image_SolarizedLight\\No_Dot.png";
                         break;
                     case "Vintage":
-                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Vintage\\No_Dot.png";
+                        mailImage = "C:\\githubDemo\\data\\MailImages\\mail_image_Vintage\\No_Dot.png";
                         break;
                     case "Neon":
-                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Matrix\\No_Dot.png";
+                        mailImage = "C:\\githubDemo\\data\\MailImages\\mail_image_Matrix\\No_Dot.png";
                         break;
                     case "Pastel":
-                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Vintage\\No_Dot.png";
+                        mailImage = "C:\\githubDemo\\data\\MailImages\\mail_image_Vintage\\No_Dot.png";
                         break;
 
                         // Handle other themes if needed
@@ -254,40 +254,40 @@ namespace client_side
                 switch (communicator.AppTheme.theame)
                 {
                     case "Light":
-                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Light\\Dot.png";
+                        mailImage = "C:\\githubDemo\\data\\MailImages\\mail_image_Light\\Dot.png";
                         break;
                     case "Dark":
-                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Light\\Dot.png";
+                        mailImage = "C:\\githubDemo\\data\\MailImages\\mail_image_Light\\Dot.png";
                         break;
                     case "Blue":
-                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Blue\\Dot.png";
+                        mailImage = "C:\\githubDemo\\data\\MailImages\\mail_image_Blue\\Dot.png";
                         break;
                     case "Green":
-                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Green\\Dot.png";
+                        mailImage = "C:\\githubDemo\\data\\MailImages\\mail_image_Green\\Dot.png";
                         break;
                     case "Red":
-                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Red\\Dot.png";
+                        mailImage = "C:\\githubDemo\\data\\MailImages\\mail_image_Red\\Dot.png";
                         break;
                     case "CyberPunk":
-                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_CyberPunk\\Dot.png";
+                        mailImage = "C:\\githubDemo\\data\\MailImages\\mail_image_CyberPunk\\Dot.png";
                         break;
                     case "Matrix":
-                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Matrix\\Dot.png";
+                        mailImage = "C:\\githubDemo\\data\\MailImages\\mail_image_Matrix\\Dot.png";
                         break;
                     case "Solarized Dark":
-                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_SolarizedDark\\Dot.png";
+                        mailImage = "C:\\githubDemo\\data\\MailImages\\mail_image_SolarizedDark\\Dot.png";
                         break;
                     case "Solarized Light":
-                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_SolarizedLight\\Dot.png";
+                        mailImage = "C:\\githubDemo\\data\\MailImages\\mail_image_SolarizedLight\\Dot.png";
                         break;
                     case "Vintage":
-                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Vintage\\Dot.png";
+                        mailImage = "C:\\githubDemo\\data\\MailImages\\mail_image_Vintage\\Dot.png";
                         break;
                     case "Neon":
-                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Matrix\\Dot.png";
+                        mailImage = "C:\\githubDemo\\data\\MailImages\\mail_image_Matrix\\Dot.png";
                         break;
                     case "Pastel":
-                        mailImage = "C:\\githubDemo\\MailImages\\mail_image_Vintage\\Dot.png";
+                        mailImage = "C:\\githubDemo\\data\\MailImages\\mail_image_Vintage\\Dot.png";
                         break;
 
                         // Handle other themes if needed
@@ -683,8 +683,11 @@ namespace client_side
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error receiving server updates: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                string msg = await Task.Run(() => communicator.ReceiveData());
+                if (ex.Message != "An existing connection was forcibly closed by the remote host.")
+                { 
+                    MessageBox.Show($"Error receiving server updates: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    string msg = await Task.Run(() => communicator.ReceiveData());
+                }
             }
         }
 
@@ -713,7 +716,6 @@ namespace client_side
                 MessageBox.Show($"Error handling Remove User response: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-
 
         private void HandleLeaveProject(string msg)
         {

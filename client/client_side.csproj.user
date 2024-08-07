@@ -13,7 +13,13 @@
     <Compile Update="ForgotPasswordWindow.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Update="IssueDataWindow.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Update="LoginWindow.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="MessagesWindow.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
     <Compile Update="ProjectDirectory.xaml.cs">
@@ -31,6 +37,9 @@
     <Compile Update="HomePage.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Update="ToDoListWindow.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <Page Update="AddProjectWindow.xaml">
@@ -39,7 +48,13 @@
     <Page Update="ForgotPasswordWindow.xaml">
       <SubType>Designer</SubType>
     </Page>
+    <Page Update="IssueDataWindow.xaml">
+      <SubType>Designer</SubType>
+    </Page>
     <Page Update="LoginWindow.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="MessagesWindow.xaml">
       <SubType>Designer</SubType>
     </Page>
     <Page Update="ProjectDirectory.xaml">
@@ -55,6 +70,9 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Update="HomePage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="ToDoListWindow.xaml">
       <SubType>Designer</SubType>
     </Page>
   </ItemGroup>

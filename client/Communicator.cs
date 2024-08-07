@@ -9,6 +9,10 @@ using System.Windows.Media;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml;
+using Newtonsoft.Json;
+using client_side.Properties;
+using System.Diagnostics;
 
 namespace client_side
 {
@@ -173,7 +177,12 @@ namespace client_side
         MC_LOGIN_RESP = 401,
         MC_SIGNUP_RESP = 403,
         MC_FORGOT_PASSW_RESP = 404,
-        MC_LOGOUT_RESP = 406
+        MC_LOGOUT_RESP = 406,
+
+        MC_RECEIVE_FILES_REQUEST = 500,
+        MC_VERSION_REQUEST = 501,
+        MC_VERSION_RESP = 502,
+
     };
 
     public class Theme
@@ -205,10 +214,19 @@ namespace client_side
         }
     }
 
+    public class AppSettings
+    {
+        public string Theme { get; set; }
+        public string Pass { get; set; }
+        public string UserName { get; set; }
+        public string Version { get; set; }
+    }
+
     public class Communicator
     {
-        public string CodeStylesDir = @"C:\githubDemo\codeStyles";
-        public string MailImagesDir = @"C:\githubDemo\MailImages";
+        public string CodeStylesDir = @"C:\githubDemo\data\codeStyles";
+        public string MailImagesDir = @"C:\githubDemo\data\MailImages";
+        public string settingsFilePath = "C:\\githubDemo\\settings\\appsettings.json";
         public Theme AppTheme;
 
         private Socket m_socket;
@@ -216,6 +234,8 @@ namespace client_side
         public string UserName { get; set; }
 
         public event EventHandler ThemeChanged;
+
+        public AppSettings settings { get; set; }
         public Communicator(string ip, int port)
         {
             m_socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
@@ -231,18 +251,103 @@ namespace client_side
 
         private void LoadSettings()
         {
-            string theme = Properties.Settings.Default.Theme;
+            
+            settings = null;
 
-            if (string.IsNullOrEmpty(theme))
+            if (File.Exists(settingsFilePath))
             {
-                // First run, set default theme to Dark
-                theme = "Dark";
-                Properties.Settings.Default.Theme = theme;
-                Properties.Settings.Default.Save();
+                try
+                {
+                    string json = File.ReadAllText(settingsFilePath);
+                    settings = JsonConvert.DeserializeObject<AppSettings>(json);
+                }
+                catch (Exception ex)
+                {
+                    // Handle the error (e.g., log it)
+                    MessageBox.Show($"Error loading settings: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
             }
 
-            // Apply the theme
-            ModifyTheme(theme);
+            SendData("501");
+            string response = ReceiveData();
+            string version = response.Substring(3);
+
+            if (settings == null || string.IsNullOrEmpty(settings.Theme))
+            {
+                settings = new AppSettings { Theme = "Dark" , Pass = "", UserName = "", Version = version};
+                SaveSettings(settingsFilePath, settings);
+            }
+
+            if (settings.Version != version)
+            {
+                // Notify the user that an update is needed
+                MessageBox.Show("A new version is available. The application will now update.", "Update Available", MessageBoxButton.OK, MessageBoxImage.Information);
+
+                settings.Version = version;
+                // Save any necessary data before closing
+                SaveSettings(settingsFilePath, settings);
+
+                // Close the current application
+                Application.Current.Shutdown();
+
+                // Check if the installer file exists
+                string installerPath = @"C:\githubDemo\installer\Installer.exe";
+                if (File.Exists(installerPath))
+                {
+                    try
+                    {
+                        // Start the installer
+                        ProcessStartInfo startInfo = new ProcessStartInfo
+                        {
+                            FileName = installerPath,
+                            WorkingDirectory = "C:\\githubDemo\\installer", // Set the working directory
+                            UseShellExecute = true
+                        };
+                        Process.Start(startInfo);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Handle any errors that occur when starting the process
+                        MessageBox.Show($"Error starting installer: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                }
+                else
+                {
+                    // Notify the user if the installer file is not found
+                    MessageBox.Show("Installer file not found. Please check the file path.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+
+                Environment.Exit(0);
+            }
+
+            // Apply the settings
+            Properties.Settings.Default.Theme = settings.Theme;
+            Properties.Settings.Default.Version = settings.Version;
+            Properties.Settings.Default.Username = settings.UserName;
+            Properties.Settings.Default.HashedPassword = settings.Pass;
+            Properties.Settings.Default.Save();
+            ModifyTheme(Properties.Settings.Default.Theme);
+
+        }
+
+        public void SaveSettings(string settingsFilePath, AppSettings settings)
+        {
+            try
+            {
+                string directoryPath = Path.GetDirectoryName(settingsFilePath);
+                if (!Directory.Exists(directoryPath))
+                {
+                    Directory.CreateDirectory(directoryPath);
+                }
+
+                string json = JsonConvert.SerializeObject(settings, Newtonsoft.Json.Formatting.Indented);
+                File.WriteAllText(settingsFilePath, json);
+            }
+            catch (Exception ex)
+            {
+                // Handle the error (e.g., log it)
+                MessageBox.Show($"Error saving settings: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         ~Communicator()
@@ -375,8 +480,11 @@ namespace client_side
             }
             SaveSettings(theme);
             ThemeChanged?.Invoke(this, EventArgs.Empty);
-        }
 
+            settings.Theme = theme;
+
+            SaveSettings(settingsFilePath, settings);
+        }
 
         public void ApplyTheme(Window window)
         {
@@ -499,7 +607,6 @@ namespace client_side
             }
         }
 
-
         private void ApplyThemeToControl(ListBoxItem listBoxItem)
         {
             if (listBoxItem == null)
@@ -531,6 +638,11 @@ namespace client_side
             Properties.Settings.Default.Username = string.Empty;
             Properties.Settings.Default.HashedPassword = string.Empty;
             Properties.Settings.Default.Save();
+
+            settings.UserName = "";
+            settings.Pass = "";
+
+            SaveSettings(settingsFilePath, settings);
         }
 
         public string HashPassword(string password)
