@@ -1,0 +1,140 @@
+body {
+    background-color: white;
+    margin: 0;
+    font-family: 'Roboto', sans-serif;
+    padding: 20px;
+}
+h1 {
+    font-family: Impact, sans-serif;
+    font-size: 34px;
+    font-weight: bold;
+    color: #000;
+    text-align: center;
+}
+.highlight-cc4331 {
+    color: #cc4331;
+}
+.highlight-6d9eeb {
+    color: #6d9eeb;
+}
+.center {
+    text-align: center;
+    margin: 20px 0;
+}
+.download-button, .install-button, .server-button {
+    display: inline-block;
+    padding: 15px 30px;
+    font-size: 16px;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    text-align: center;
+    cursor: pointer;
+    text-decoration: none;
+    transition: transform 0.2s ease-in-out, background-color 0.2s ease-in-out;
+    margin: 10px;
+}
+.download-button {
+    background-color: red;
+}
+.download-button:hover {
+    background-color: darkred;
+    transform: translateY(-5px);
+}
+.install-button {
+    background-color: blue;
+}
+.install-button:hover {
+    background-color: darkblue;
+    transform: translateY(-5px);
+}
+.server-button {
+    background-color: green;
+}
+.server-button:hover {
+    background-color: darkgreen;
+    transform: translateY(-5px);
+}
+.section-title {
+    font-family: 'Passion One', sans-serif;
+    font-size: 35px;
+    font-weight: bold;
+    margin: 30px 0 10px;
+    text-align: center;
+}
+.about-section {
+    font-family: Impact, sans-serif;
+    font-size: 45px;
+    font-weight: bold;
+    color: #980000;
+    text-align: center;
+    margin-bottom: 20px;
+}
+.question {
+    font-family: Impact, sans-serif;
+    font-size: 35px;
+    font-weight: bold;
+    color: #cc4331;
+    margin: 20px 0;
+    text-align: center;
+}
+.answer {
+    font-family: 'Hebbo-Black', sans-serif;
+    font-size: 15px;
+    color: black;
+    text-align: center;
+}
+
+.carousel-container {
+    width: 100%;
+    overflow: hidden;
+    position: relative;
+    height: 800px; /* Adjust based on your image height */
+}
+.carousel {
+    display: flex;
+    width: 16800px; /* Example width, adjust to fit all images */
+    animation: scroll 30s linear infinite;
+}
+.carousel img {
+    width: 1200px; /* Adjust to your desired image width */
+    height: auto;
+    flex-shrink: 0;
+}
+@keyframes scroll {
+    0% {
+        transform: translateX(0);
+    }
+    100% {
+        transform: translateX(-100%);
+    }
+}
+
+nav {
+    background-color: #333;
+    color: white;
+    padding: 10px;
+    text-align: center;
+}
+nav a {
+    color: white;
+    text-decoration: none;
+    padding: 10px 20px;
+    display: inline-block;
+    font-weight: bold;
+}
+nav a:hover {
+    background-color: #555;
+}
+
+.video-container {
+    text-align: center;
+    margin: 20px 0;
+}
+
+video {
+    max-width: 100%;
+    height: auto;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
