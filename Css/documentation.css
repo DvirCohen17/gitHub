@@ -3,12 +3,14 @@ body {
     margin: 0;
     font-family: 'Roboto', sans-serif;
     padding: 20px;
+    cursor: url('Primary-Cursor.cur'), auto; /* Custom cursor */
 }
 nav {
     background-color: #333;
     color: white;
     padding: 10px;
     text-align: center;
+    cursor: url('Choose-Cursor.cur'), auto; /* Custom cursor */
 }
 nav a {
     color: white;
@@ -16,9 +18,11 @@ nav a {
     padding: 10px 20px;
     display: inline-block;
     font-weight: bold;
+    cursor: url('Choose-Cursor.cur'), auto; /* Custom cursor */
 }
 nav a:hover {
     background-color: #555;
+    cursor: url('Choose-Cursor.cur'), auto; /* Custom cursor */
 }
 h1 {
     font-family: Impact, sans-serif;
