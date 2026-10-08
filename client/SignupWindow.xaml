@@ -5,44 +5,29 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:client_side"
         mc:Ignorable="d"
-        Title="Signup" Height="344" Width="400"
-        ResizeMode="NoResize" Closing="signUp_CloseFile">
-    <Grid Margin="0,0,0,-16">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="15"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="15"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="15"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="0"/>
-            <RowDefinition Height="Auto" MinHeight="24"/>
-            <RowDefinition/>
-        </Grid.RowDefinitions>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
+        Title="Sign up" Width="380" SizeToContent="Height"
+        ResizeMode="NoResize" WindowStartupLocation="CenterScreen">
+    <StackPanel Margin="24,16,24,20">
+        <Label HorizontalAlignment="Center" FontSize="24">Create account</Label>
 
-        <Label HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="18" Grid.Column="1" Height="35" Width="66">Signup</Label>
+        <Label Content="Username (3-30 letters, digits, . __ -)" Padding="0,8,0,2"/>
+        <TextBox x:Name="txtUsername" MaxLength="30" Height="26" VerticalContentAlignment="Center"/>
 
-        <Label Grid.Row="2" VerticalAlignment="Center" Margin="0,0,7,0" Height="34">Username:</Label>
-        <TextBox x:Name="txtUsername" MaxLength="30" Grid.Row="2" Grid.Column="1" VerticalAlignment="Top" Margin="9,5,2,0" Height="19"/>
+        <Label Content="Email" Padding="0,8,0,2"/>
+        <TextBox x:Name="txtEmail" MaxLength="100" Height="26" VerticalContentAlignment="Center"/>
 
-        <Label Grid.Row="4" VerticalAlignment="Center" Grid.ColumnSpan="2" Height="27" Margin="0,0,324,0">Password:</Label>
-        <PasswordBox x:Name="pwdPassword" MaxLength="30" Grid.Row="4" Grid.Column="1" VerticalAlignment="Center" Margin="9,0,5,0" Height="19"></PasswordBox>
+        <Label Content="Password (at least 6 characters)" Padding="0,8,0,2"/>
+        <PasswordBox x:Name="pwdPassword" MaxLength="64" Height="26" VerticalContentAlignment="Center"/>
 
-        <Label Grid.Row="6" VerticalAlignment="Center" Grid.ColumnSpan="2" Height="27" Margin="0,0,324,0">Email:</Label>
-        <TextBox x:Name="txtEmail" MaxLength="30" Grid.Row="6" Grid.Column="1" VerticalAlignment="Center" Margin="9,0,5,0" Height="19"/>
+        <Label Content="Confirm password" Padding="0,8,0,2"/>
+        <PasswordBox x:Name="pwdConfirm" MaxLength="64" Height="26" VerticalContentAlignment="Center"/>
 
-        <Button Grid.Row="9" 
-                HorizontalAlignment="Center" Width="100"
-                Click="btnSignup_Click" Grid.Column="1" Margin="-50,63,0,0" VerticalAlignment="Top" Height="20">Signup</Button>
+        <TextBlock x:Name="lblErrMsg" Foreground="Red" FontWeight="Bold" TextWrapping="Wrap" Margin="0,10,0,0"/>
 
-        <TextBlock Grid.Row="9" HorizontalAlignment="Left" Margin="37,88,0,25" Grid.Column="1" Width="174">Already have an account?
+        <Button x:Name="btnSignup" Content="Sign up" Width="150" Height="30" Margin="0,12,0,0" IsDefault="True" Click="btnSignup_Click"/>
+
+        <TextBlock HorizontalAlignment="Center" Margin="0,16,0,0">Already have an account?
             <Hyperlink Click="hprlnkLogin">Login</Hyperlink>
         </TextBlock>
-        <TextBlock x:Name="lblErrMsg" Grid.Row="9" HorizontalAlignment="Left" Foreground="Red" FontWeight="Bold" Width="344" Margin="38,20,0,94" Grid.ColumnSpan="2"/>
-    </Grid>
+    </StackPanel>
 </Window>

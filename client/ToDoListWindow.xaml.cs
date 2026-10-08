@@ -170,14 +170,13 @@ namespace client_side
                         case "307":
                             break;
                         default:
-                            throw new InvalidOperationException($"{code}");
+                            break; // a message meant for another window: ignore it rather than stop listening
                     }
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error receiving server updates: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                string msg = await Task.Run(() => communicator.ReceiveData());
+                communicator.HandleListenerError(ex);
             }
         }
 

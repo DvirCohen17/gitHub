@@ -32,30 +32,57 @@ namespace client_side
             InitializeComponent();
             Style = (Style)FindResource(typeof(Window));
 
-            StreamReader sr = new StreamReader("C:\\githubDemo\\data\\config.txt");
-            string? line = sr.ReadLine();
-            sr.Close();
-            if (line == null)
+            Communicator? connected = ConnectToServer();
+            if (connected == null)
             {
-                throw new Exception("Please create file `config.txt` in the directory with the binary and set its contents in the  following format: `SERVER_IP,SERVER_PORT`");
-            }
-            string[] ip_port = line.Split(",");
-            try
-            {
-                communicator = new Communicator(ip_port[0], int.Parse(ip_port[1]));
-                Closing += login_CloseFile; // Hook up the closing event handler
-
-                communicator.ApplyTheme(this);
-                LoadSavedCredentials();
-            }
-            catch (Exception)
-            {
-                MessageBox.Show("An error occured while connecting to the server.");
                 Application.Current.Shutdown();
                 Environment.Exit(0);
+                return;
+            }
+            communicator = connected;
+            Closing += login_CloseFile; // Hook up the closing event handler
+            communicator.ApplyTheme(this);
+            Loaded += (_, _) => txtUsername.Focus();
+            LoadSavedCredentials();
+        }
+
+        // Connects to the configured server. If there is no config, or the server
+        // can't be reached, asks the user for the address instead of just exiting.
+        private static Communicator? ConnectToServer()
+        {
+            ServerConfig? config = ServerConfig.Load();
+            string reason = "No server is configured yet. Enter the address of the server to connect to.";
+            if (config != null)
+            {
+                try
+                {
+                    Communicator communicator = new Communicator(config.Host, config.Port);
+                    communicator.Initialize();
+                    return communicator;
+                }
+                catch (Exception ex)
+                {
+                    reason = $"Couldn't connect to {config}: {ex.Message}";
+                }
             }
 
+            // Don't let the app shut down when this dialog (the only visible window) closes.
+            ShutdownMode previousMode = Application.Current.ShutdownMode;
+            Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            try
+            {
+                ServerConnectWindow dialog = new ServerConnectWindow(config, reason);
+                return dialog.ShowDialog() == true ? dialog.ConnectedCommunicator : null;
+            }
+            finally
+            {
+                Application.Current.ShutdownMode = previousMode;
+            }
         }
+
+        // "Remember me" restores the saved password hash. It is used as-is unless the
+        // user types a new password (hashing the saved hash again would never match).
+        private string? savedPasswordHash;
 
         private void LoadSavedCredentials()
         {
@@ -65,10 +92,16 @@ namespace client_side
             if (!string.IsNullOrEmpty(savedUsername) && !string.IsNullOrEmpty(savedHashedPassword))
             {
                 txtUsername.Text = savedUsername;
-                pwdPassword.Password = savedHashedPassword; // Assuming the hashed password is used as a placeholder
+                pwdPassword.Password = "********"; // placeholder dots; the real hash never goes in the box
+                savedPasswordHash = savedHashedPassword; // after the line above: PasswordChanged clears it
                 chkRememberMe.IsChecked = true;
                 AttemptLogin(savedUsername, savedHashedPassword);
             }
+        }
+
+        private void pwdPassword_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            savedPasswordHash = null;
         }
 
         private void AttemptLogin(string username, string hashedPassword)
@@ -91,6 +124,7 @@ namespace client_side
                     communicator.UserName = userName;
                     communicator.UserId = int.Parse(Id);
                     disconnect = false;
+                    communicator.UseResponseTimeout(false); // from here on, windows listen in the background
 
                     if (chkRememberMe.IsChecked == true)
                     { 
@@ -147,23 +181,24 @@ namespace client_side
             InitializeComponent();
             Style = (Style)FindResource(typeof(Window));
             communicator = _communicator;
+            communicator.UseResponseTimeout(true);
             Closing += login_CloseFile; // Hook up the closing event handler
             communicator.ApplyTheme(this);
+            Loaded += (_, _) => txtUsername.Focus();
         }
 
         private void btnLogin_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                if (String.IsNullOrEmpty(txtUsername.Text) || String.IsNullOrEmpty(pwdPassword.Password)
-                    || communicator.ContainsSqlInjection(txtUsername.Text) || communicator.ContainsSqlInjection(pwdPassword.Password))
+                string name = txtUsername.Text.Trim();
+                if (name.Length == 0 || pwdPassword.Password.Length == 0)
                 {
-                    lblErrMsg.Text = "Invalid username or password";
+                    lblErrMsg.Text = "Enter your username (or email) and password.";
                     return;
                 }
 
-                string name = txtUsername.Text;
-                string pass = communicator.HashPassword(pwdPassword.Password);
+                string pass = savedPasswordHash ?? communicator.HashPassword(pwdPassword.Password);
                 AttemptLogin(name, pass);
             }
             catch(Exception ex)

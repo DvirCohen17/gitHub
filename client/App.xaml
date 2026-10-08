@@ -7,7 +7,7 @@
         <Style TargetType="Window">
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="Background" Value="#121212"/>
-            <Setter Property="FontFamily" Value="Comic Sans MS"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
         </Style>
         <Style TargetType="Button">
             <Setter Property="Background" Value="#121212"/>

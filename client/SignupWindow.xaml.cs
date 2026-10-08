@@ -68,23 +68,18 @@ namespace client_side
         {
             try
             {
-                if (String.IsNullOrEmpty(txtUsername.Text) || String.IsNullOrEmpty(pwdPassword.Password) || String.IsNullOrEmpty(txtEmail.Text)
-                    || communicator.ContainsSqlInjection(txtUsername.Text) || communicator.ContainsSqlInjection(pwdPassword.Password)
-                    || communicator.ContainsSqlInjection(txtEmail.Text))
-                {
-                    lblErrMsg.Text = "Invalid username, password or email";
-                    return;
-                }
-                string code = ((int)MessageCodes.MC_SIGNUP_REQUEST).ToString();
-                string name = txtUsername.Text;
-                string pass = communicator.HashPassword(pwdPassword.Password);
-                string email = txtEmail.Text;
+                string name = txtUsername.Text.Trim();
+                string email = txtEmail.Text.Trim();
 
-                if (!IsValidEmail(email))
+                string? problem = ValidateSignup(name, email, pwdPassword.Password, pwdConfirm.Password);
+                if (problem != null)
                 {
-                    lblErrMsg.Text = "Invalid email format. Please enter a valid email address.";
+                    lblErrMsg.Text = problem;
                     return;
                 }
+
+                string code = ((int)MessageCodes.MC_SIGNUP_REQUEST).ToString();
+                string pass = communicator.HashPassword(pwdPassword.Password);
 
                 communicator.SendData($"{code}{name.Length:D5}{name}{pass.Length:D5}{pass}{email.Length:D5}{email}");
 
@@ -96,6 +91,7 @@ namespace client_side
                     communicator.UserName = name;
                     communicator.UserId = int.Parse(update.Substring(3));
                     disconnect = false;
+                    communicator.UseResponseTimeout(false); // from here on, windows listen in the background
 
                     HomePage filesWindow = new HomePage(communicator);
                     filesWindow.Show();
@@ -112,13 +108,23 @@ namespace client_side
             }
         }
 
-        private bool IsValidEmail(string email)
+        // Usernames are limited to ASCII: they appear in length-prefixed protocol
+        // fields that are counted in characters on this side and bytes on the server.
+        private static readonly Regex UsernamePattern = new Regex(@"^[A-Za-z0-9_.-]{3,30}$");
+        private static readonly Regex EmailPattern = new Regex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$");
+        public const int MinPasswordLength = 6;
+
+        private static string? ValidateSignup(string name, string email, string password, string confirm)
         {
-            // Use a regular expression to check the email format
-            // This pattern assumes a simple email format, modify as needed
-            string pattern = @"^[a-zA-Z0-9_.+-]+@gmail\.com$";
-            Regex regex = new Regex(pattern);
-            return regex.IsMatch(email);
+            if (!UsernamePattern.IsMatch(name))
+                return "Username must be 3-30 characters: letters, digits, '.', '_' or '-'.";
+            if (!EmailPattern.IsMatch(email) || email.Length > 100)
+                return "Please enter a valid email address.";
+            if (password.Length < MinPasswordLength)
+                return $"Password must be at least {MinPasswordLength} characters.";
+            if (password != confirm)
+                return "The passwords don't match.";
+            return null;
         }
 
     }

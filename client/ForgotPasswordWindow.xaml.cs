@@ -68,6 +68,16 @@ namespace client_side
                     lblErrMsg.Content = "Please fill in all fields.";
                     return;
                 }
+                if (txtNewPassword.Password.Length < SignupWindow.MinPasswordLength)
+                {
+                    lblErrMsg.Content = $"New password must be at least {SignupWindow.MinPasswordLength} characters.";
+                    return;
+                }
+                if (txtNewPassword.Password != txtConfirmPassword.Password)
+                {
+                    lblErrMsg.Content = "The new passwords don't match.";
+                    return;
+                }
 
                 string userName = txtUserName.Text;
                 string oldPassword = communicator.HashPassword(txtOldPassword.Password);
@@ -92,6 +102,7 @@ namespace client_side
                     communicator.UserName = Name;
                     communicator.UserId = int.Parse(Id);
                     disconnect = false;
+                    communicator.UseResponseTimeout(false); // from here on, windows listen in the background
                     HomePage filesWindow = new HomePage(communicator);
                     filesWindow.Show();
                     Close();
