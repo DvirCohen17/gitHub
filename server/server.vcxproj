@@ -133,6 +133,7 @@
   <ItemGroup>
     <ClInclude Include="Client.h" />
     <ClInclude Include="Communicator.h" />
+    <ClInclude Include="TextOperation.h" />
     <ClInclude Include="FileOperation.h" />
     <ClInclude Include="Helper.h" />
     <ClInclude Include="PasswordHasher.h" />
@@ -145,6 +146,8 @@
   <ItemGroup>
     <ClCompile Include="Client.cpp" />
     <ClCompile Include="Communicator.cpp" />
+    <ClCompile Include="CommunicatorLiveEdit.cpp" />
+    <ClCompile Include="TextOperation.cpp" />
     <ClCompile Include="CommunicatorAuth.cpp" />
     <ClCompile Include="CommunicatorFiles.cpp" />
     <ClCompile Include="CommunicatorIssues.cpp" />

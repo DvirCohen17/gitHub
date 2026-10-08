@@ -19,7 +19,23 @@ void Communicator::getChatMesegges(SOCKET client_sock, std::string projectName)
 void Communicator::postChatMsg(SOCKET client_sock, int projectId, std::string data, std::string dataLen)
 {
 	std::string repCode = std::to_string(MC_POST_MSG_RESP);
-	
+
+	if (data.find_first_not_of(" \t\r\n") == std::string::npos)
+	{
+		throw std::runtime_error("Can't send an empty message.");
+	}
+	if (data.size() > 2000)
+	{
+		throw std::runtime_error("Messages are limited to 2000 characters.");
+	}
+	if (!m_database->hasPermissionToProject(projectId, m_clients[client_sock]->getId()))
+	{
+		throw std::runtime_error("Only project members can chat here.");
+	}
+	// Length prefixes are UTF-8 byte counts, matching how every client parses them.
+	dataLen = std::to_string(data.size());
+	dataLen = std::string(5 - dataLen.length(), '0') + dataLen;
+
 	std::string userName = m_clients[client_sock]->getUsername();
 	// Handle post message request
 	std::string lengthString = std::to_string(userName.length());

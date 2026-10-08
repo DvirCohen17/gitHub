@@ -78,6 +78,7 @@ enum MessageCodes
     MC_BACK_TO_TO_DO_LIST_PAGE_REQUEST = 170,
     MC_MODIFY_ISSUE_REQUEST = 171,
     MC_MARK_ALL_AS_READ_REQUEST = 172,
+    MC_FILE_OP_REQUEST = 173, // live editing: "<fileId>|<revision>|<operation>"
 
     MC_ERROR_RESP = 200, //responses
     MC_INITIAL_RESP = 201,
@@ -152,6 +153,9 @@ enum MessageCodes
     MC_BACK_TO_TO_DO_LIST_PAGE_RESP = 270,
     MC_MODIFY_ISSUE_RESP = 271,
     MC_MARK_ALL_AS_READ_RESP = 272,
+    MC_FILE_OP_RESP = 273,   // someone else's edit: "<fileId>|<revision>|<operation>"
+    MC_FILE_OP_ACK = 274,    // your edit was applied: "<fileId>|<revision>"
+    MC_FILE_RESYNC = 275,    // start over from this snapshot: "<fileId>|<revision>|<text>"
 
     MC_DISCONNECT = 300, //user
     MC_LOGIN_REQUEST = 301,

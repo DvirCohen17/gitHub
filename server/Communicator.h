@@ -20,6 +20,7 @@
 #include "Operations.h"
 #include "FileOperation.h"
 #include "IDatabase.h"
+#include "TextOperation.h"
 
 #pragma comment(lib, "ws2_32.lib")  // Add this lin
 
@@ -129,6 +130,16 @@ private:
     std::map<int, bool> m_FileUpdate; // id, there was a change since last update
 
     std::unordered_map<int, std::mutex> m_fileMutexes;
+    // Live state of every open file. Edits are numbered (revision); an edit made
+    // against an older revision is transformed past the ones it hadn't seen.
+    struct LiveDocument
+    {
+        std::wstring text;
+        int revision = 0;
+        int historyStart = 0;               // revision of history[0]
+        std::vector<TextOperation> history;
+    };
+    std::map<int, LiveDocument> m_liveDocs; // fileId -> document
     // Guards every member above. Each client runs on its own thread and the
     // save/heartbeat threads touch the same maps, so all access goes through this.
     // Held while a request is processed, never while blocked in recv().
@@ -157,8 +168,6 @@ public:
     void handleNewClient(SOCKET client_sock);
     bool isSocketConnected(SOCKET socket);
 
-    void updateFileOnServerold(const std::string& filePath, const Action& reqDetail);
-    void updateFileOnServer(const int fileId, const Action& reqDetail);
     void saveFiles();
     void checkClientsConnection();
     void getVersion(SOCKET client_sock);
@@ -173,7 +182,9 @@ public:
     void notifyAllclientsOnIssueWindow(const std::string& updatedContent, SOCKET client_sock, std::string msg);
 
     Action deconstructReq(const std::string& req);
-    Action adjustIndexForSync(const int fileId, int projectId, Action reqDetail);
+    LiveDocument& liveDocument(int fileId);
+    void handleFileOperation(SOCKET client_sock, const std::string& payload);
+    void sendFileSnapshot(SOCKET client_sock, int fileId, int code);
 
     void login(SOCKET client_sock, std::string username, std::string pass, std::string mail);
     void logout(SOCKET client_sock);

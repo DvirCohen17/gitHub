@@ -1,5 +1,13 @@
 #include "Communicator.h"
 
+static std::string trim(const std::string& s)
+{
+	size_t start = s.find_first_not_of(" \t\r\n");
+	if (start == std::string::npos) return "";
+	size_t end = s.find_last_not_of(" \t\r\n");
+	return s.substr(start, end - start + 1);
+}
+
 // Projects: create/modify/delete, invites, entering and leaving.
 
 void Communicator::getProjectsList(SOCKET client_sock, std::string userName)
@@ -79,6 +87,18 @@ void Communicator::createProject(SOCKET client_sock, std::string projectName, st
 
 	int index = 0;
 
+	// Names identify projects throughout the server (lookups, delete, leave),
+	// so they must be unique.
+	projectName = trim(projectName);
+	if (projectName.empty() || projectName.length() > 50)
+	{
+		throw std::runtime_error("Project name must be 1-50 characters.");
+	}
+	if (m_database->getProject(projectName, -1).name == projectName)
+	{
+		throw std::runtime_error("A project with this name already exists.");
+	}
+
 	m_database->createProject(projectName, friends, codeLan, userId, -1);
 	Project project = m_database->getProject(projectName, -1);
 
@@ -105,6 +125,8 @@ void Communicator::createProject(SOCKET client_sock, std::string projectName, st
 
 		ProfileInfo profile = m_database->getUsersInfo(m_database->getUserId(name));
 		friends[profile] = role;
+		// Record the invite (with its role) so accepting it actually works.
+		m_database->createProjectJoinInvite(projectId, profile.userId, role);
 
 		std::string msg = " Added you to Project - " + projectName;
 		m_database->AddMsg(userId, m_database->getUserId(name), msg, 2, projectId);
@@ -382,10 +404,14 @@ void Communicator::acceptProjectInvite(SOCKET client_sock, int ProjectId, std::s
 
 	int userId = m_database->getUserId(m_clients[client_sock]->getUsername());
 
-	m_database->DeleteMessage(ProjectId, userId);
+	ProjectJoinInvite invite = m_database->getAUserProjectInvite(userId, ProjectId);
+	if (invite.projectId != ProjectId || invite.userId != userId)
+	{
+		throw std::runtime_error("This invitation is no longer valid.");
+	}
 
-	std::string newRole = m_database->getAUserProjectInvite(userId, ProjectId).role;
-	m_database->acceptProjectJoinInvite(ProjectId, userId, newRole);
+	m_database->DeleteMessage(ProjectId, userId);
+	m_database->acceptProjectJoinInvite(ProjectId, userId, invite.role);
 
 	std::string msg = userName + " Joined Project - " + m_database->getProject("", ProjectId).name;
 	notifyAllclientsOnProject("", client_sock, "");

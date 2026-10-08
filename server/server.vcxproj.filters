@@ -74,6 +74,12 @@
     <ClCompile Include="Communicator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="CommunicatorLiveEdit.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="TextOperation.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="CommunicatorAuth.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

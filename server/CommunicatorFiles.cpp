@@ -1,5 +1,19 @@
 #include "Communicator.h"
 
+// File names are shown in lists and used in length-prefixed messages.
+static void validateFileName(const std::string& name)
+{
+	if (name.empty() || name.size() > 100)
+	{
+		throw std::runtime_error("File names must be 1-100 characters.");
+	}
+	if (name.find_first_of("/\\:*?\"<>|") != std::string::npos)
+	{
+		throw std::runtime_error("File names can't contain / \\ : * ? \" < > |");
+	}
+}
+#include <algorithm>
+
 // Project files: create/delete/rename, opening and closing files, file permissions.
 
 void Communicator::createFile(SOCKET client_sock, std::string fileName, int projectId)
@@ -10,10 +24,14 @@ void Communicator::createFile(SOCKET client_sock, std::string fileName, int proj
 
 	std::string currUserName = m_clients[client_sock]->getUsername();
 
+	validateFileName(fileName);
+	if (!m_database->hasPermissionToProject(projectId, m_clients[client_sock]->getId()))
+	{
+		throw std::runtime_error("You can only view this project.");
+	}
 	if (m_database->getFileDetails(fileName, projectId).fileName != "")
 	{
-		// File already exists, send an appropriate response code
-		throw std::exception("file already exists");
+		throw std::runtime_error("A file with that name already exists.");
 	}
 	else
 	{
@@ -127,37 +145,18 @@ void Communicator::getFiles(SOCKET client_sock)
 
 void Communicator::getInitialContent(SOCKET client_sock, std::string fileName, int projectId)
 {
-	std::string fileContent;
-	Action emptyAction;
-
-	std::string repCode = std::to_string(MC_INITIAL_RESP);
 	Project project = m_database->getProject("", projectId);
-	FileDetail fileList = m_database->getFileDetails(fileName, project.projectId);
-
-	if (m_FileUpdate[fileList.fileId])
+	FileDetail file = m_database->getFileDetails(fileName, project.projectId);
+	if (file.fileId == 0)
 	{
-		fileContent = m_filesData[fileList.fileId];
+		throw std::runtime_error("This file no longer exists");
 	}
-	else
-	{
-		//fileContent = fileOperationHandler.readFromFile(".\\" + _dirName + "\\\\" + projectName + "\\" + fileName);
-		fileContent = m_database->getFileContent(fileList.fileId);
-		m_filesData[fileList.fileId] = fileContent;
-		std::map<std::string, int>& filesMap = m_projects[project.projectId];
-		filesMap[fileName] = fileList.fileId;
-	}
-	
-	// Convert the length to a string with exactly 5 digits
-	std::string lengthString = std::to_string(fileContent.length());
-	lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
+	m_projects[project.projectId][fileName] = file.fileId;
 
-	emptyAction.code = MC_INITIAL_REQUEST;
-	m_lastActionMap[fileList.fileId].push_back(emptyAction);
-	m_clients[client_sock]->setFile(fileName, fileContent, fileList.fileId);
-	// Create the initialFileContent string
-	std::string initialFileContent = repCode + lengthString + fileContent;
-	Helper::sendData(client_sock, BUFFER(initialFileContent.begin(), initialFileContent.end()));
-
+	// Reply: "201<fileId>|<revision>|<text>" - the revision is what the client's
+	// first edit will be based on.
+	m_clients[client_sock]->setFile(fileName, "", file.fileId);
+	sendFileSnapshot(client_sock, file.fileId, MC_INITIAL_RESP);
 }
 
 void Communicator::enterFile(SOCKET client_sock, std::string fileName, std::string fileNameLen)
@@ -182,7 +181,12 @@ void Communicator::enterFile(SOCKET client_sock, std::string fileName, std::stri
 	// Create the mutex for the file if it doesn't exist
 	m_fileMutexes.try_emplace(file.fileId);
 
-	m_usersOnFile[file.fileId].push_back(*m_clients[client_sock]);
+	std::vector<ClientHandler>& users = m_usersOnFile[file.fileId];
+	int userId = m_clients[client_sock]->getId();
+	if (std::none_of(users.begin(), users.end(), [userId](const ClientHandler& u) { return u.getId() == userId; }))
+	{
+		users.push_back(*m_clients[client_sock]);
+	}
 }
 
 void Communicator::exitFile(SOCKET client_sock)
@@ -208,6 +212,12 @@ void Communicator::exitFile(SOCKET client_sock)
 		m_usersOnFile.erase(file);
 		m_lastActionMap.erase(file);
 		m_fileMutexes.erase(file);
+		if (!m_FileUpdate[file])
+		{
+			// nothing waiting to be saved: drop the cached copy (unsaved edits stay until saveFiles runs)
+			m_liveDocs.erase(file);
+			m_filesData.erase(file);
+		}
 	}
 	m_clients[client_sock]->setFile("", "", -1);
 
@@ -349,7 +359,27 @@ void Communicator::getProjectFiles(SOCKET client_sock, int projectId)
 
 void Communicator::renameFile(SOCKET client_sock, std::string newFileName, std::string oldFileName, int projectId)
 {
+	validateFileName(newFileName);
+	if (!m_database->hasPermissionToProject(projectId, m_clients[client_sock]->getId()))
+	{
+		throw std::runtime_error("You can only view this project.");
+	}
+	if (m_database->getFileDetails(oldFileName, projectId).fileName.empty())
+	{
+		throw std::runtime_error("That file no longer exists.");
+	}
+	if (newFileName != oldFileName && !m_database->getFileDetails(newFileName, projectId).fileName.empty())
+	{
+		throw std::runtime_error("A file with that name already exists.");
+	}
 	m_database->renameFile(projectId, newFileName, oldFileName);
+	for (auto& pair : m_clients)
+	{
+		if (pair.second->getProjectId() == projectId && pair.second->getFileName() == oldFileName)
+		{
+			pair.second->setFile(newFileName, "", pair.second->getFileId());
+		}
+	}
 
 	std::string repCode = std::to_string(MC_RENAME_FILE_RESP);
 	

@@ -1,4 +1,5 @@
 #include "Communicator.h"
+#include <set>
 #include <cstdio> // For popen and pclose
 
 extern std::unordered_map<std::string, std::mutex> m_fileMutexes;
@@ -150,8 +151,17 @@ void Communicator::handleNewClient(SOCKET client_sock)
 
 			std::lock_guard<std::recursive_mutex> stateLock(m_stateMutex);
 			std::string newRequest(buf.begin(), buf.end());
-			Action reqDetail = deconstructReq(newRequest);
 			int msgCode = std::stoi(newRequest.substr(0, 3));
+			if (msgCode == MC_FILE_OP_REQUEST)
+			{
+				if (m_clients.find(client_sock) == m_clients.end())
+				{
+					throw std::runtime_error("Not logged in");
+				}
+				handleFileOperation(client_sock, newRequest.substr(3));
+				continue;
+			}
+			Action reqDetail = deconstructReq(newRequest);
 
 			// Everything except the pre-login handshake needs a logged-in client;
 			// without this, m_clients[client_sock] below is a null pointer and the
@@ -167,18 +177,6 @@ void Communicator::handleNewClient(SOCKET client_sock)
 			pass = false;
 			switch (msgCode)
 			{
-			case MC_INSERT_REQUEST:
-				pass = true;
-				repCode = std::to_string(MC_INSERT_RESP);
-				break;
-			case MC_DELETE_REQUEST:
-				pass = true;
-				repCode = std::to_string(MC_DELETE_RESP);
-				break;
-			case MC_REPLACE_REQUEST:
-				pass = true;
-				repCode = std::to_string(MC_REPLACE_RESP);
-				break;
 			case MC_LOGIN_REQUEST:
 				login(client_sock, reqDetail.userName, reqDetail.pass, reqDetail.email);
 				break;
@@ -393,25 +391,6 @@ void Communicator::handleNewClient(SOCKET client_sock)
 				throw std::runtime_error("Unknown action code: " + reqDetail.msg);
 			}
 
-			if (pass)
-			{
-				{
-					int fileId = m_clients[client_sock]->getFileId();
-					int projectId = m_clients[client_sock]->getProjectId();
-					// Lock the mutex before updating the file
-					std::lock_guard<std::mutex> lock(m_fileMutexes[fileId]);
-
-					reqDetail = adjustIndexForSync(fileId, projectId, reqDetail);
-
-					updateFileOnServer(fileId, reqDetail);
-					notifyAllClients(repCode + reqDetail.msg, client_sock, true);
-					
-					reqDetail.timestamp = getCurrentTimestamp();
-					m_lastActionMap[fileId].push_back(reqDetail);
-					m_FileUpdate[fileId] = true;
-					needUpdate = true;
-				}// lock goes out of scope, releasing the lock
-			}
 		}
 		catch (const std::exception& e)
 		{
@@ -429,95 +408,6 @@ void Communicator::handleNewClient(SOCKET client_sock)
 		}
 	}
 	closesocket(client_sock);
-}
-
-Action Communicator::adjustIndexForSync(const int fileId, int projectId, Action reqDetail)
-{
-	std::string lengthString;
-	std::string selectionLengthString;
-	std::string indexString;
-
-	int selectionLength;
-	int length;
-	std::string data;
-	int newIndex;
-
-	int newCode = reqDetail.code;
-	// Check if there is a last action recorded for this file
-	if (m_lastActionMap.find(fileId) != m_lastActionMap.end())
-	{
-		std::vector<Action>& lastActions = m_lastActionMap[fileId];
-
-		// Use an iterator to iterate over the vector
-		auto it = lastActions.begin();
-
-		// Iterate over all last actions for the file
-		while (it != lastActions.end())
-		{
-			const Action& action = *it;
-
-			// Check if the new action was created before the current last action and by a different user
-			if (reqDetail.timestamp < action.timestamp && reqDetail.userId != action.userId
-				&& action.code != MC_INITIAL_REQUEST && action.code != MC_CREATE_FILE_REQUEST)
-			{
-				int lastActionCode = action.code;
-				int size = action.size;
-				int lastIndex = std::stoi(action.index);
-
-				std::string newAction = reqDetail.msg;
-
-				std::string adjustedIndex = reqDetail.index;
-				std::string updatedAction = newAction;
-
-				newIndex = std::stoi(reqDetail.index);
-
-				//reqDetail.timestamp = getCurrentTimestamp();
-
-				// uodate the index
-				switch (lastActionCode) {
-				case MC_INSERT_REQUEST:
-					if (newIndex > lastIndex)
-					{
-						newIndex += size;
-						adjustedIndex = std::to_string(newIndex);
-						adjustedIndex = std::string(5 - adjustedIndex.length(), '0') + adjustedIndex;
-						updatedAction = reqDetail.dataLength + reqDetail.data + adjustedIndex;
-					}
-					break;
-				case MC_DELETE_REQUEST:
-					if (newIndex > lastIndex)
-					{
-						newIndex -= size;
-						adjustedIndex = std::to_string(newIndex);
-						adjustedIndex = std::string(5 - adjustedIndex.length(), '0') + adjustedIndex;
-						updatedAction = reqDetail.dataLength + adjustedIndex;
-					}
-					break;
-				case MC_REPLACE_REQUEST:
-					if (newIndex > lastIndex)
-					{
-						newIndex = newIndex - std::stoi(reqDetail.selectionLength) + std::stoi(reqDetail.dataLength);
-						adjustedIndex = std::to_string(newIndex);
-						adjustedIndex = std::string(5 - adjustedIndex.length(), '0') + adjustedIndex;
-						updatedAction = reqDetail.selectionLength + reqDetail.dataLength + reqDetail.data + adjustedIndex;
-					}
-					break;
-				}
-				reqDetail.index = adjustedIndex;
-				reqDetail.msg = updatedAction;
-			}
-			else if (reqDetail.timestamp > action.timestamp + 5)
-			{
-				it = lastActions.erase(it);
-			}
-			if (!lastActions.empty())
-			{
-				++it;
-			}
-		}
-	}
-	return reqDetail;
-
 }
 
 void Communicator::handleError(SOCKET client_sock, std::exception a)
@@ -874,7 +764,7 @@ Action Communicator::deconstructReq(const std::string& req) {
 		newAction.oldFileName = action.substr(10 + newAction.size, newAction.oldFileNameLength);
 
 		newAction.projectIdLength = std::stoi(action.substr(10 + newAction.size + newAction.oldFileNameLength, 5));
-		newAction.projectName = action.substr(15 + newAction.size + newAction.oldFileNameLength, newAction.projectIdLength);
+		newAction.projectId = std::stoi(action.substr(15 + newAction.size + newAction.oldFileNameLength, newAction.projectIdLength));
 		break;
 	case MC_SEARCH_REQUEST:
 		newAction.searchCommandLength = std::stoi(action.substr(0, 5));
@@ -1003,93 +893,6 @@ Action Communicator::deconstructReq(const std::string& req) {
 	return newAction;
 }
 
-void Communicator::updateFileOnServer(const int fileId, const Action& reqDetail)
-{
-	auto it = m_filesData.find(fileId);
-
-	if (it != m_filesData.end()) {
-		int index;
-		int length;
-		switch (reqDetail.code) {
-		case MC_INSERT_REQUEST:
-			// Insert operation
-			if (std::stoi(reqDetail.index) <= it->second.size()) {
-				it->second.insert(std::stoi(reqDetail.index), reqDetail.data);
-			}
-			else {
-				throw std::runtime_error("Insert index out of range");
-			}
-			break;
-
-		case MC_DELETE_REQUEST:
-			// Delete operation
-			if (std::stoi(reqDetail.index) < it->second.size()) {
-				it->second.erase(std::stoi(reqDetail.index), reqDetail.size);
-			}
-			else {
-				throw std::runtime_error("Delete index out of range");
-			}
-			break;
-
-		case MC_REPLACE_REQUEST:
-			// Replace operation
-			index = std::stoi(reqDetail.index);
-			length = std::stoi(reqDetail.selectionLength);
-			if (index < it->second.size() &&
-				index + length <= it->second.size()) {
-				it->second.erase(index, length);
-				it->second.insert(index, reqDetail.data);
-			}
-			else {
-				throw std::runtime_error("Replace index or selection length out of range");
-			}
-			break;
-
-		default:
-			throw std::runtime_error("Unknown action code: " + reqDetail.code);
-		}
-	}
-	else {
-		throw std::runtime_error("File not found: " + std::to_string(fileId) );
-	}
-
-
-
-}
-
-void Communicator::updateFileOnServerold(const std::string& filePath, const Action& reqDetail)
-{
-	std::fstream file(filePath, std::ios::in | std::ios::out);
-	if (!file.is_open()) {
-		throw std::runtime_error("Failed to open file for reading/writing: " + filePath);
-	}
-	else {
-		switch (reqDetail.code) {
-		case MC_INSERT_REQUEST:
-			// Insert operation
-			operationHandler.insert(file, reqDetail.data, (std::stoi(reqDetail.index) + std::stoi(reqDetail.newLineCount)));
-			break;
-
-		case MC_DELETE_REQUEST:
-			// Delete operation
-			operationHandler.deleteContent(file, std::stoi(reqDetail.dataLength), (std::stoi(reqDetail.index) + std::stoi(reqDetail.newLineCount)),
-				reqDetail.fileName);
-			break;
-
-		case MC_REPLACE_REQUEST:
-			// Replace operation
-			operationHandler.replace(file, std::stoi(reqDetail.selectionLength), reqDetail.data,
-				(std::stoi(reqDetail.index) + std::stoi(reqDetail.newLineCount)), reqDetail.fileName);
-			break;
-
-		default:
-			throw std::runtime_error("Unknown action code: " + reqDetail.code);
-		}
-
-		file.close();
-	}
-}
-
 void Communicator::notifyAllClients(const std::string& updatedContent, SOCKET client_sock, const bool isOnFile)
 {
 	// Iterate through all connected clients and send them the updated content
@@ -1097,7 +900,7 @@ void Communicator::notifyAllClients(const std::string& updatedContent, SOCKET cl
 	{
 		if (sock.first != client_sock)
 		{
-			if (isOnFile && m_clients[client_sock]->getFileName() == m_clients[sock.first]->getFileName())
+			if (isOnFile && m_clients[client_sock]->getFileId() == m_clients[sock.first]->getFileId())
 			{
 				SOCKET client_sock = sock.first;
 				Helper::sendData(client_sock, BUFFER(updatedContent.begin(), updatedContent.end()));
@@ -1152,51 +955,55 @@ void Communicator::notifyAllfriends(const std::string& updatedContent, SOCKET cl
 
 void Communicator::notifyAllclientsOnProject(const std::string& updatedContent, SOCKET client_sock, std::string msg)
 {
-	// Get the username of the client who triggered the notification
-	std::string name = m_clients[client_sock]->getUsername();
-	std::string projectName = m_clients[client_sock]->getProjectName();
-	Project project = m_database->getProject(projectName, -1);
-	int currUserId = m_database->getUserId(name);
+	ClientHandler* sender = m_clients[client_sock];
+	int projectId = sender->getProjectId();
+	int senderId = sender->getId();
 
+	// Live update for everyone currently looking at this project.
+	std::set<int> watching;
+	for (auto& pair : m_clients)
+	{
+		if (pair.first == client_sock || pair.second->getWindow() != PROJECT_PAGE || pair.second->getProjectId() != projectId)
+		{
+			continue;
+		}
+		watching.insert(pair.second->getId());
+		if (!updatedContent.empty())
+		{
+			try
+			{
+				Helper::sendData(pair.first, BUFFER(updatedContent.begin(), updatedContent.end()));
+			}
+			catch (const std::exception&) {}
+		}
+	}
 
-	// Find the client's friends list
-	auto friendsList = m_friends.find(name);
-	if (friendsList == m_friends.end()) {
-		// If client has no friends, do nothing
+	if (msg.empty())
+	{
 		return;
 	}
 
-	// Iterate through all connected clients
-	for (auto& pair : m_clients)
+	// Members who aren't in the project right now get an inbox message
+	// (and a "you have mail" ping if they're on the home page).
+	for (auto& participant : m_database->getProjectParticipants(projectId))
 	{
-		SOCKET friend_sock = pair.first;
-		ClientHandler* client = pair.second;
-
-		// Skip sending to the client who triggered the update
-		if (friend_sock == client_sock) continue;
-
-		int reciverId = m_database->getUserId(m_clients[friend_sock]->getUsername());
-
-		if (updatedContent.length() > 0)
+		int memberId = m_database->getUserId(participant.first);
+		if (memberId == senderId || watching.count(memberId))
 		{
-			if (m_clients[friend_sock]->getWindow() == PROJECT_PAGE
-				&& m_clients[friend_sock]->getProjectName() != projectName)
-			{
-				Helper::sendData(friend_sock, BUFFER(updatedContent.begin(), updatedContent.end()));
-				continue;
-			}
+			continue;
 		}
-
-		if (msg.length() > 0)
+		m_database->AddMsg(senderId, memberId, msg, 0, -1);
+		for (auto& pair : m_clients)
 		{
-			if (m_clients[friend_sock]->getWindow() == HOME_PAGE
-				&& m_database->hasPermissionToProject(project.projectId, reciverId))
+			if (pair.second->getId() == memberId && pair.second->getWindow() == HOME_PAGE)
 			{
-				std::string repCode = std::to_string(MC_SEND_MSG_RESP);
-				Helper::sendData(friend_sock, BUFFER(repCode.begin(), repCode.end()));
-				continue;
+				std::string ping = std::to_string(MC_SEND_MSG_RESP);
+				try
+				{
+					Helper::sendData(pair.first, BUFFER(ping.begin(), ping.end()));
+				}
+				catch (const std::exception&) {}
 			}
-			m_database->AddMsg(currUserId, reciverId, msg, 0, -1);
 		}
 	}
 }
@@ -1291,6 +1098,7 @@ void Communicator::saveFiles(/* Parameters for communication */) {
 
 					if (m_usersOnFile[fileId].empty()) {
 						m_filesData.erase(fileId);
+						m_liveDocs.erase(fileId);
 						m_fileMutexes.erase(fileId);
 						it = m_FileUpdate.erase(it);
 						m_usersOnFile.erase(fileId);
