@@ -129,6 +129,10 @@ private:
     std::map<int, bool> m_FileUpdate; // id, there was a change since last update
 
     std::unordered_map<int, std::mutex> m_fileMutexes;
+    // Guards every member above. Each client runs on its own thread and the
+    // save/heartbeat threads touch the same maps, so all access goes through this.
+    // Held while a request is processed, never while blocked in recv().
+    std::recursive_mutex m_stateMutex;
 
     Operations operationHandler;
     FileOperation fileOperationHandler;

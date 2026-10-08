@@ -108,6 +108,8 @@ void Communicator::login(SOCKET client_sock,
 		{
 			if (!isSocketConnected(it->first)) {
 				// If the socket is not connected, clean up and remove the client
+				// (shutdown wakes that client's thread so it exits instead of blocking in recv)
+				shutdown(it->first, SD_BOTH);
 				delete it->second;
 				it = m_clients.erase(it); // erase returns the next iterator
 				continue;
@@ -2247,9 +2249,22 @@ void Communicator::handleNewClient(SOCKET client_sock)
 				continue;
 			}
 
+			std::lock_guard<std::recursive_mutex> stateLock(m_stateMutex);
 			std::string newRequest(buf.begin(), buf.end());
 			Action reqDetail = deconstructReq(newRequest);
 			int msgCode = std::stoi(newRequest.substr(0, 3));
+
+			// Everything except the pre-login handshake needs a logged-in client;
+			// without this, m_clients[client_sock] below is a null pointer and the
+			// whole server crashes on a single unauthenticated request.
+			bool preLoginRequest = msgCode == MC_LOGIN_REQUEST || msgCode == MC_SIGNUP_REQUEST ||
+				msgCode == MC_FORGOT_PASSW_REQUEST || msgCode == MC_DISCONNECT ||
+				msgCode == MC_VERSION_REQUEST || msgCode == MC_RECEIVE_FILES_REQUEST;
+			if (!preLoginRequest && m_clients.find(client_sock) == m_clients.end())
+			{
+				throw std::runtime_error("Not logged in");
+			}
+
 			pass = false;
 			switch (msgCode)
 			{
@@ -2608,6 +2623,7 @@ Action Communicator::adjustIndexForSync(const int fileId, int projectId, Action 
 
 void Communicator::handleError(SOCKET client_sock, std::exception a)
 {
+	std::lock_guard<std::recursive_mutex> stateLock(m_stateMutex);
 	try
 	{
 		// Check if the client is associated with a file
@@ -2663,6 +2679,7 @@ void Communicator::handleError(SOCKET client_sock, std::exception a)
 
 void Communicator::handleClientDisconnect(SOCKET client_sock)
 {
+	std::lock_guard<std::recursive_mutex> stateLock(m_stateMutex);
 	// Check if the client is associated with a file
 	if (m_clients.find(client_sock) != m_clients.end())
 	{
@@ -3359,6 +3376,7 @@ void Communicator::startHandleRequests()
 void Communicator::saveFiles(/* Parameters for communication */) {
 	try {
 		while (true) {
+			std::unique_lock<std::recursive_mutex> stateLock(m_stateMutex);
 			if (needUpdate) {
 				for (auto it = m_FileUpdate.begin(); it != m_FileUpdate.end(); ) {
 					const int& fileId = it->first;
@@ -3388,6 +3406,7 @@ void Communicator::saveFiles(/* Parameters for communication */) {
 					}
 				}
 			}
+			stateLock.unlock();
 			std::this_thread::sleep_for(std::chrono::seconds(60));
 		}
 	}
@@ -3403,20 +3422,14 @@ void Communicator::checkClientsConnection(/* Parameters for communication */) {
 			
 			std::this_thread::sleep_for(std::chrono::seconds(20));
 
-			// Locking mechanism to ensure thread safety if needed
-			// std::lock_guard<std::mutex> lock(m_mutex); // Assuming m_mutex is defined elsewhere
+			std::lock_guard<std::recursive_mutex> stateLock(m_stateMutex);
 
-			for (auto it = m_clients.begin(); it != m_clients.end(); ) {
-				SOCKET socket = it->first;
-				ClientHandler* handler = it->second;
-
-				if (!isSocketConnected(socket)) {
-					// Clean up the ClientHandler if necessary
-					delete handler;
-					it = m_clients.erase(it); // Move iterator and remove client
-				}
-				else {
-					++it; // Move to the next client if current one is still connected
+			for (auto it = m_clients.begin(); it != m_clients.end(); ++it) {
+				if (!isSocketConnected(it->first)) {
+					// Don't delete the handler here: its client thread may still be using it.
+					// Shutting the socket down makes that thread's recv() fail, and it then
+					// cleans up through handleClientDisconnect().
+					shutdown(it->first, SD_BOTH);
 				}
 			}
 		}
