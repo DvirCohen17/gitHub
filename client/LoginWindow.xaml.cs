@@ -60,7 +60,7 @@ namespace client_side
         private void LoadSavedCredentials()
         {
             string savedUsername = Properties.Settings.Default.Username;
-            string savedHashedPassword = Properties.Settings.Default.HashedPassword;
+            string savedHashedPassword = Communicator.UnprotectSecret(Properties.Settings.Default.HashedPassword);
 
             if (!string.IsNullOrEmpty(savedUsername) && !string.IsNullOrEmpty(savedHashedPassword))
             {
@@ -95,7 +95,7 @@ namespace client_side
                     if (chkRememberMe.IsChecked == true)
                     { 
                         communicator.settings.UserName = username;
-                        communicator.settings.Pass = hashedPassword;
+                        communicator.settings.Pass = Communicator.ProtectSecret(hashedPassword);
 
                         communicator.SaveSettings(communicator.settingsFilePath, communicator.settings);
                         

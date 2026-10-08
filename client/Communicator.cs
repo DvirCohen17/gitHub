@@ -629,7 +629,7 @@ namespace client_side
         public void SaveCredentials(string username, string hashedPassword)
         {
             Properties.Settings.Default.Username = username;
-            Properties.Settings.Default.HashedPassword = hashedPassword;
+            Properties.Settings.Default.HashedPassword = ProtectSecret(hashedPassword);
             Properties.Settings.Default.Save();
         }
 
@@ -643,6 +643,37 @@ namespace client_side
             settings.Pass = "";
 
             SaveSettings(settingsFilePath, settings);
+        }
+
+        // "Remember me" stores the password hash, which is what the server checks, so it is
+        // as sensitive as the password itself. Encrypt it with DPAPI so only this Windows user
+        // on this machine can read it back.
+        public static string ProtectSecret(string secret)
+        {
+            if (string.IsNullOrEmpty(secret))
+            {
+                return secret;
+            }
+            byte[] encrypted = ProtectedData.Protect(Encoding.UTF8.GetBytes(secret), null, DataProtectionScope.CurrentUser);
+            return Convert.ToBase64String(encrypted);
+        }
+
+        public static string UnprotectSecret(string stored)
+        {
+            if (string.IsNullOrEmpty(stored))
+            {
+                return stored;
+            }
+            try
+            {
+                byte[] decrypted = ProtectedData.Unprotect(Convert.FromBase64String(stored), null, DataProtectionScope.CurrentUser);
+                return Encoding.UTF8.GetString(decrypted);
+            }
+            catch (Exception)
+            {
+                // Saved before encryption was added (or by another user): treat as no saved login.
+                return string.Empty;
+            }
         }
 
         public string HashPassword(string password)
