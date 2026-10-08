@@ -1,178 +1,53 @@
-﻿using System;
-using System.Collections.ObjectModel;
-using System.Windows;
-using System.Windows.Media.Animation;
-using System.Windows.Media;
-using System.Windows.Controls;
+using System;
 using System.Collections.Generic;
-using System.Windows.Input;
-using static client_side.HomePage;
-using System.Threading;
-using System.Threading.Tasks;
-using static client_side.ProjectDirectory;
-using System.Windows.Threading;
+using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
+using System.Threading;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
 
 namespace client_side
 {
+    // A project's tasks. The window keeps listening while a task is being edited
+    // (the editor is a dialog), so changes made by teammates show up right away.
     public partial class ToDoListWindow : Window
     {
-        private ObservableCollection<Issue> issues;
-        private bool showCompletedIssues = false;
-        private const double PanelWidth = 200;
-        private bool isPanelOpen = true;
-        Communicator communicator;
-        private bool disconnect = true;
-        private bool inViewMode = false;
-        private bool isListeningToServer = true;
-
-        private int projectId;
-
+        private readonly Communicator communicator;
+        private readonly int projectId;
         private Thread receiveServerUpdatesThread;
+        private volatile bool isListeningToServer = true;
+        private bool disconnect = true;
+        private bool showCompletedIssues;
+        private readonly List<string> members = new List<string>();
 
-        public ObservableCollection<Issue> Issues
-        {
-            get => issues;
-            set
-            {
-                issues = value;
-                OnPropertyChanged(nameof(Issues));
-            }
-        }
+        public ObservableCollection<Issue> Issues { get; } = new ObservableCollection<Issue>();
 
         public ToDoListWindow(Communicator communicator, int projectId)
         {
             InitializeComponent();
-            DataContext = this;
-            Issues = new ObservableCollection<Issue>();
-            IssueListView.ItemsSource = Issues;
-            IssueListView.MouseDoubleClick += LstIssues_MouseDoubleClick;
-
+            Style = (Style)FindResource(typeof(Window));
             this.communicator = communicator;
             this.projectId = projectId;
+            IssueListView.ItemsSource = Issues;
 
             communicator.ApplyTheme(this);
-            EnableAllButtonsAndLists();
+            Closing += ToDoList_CloseFile;
 
-            receiveServerUpdatesThread = new Thread(() => ReceiveServerUpdates())
-            {
-                IsBackground = true
-            };
+            receiveServerUpdatesThread = new Thread(ReceiveServerUpdates) { IsBackground = true };
             receiveServerUpdatesThread.Start();
-            LoadIssues(0);
 
-            Closing += ToDoList_CloseFile; // Hook up the closing event handler
+            Send(MessageCodes.MC_GET_PROJECT_PATICIPANTS_REQUEST, projectId.ToString());
+            LoadIssues();
         }
 
-        private void EnableAllButtonsAndLists()
-        {
-            SetButtonsAndListsEnabledState(true);
-            EnableDoubleClickEvents();
-        }
-
-        private void DisableAllButtonsAndLists()
-        {
-            SetButtonsAndListsEnabledState(false);
-            DisableDoubleClickEvents();
-        }
-
-        private void SetButtonsAndListsEnabledState(bool isEnabled)
-        {
-            RefreshBtn.IsEnabled = isEnabled;
-            AddIssueBtn.IsEnabled = isEnabled;
-            ToggleMenuButton.IsEnabled = isEnabled;
-            CurrentIsueBtn.IsEnabled = isEnabled;
-            CompletedIsueBtn.IsEnabled = isEnabled;
-            ExitBtn.IsEnabled = isEnabled;
-
-            foreach (var item in IssueListView.Items)
-            {
-                ListViewItem container = IssueListView.ItemContainerGenerator.ContainerFromItem(item) as ListViewItem;
-                if (container != null)
-                {
-                    SetButtonsInContainerEnabledState(container, isEnabled);
-                }
-            }
-        }
-
-        private void EnableDoubleClickEvents()
-        {
-            IssueListView.MouseDoubleClick += LstIssues_MouseDoubleClick;
-        }
-
-        private void DisableDoubleClickEvents()
-        {
-            IssueListView.MouseDoubleClick -= LstIssues_MouseDoubleClick;
-        }
-
-        private void SetButtonsInContainerEnabledState(DependencyObject container, bool isEnabled)
-        {
-            foreach (var child in GetChildren(container))
-            {
-                if (child is System.Windows.Controls.Button button)
-                {
-                    button.IsEnabled = isEnabled;
-                }
-                else if (child is System.Windows.Controls.CheckBox checkBox)
-                {
-                    checkBox.IsEnabled = isEnabled;
-                }
-            }
-        }
-
-        private IEnumerable<DependencyObject> GetChildren(DependencyObject parent)
-        {
-            if (parent == null) yield break;
-            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
-            {
-                var child = VisualTreeHelper.GetChild(parent, i);
-                yield return child;
-                foreach (var grandChild in GetChildren(child))
-                {
-                    yield return grandChild;
-                }
-            }
-        }
-
-        private async void ReceiveServerUpdates()
+        private void Send(MessageCodes code, string body = "")
         {
             try
             {
-                while (isListeningToServer)
-                {
-
-                    string update = communicator.ReceiveData();
-                    string code = update.Substring(0, 3);
-
-                    switch (code)
-                    {
-                        case "265":
-                            HandleMoveToIssueDataWindow(update);
-                            break;
-                        case "261":
-                            HandleDeleteIssue(update);
-                            break;
-                        case "260" or "259":
-                            HandleDeleteIssue(update);
-                            break;
-                        case "262":
-                            HandleLoadIssues(update, 0);
-                            break;
-                        case "263":
-                            HandleLoadIssues(update, 1);
-                            break;
-                        case "269":
-                            HandleMoveToProjectWindow(update);
-                            break;
-                        case "258" or "271":
-                            HandleReLoadIssues();
-                            break;
-                        case "307":
-                            break;
-                        default:
-                            break; // a message meant for another window: ignore it rather than stop listening
-                    }
-                }
+                communicator.SendData($"{(int)code}{body}");
             }
             catch (Exception ex)
             {
@@ -180,347 +55,233 @@ namespace client_side
             }
         }
 
-        private void SortIssues(ObservableCollection<Issue> issueList)
+        private void SetStatus(string text, bool isError = false)
         {
-            var sortedIssues = new ObservableCollection<Issue>(issueList.OrderBy(issue => issue.Id).ToList());
-            IssueListView.ItemsSource = sortedIssues;
+            txtStatus.Text = text;
+            txtStatus.Foreground = isError ? Brushes.IndianRed : (communicator.AppTheme?.TextColor ?? Brushes.White);
+            txtStatus.Opacity = isError ? 1 : 0.65;
         }
 
-        private void HandleMoveToIssueDataWindow(string update)
+        private void ReceiveServerUpdates()
         {
-            isListeningToServer = false;
-            inViewMode = true;
-
-            int issueId = int.Parse(update.Substring(3));
-
-            Dispatcher.Invoke(() =>
+            try
             {
-                DisableAllButtonsAndLists();
-                IssueDataWindow issueDataWindow = new IssueDataWindow(communicator, projectId, issueId);
-                issueDataWindow.Closed += IssueWindow_Closed; // Attach the event handler
-                issueDataWindow.Show();
-            });
-        }
-
-        private void HandleDeleteIssue(string update)
-        {
-            int deletedIssueId = int.Parse(update.Substring(3));
-
-            Dispatcher.Invoke(() =>
-            {
-                if (IssueListView.ItemsSource is ObservableCollection<Issue> issueList)
+                while (isListeningToServer)
                 {
-                    // Find the index of the issue to delete
-                    int deleteIndex = issueList.ToList().FindIndex(issue => issue.Id == deletedIssueId);
-
-                    // If the issue is found, remove it from the list
-                    if (deleteIndex != -1)
-                    {
-                        issueList.RemoveAt(deleteIndex);
-
-                        SortIssues(issueList);
-
-                        // Set the ListBox's ItemsSource again to trigger the update
-                        IssueListView.ItemsSource = null;
-                        IssueListView.ItemsSource = issueList;
-                    }
+                    string update = communicator.ReceiveData();
+                    Dispatcher.Invoke(() => HandleMessage(update));
                 }
-            });
-        }
-
-        private void HandleMoveToProjectWindow(string update)
-        {
-            disconnect = false;
-            isListeningToServer = false;
-            int index = 3;
-
-            int projectLength = int.Parse(update.Substring(index, 5));
-            index += 5;
-            string ProjectName = update.Substring(index, projectLength);
-            index += projectLength;
-
-            int projectIdLength = int.Parse(update.Substring(index, 5));
-            index += 5;
-            int projectId = int.Parse(update.Substring(index, projectIdLength));
-            index += projectIdLength;
-
-            int codeLanLen = int.Parse(update.Substring(index, 5));
-            index += 5;
-            string codeLan = update.Substring(index, codeLanLen);
-            index += codeLanLen;
-
-            string mode = update.Substring(index);
-            bool isEditable = mode == "true" ? true : false;
-
-            Dispatcher.Invoke(() =>
-            {
-                ProjectDirectory TextEditorWindow = new ProjectDirectory(communicator, ProjectName, projectId, codeLan, isEditable);
-                TextEditorWindow.Show();
-                Close();
-            });
-        }
-
-        private void HandleLoadIssues(string update, int mode)
-        {
-            int currentIndex = 3;
-
-            Dispatcher.Invoke(() =>
-            {
-                Issues.Clear(); // Clear existing issues
-            });
-            while (currentIndex < update.Length)
-            {
-                // Parse data length and data
-                int dataLen = int.Parse(update.Substring(currentIndex, 5));
-                currentIndex += 5;
-                string data = update.Substring(currentIndex, dataLen);
-                currentIndex += dataLen;
-
-                // Parse user assignment
-                int userAssignmentLen = int.Parse(update.Substring(currentIndex, 5));
-                currentIndex += 5;
-                List<User> userAssignments = new List<User>();
-                int userIndex = 0;
-
-                while (userIndex < userAssignmentLen)
-                {
-                    int userNameLen = int.Parse(update.Substring(currentIndex, 5));
-                    currentIndex += 5;
-                    userIndex += 5;
-                    string userName = update.Substring(currentIndex, userNameLen);
-                    currentIndex += userNameLen;
-                    userIndex += 5;
-                    userAssignments.Add(new User
-                    {
-                        Name = userName,
-                    });
-                }
-
-                // Parse date
-                int dateLen = int.Parse(update.Substring(currentIndex, 5));
-                currentIndex += 5;
-                string dateString = update.Substring(currentIndex, dateLen);
-                currentIndex += dateLen;
-                DateTime date = DateTime.Parse(dateString);
-
-
-                int idLen = int.Parse(update.Substring(currentIndex, 5));
-                currentIndex += 5;
-                int id = int.Parse(update.Substring(currentIndex, idLen));
-                currentIndex += idLen;
-
-                if(dataLen > 15)
-                {
-                    data = data.Substring(0, 12) + "...";
-                }
-
-                // Create Issue object
-                Issue newIssue = new Issue
-                {
-                    Id = id,
-                    Detail = data,
-                    Users = userAssignments,
-                    Date = date,
-                    IsCompleted = mode == 1 ? true : false,  // Assuming new issues are not completed
-                };
-
-                Dispatcher.Invoke(() =>
-                {
-                    Issues.Add(newIssue);
-                });
             }
-
-            Dispatcher.Invoke(() =>
+            catch (Exception ex)
             {
-                SortIssues(Issues);
-            });
-        }
-
-        private void LstIssues_MouseDoubleClick(object sender, MouseButtonEventArgs e)
-        {
-            if (!inViewMode)
-            {
-                e.Handled = true;
-                var selectedFriend = IssueListView.SelectedItem as Issue;
-                if (selectedFriend != null && selectedFriend.IsCompleted == false)
+                if (isListeningToServer)
                 {
-                    string joinProjectCode = ((int)MessageCodes.MC_MOVE_TO_ISSUE_DATA_WINDOW_REQUEST).ToString();
-                    communicator.SendData($"{joinProjectCode}{selectedFriend.Id}");
+                    communicator.HandleListenerError(ex);
                 }
             }
         }
 
-        private void IssueWindow_Closed(object sender, EventArgs e)
+        private void HandleMessage(string update)
         {
-            EnableAllButtonsAndLists();
-            isListeningToServer = true;
-            inViewMode = false;
-
-            receiveServerUpdatesThread = new Thread(() => ReceiveServerUpdates())
+            if (update.Length < 3)
             {
-                IsBackground = true
-            };
-            receiveServerUpdatesThread.Start();
-            LoadIssues(0);
-
-        }
-
-
-        private async void ToDoList_CloseFile(object sender, EventArgs e)
-        {
-            if (disconnect)
+                return;
+            }
+            try
             {
-                try
+                switch (update.Substring(0, 3))
                 {
-                    string chatMessageCode = ((int)MessageCodes.MC_DISCONNECT).ToString();
-
-                    string fullMessage = $"{chatMessageCode}{communicator.UserId:D5}";
-
-                    //communicator.SendData(fullMessage);
-
-                    // Close the window on the UI thread
-                    await Dispatcher.InvokeAsync(() => Close());
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Error during closing: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    case "262": if (!showCompletedIssues) ShowIssues(update, false); break; // open tasks
+                    case "263": if (showCompletedIssues) ShowIssues(update, true); break;   // done tasks
+                    case "264": HandleMembers(update); break;
+                    case "258": case "271": case "270": LoadIssues(); break;                 // added / changed / saved
+                    case "259": case "260": case "261": LoadIssues(); break;                 // done / reopened / deleted
+                    case "269": HandleMoveToProjectWindow(update); break;
+                    case "200": SetStatus(update.Substring(3), true); break;
+                    default: break;
                 }
             }
+            catch (Exception ex)
+            {
+                SetStatus($"Couldn't process a message from the server ({ex.Message}).", true);
+            }
+        }
+
+        private void HandleMembers(string update)
+        {
+            var reader = new WireReader(update);
+            members.Clear();
+            while (!reader.AtEnd)
+            {
+                members.Add(reader.Field());
+            }
+        }
+
+        private void ShowIssues(string update, bool completed)
+        {
+            var reader = new WireReader(update);
+            var loaded = new List<Issue>();
+            while (!reader.AtEnd)
+            {
+                loaded.Add(Issue.Read(reader, completed));
+            }
+            Issues.Clear();
+            foreach (var issue in loaded.OrderBy(i => i.Date).ThenBy(i => i.Id))
+            {
+                Issues.Add(issue);
+            }
+            txtEmpty.Text = completed ? "No finished tasks yet." : "No open tasks. Use \"+ New task\" to add one.";
+            txtEmpty.Visibility = Issues.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            SetStatus($"{Issues.Count} {(completed ? "finished" : "open")} task{(Issues.Count == 1 ? "" : "s")}.");
+        }
+
+        private void LoadIssues()
+        {
+            Send(showCompletedIssues ? MessageCodes.MC_GET_COMPLETED_PROJECT_ISSUES_REQUEST : MessageCodes.MC_GET_CURRENT_PROJECT_ISSUES_REQUEST,
+                 projectId.ToString());
         }
 
         private void CurrentIssues_Click(object sender, RoutedEventArgs e)
         {
+            if (communicator == null) return; // fired during InitializeComponent
             showCompletedIssues = false;
-            string code = ((int)MessageCodes.MC_GET_CURRENT_PROJECT_ISSUES_REQUEST).ToString();
-            communicator.SendData($"{code}{projectId}");
+            LoadIssues();
         }
 
         private void CompletedIssues_Click(object sender, RoutedEventArgs e)
         {
             showCompletedIssues = true;
-            string code = ((int)MessageCodes.MC_GET_COMPLETED_PROJECT_ISSUES_REQUEST).ToString();
-            communicator.SendData($"{code}{projectId}");
+            LoadIssues();
         }
 
-        private void CheckBox_Checked(object sender, RoutedEventArgs e)
+        private void Refresh_Click(object sender, RoutedEventArgs e) => LoadIssues();
+
+        // Click (not Checked/Unchecked): only react to the user, not to the list being filled in.
+        private void CompletedCheckBox_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is CheckBox checkBox && checkBox.DataContext is Issue issue)
+            if (sender is CheckBox box && box.Tag is Issue issue)
             {
-                issue.IsCompleted = true;
-                string code = ((int)MessageCodes.MC_MARK_TASK_AS_COMPLETED_REQUEST).ToString();
-                communicator.SendData($"{code}{issue.Id}");
-            }
-        }
-
-        private void CheckBox_Unchecked(object sender, RoutedEventArgs e)
-        {
-            if (sender is CheckBox checkBox && checkBox.DataContext is Issue issue)
-            {
-                issue.IsCompleted = false;
-
-                string code = ((int)MessageCodes.MC_MARK_TASK_AS_NOT_COMPLETED_REQUEST).ToString();
-                communicator.SendData($"{code}{issue.Id}");
-
-            }
-        }
-
-        private void LoadIssues(int mode)
-        {
-            if (!showCompletedIssues)
-            {
-                string code = ((int)MessageCodes.MC_GET_CURRENT_PROJECT_ISSUES_REQUEST).ToString();
-                communicator.SendData($"{code}{projectId}");
-            }
-            else
-            {
-                string code = ((int)MessageCodes.MC_GET_COMPLETED_PROJECT_ISSUES_REQUEST).ToString();
-                communicator.SendData($"{code}{projectId}");
-            }
-        }
-
-        private void Refresh_Click(object sender, RoutedEventArgs e)
-        {
-            LoadIssues(showCompletedIssues ? 1 : 0);
-        }
-
-        private void HandleReLoadIssues()
-        {
-            if (!showCompletedIssues)
-            {
-                LoadIssues(0);
+                bool done = box.IsChecked == true;
+                Send(done ? MessageCodes.MC_MARK_TASK_AS_COMPLETED_REQUEST : MessageCodes.MC_MARK_TASK_AS_NOT_COMPLETED_REQUEST, issue.Id.ToString());
+                SetStatus(done ? "Moved to Done." : "Moved back to Open.");
             }
         }
 
         private void DeleteIssue_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is System.Windows.Controls.Button button)
+            if (sender is Button button && button.Tag is Issue issue &&
+                MessageBox.Show(this, $"Delete this task?\n\n{issue.Detail}", "Delete task",
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
             {
-                if (button.Tag is Issue IssueToRemove)
-                {
-                    string code = ((int)MessageCodes.MC_DELETE_TASK_REQUEST).ToString();
-                    communicator.SendData($"{code}{IssueToRemove.Id}");
-                }
+                Send(MessageCodes.MC_DELETE_TASK_REQUEST, issue.Id.ToString());
             }
         }
 
         private void Create_Click(object sender, RoutedEventArgs e)
         {
-            string joinProjectCode = ((int)MessageCodes.MC_MOVE_TO_ISSUE_DATA_WINDOW_REQUEST).ToString();
-            communicator.SendData($"{joinProjectCode}-1");
+            var dialog = new IssueDataWindow(this, members, null);
+            if (dialog.ShowDialog() == true)
+            {
+                Send(MessageCodes.MC_ADD_TASK_REQUEST, Wire.Field(dialog.Detail) + Wire.Field(dialog.EncodedAssignees) + Wire.Field(dialog.DueDate));
+                SetStatus("Saving...");
+            }
         }
 
-        private void ToggleMenu_Click(object sender, RoutedEventArgs e)
+        private void EditIssue_Click(object sender, RoutedEventArgs e)
         {
-            var panelTransform = SidePanelTransform;
-            var slideAnimation = new DoubleAnimation
+            if (sender is Button button && button.Tag is Issue issue)
             {
-                Duration = TimeSpan.FromMilliseconds(300),
-                FillBehavior = FillBehavior.HoldEnd
-            };
-
-            if (isPanelOpen)
-            {
-                slideAnimation.From = 0;
-                slideAnimation.To = -PanelWidth;
-                slideAnimation.Completed += (s, a) =>
-                {
-                    SidePanel.Width = 0;
-                    isPanelOpen = false;
-                    ToggleMenuButton.Content = "☰";
-                };
+                Edit(issue);
             }
-            else
-            {
-                SidePanel.Width = PanelWidth;
-                slideAnimation.From = -PanelWidth;
-                slideAnimation.To = 0;
-                slideAnimation.Completed += (s, a) => isPanelOpen = true;
-                ToggleMenuButton.Content = "✕";
-            }
-
-            panelTransform.BeginAnimation(TranslateTransform.XProperty, slideAnimation);
         }
-        
+
+        private void Card_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount == 2 && sender is FrameworkElement element && element.Tag is Issue issue && issue.CanEdit)
+            {
+                Edit(issue);
+            }
+        }
+
+        private void Edit(Issue issue)
+        {
+            var dialog = new IssueDataWindow(this, members, issue);
+            if (dialog.ShowDialog() == true)
+            {
+                Send(MessageCodes.MC_MODIFY_ISSUE_REQUEST,
+                     Wire.Field(dialog.Detail) + Wire.Field(dialog.EncodedAssignees) + Wire.Field(dialog.DueDate) + issue.Id);
+                SetStatus("Saving...");
+            }
+        }
+
         private void Back_Click(object sender, RoutedEventArgs e)
         {
-            string chatMessageCode = ((int)MessageCodes.MC_MOVE_TO_PROJECT_PAGE_REQUEST).ToString();
-
-            string fullMessage = $"{chatMessageCode}{projectId}";
-            communicator.SendData(fullMessage);
+            Send(MessageCodes.MC_MOVE_TO_PROJECT_PAGE_REQUEST, projectId.ToString());
         }
 
-        private void OnPropertyChanged(string propertyName)
+        private void HandleMoveToProjectWindow(string update)
         {
-            // Implementation for property changed notifications
+            var reader = new WireReader(update);
+            string projectName = reader.Field();
+            int id = int.Parse(reader.Field());
+            string codeLan = reader.Field();
+            bool isEditable = reader.Rest() == "true";
+
+            disconnect = false;
+            isListeningToServer = false;
+            new ProjectDirectory(communicator, projectName, id, codeLan, isEditable).Show();
+            Close();
+        }
+
+        private void ToDoList_CloseFile(object sender, EventArgs e)
+        {
+            isListeningToServer = false;
+            if (disconnect)
+            {
+                Send(MessageCodes.MC_DISCONNECT, $"{communicator.UserId:D5}");
+            }
         }
     }
 
     public class Issue
     {
-        public string Detail { get; set; }
-        public List<User> Users { get; set; }
         public int Id { get; set; }
+        public string Detail { get; set; }
+        public List<User> Users { get; set; } = new List<User>();
         public DateTime Date { get; set; }
         public bool IsCompleted { get; set; }
+
+        public bool CanEdit => !IsCompleted;
+        public string AssigneesLabel => Users.Count == 0 ? "Not assigned" : "Assigned: " + string.Join(", ", Users.Select(u => u.Name));
+        public bool IsOverdue => !IsCompleted && Date.Date < DateTime.Today;
+        public string DueLabel => (IsOverdue ? "Overdue - was due " : "Due ") + Date.ToString("ddd, d MMM yyyy", CultureInfo.CurrentCulture);
+        public Brush DueBrush => IsOverdue ? Brushes.IndianRed : Brushes.Gray;
+
+        // Dates are sent as yyyy-MM-dd; older tasks were stored as MM/dd/yyyy.
+        public const string DateFormat = "yyyy-MM-dd";
+
+        public static DateTime ParseDate(string text)
+        {
+            if (DateTime.TryParseExact(text, new[] { DateFormat, "MM/dd/yyyy", "M/d/yyyy" }, CultureInfo.InvariantCulture,
+                    DateTimeStyles.None, out DateTime date))
+            {
+                return date;
+            }
+            return DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out date) ? date : DateTime.Today;
+        }
+
+        public static Issue Read(WireReader reader, bool completed)
+        {
+            string detail = reader.Field();
+            var assignees = new WireReader(reader.Field(), 0);
+            var users = new List<User>();
+            while (!assignees.AtEnd)
+            {
+                users.Add(new User { Name = assignees.Field() });
+            }
+            DateTime date = ParseDate(reader.Field());
+            int id = int.Parse(reader.Field());
+            return new Issue { Id = id, Detail = detail, Users = users, Date = date, IsCompleted = completed };
+        }
     }
 }

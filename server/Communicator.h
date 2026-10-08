@@ -182,6 +182,10 @@ public:
     void notifyAllclientsOnIssueWindow(const std::string& updatedContent, SOCKET client_sock, std::string msg);
 
     Action deconstructReq(const std::string& req);
+    Issues requireEditableTask(SOCKET client_sock, int issueId);
+    void validateTask(int projectId, const std::string& text, const std::string& assignedPeople, const std::string& date);
+    void notifyTaskChange(SOCKET client_sock, const std::string& update);
+    void notifyAssignees(SOCKET client_sock, const std::string& assignedPeople, const std::string& previouslyAssigned, const std::string& msg);
     LiveDocument& liveDocument(int fileId);
     void handleFileOperation(SOCKET client_sock, const std::string& payload);
     void sendFileSnapshot(SOCKET client_sock, int fileId, int code);
