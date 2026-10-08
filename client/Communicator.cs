@@ -89,6 +89,7 @@ namespace client_side
         MC_BACK_TO_TO_DO_LIST_PAGE_REQUEST = 170,
         MC_MODIFY_ISSUE_REQUEST = 171,
         MC_MARK_ALL_AS_READ_REQUEST = 172,
+        MC_FILE_OP_REQUEST = 173,      // live edit: "<fileId>|<revision>|<operation>"
 
         MC_ERROR_RESP = 200, //responses
         MC_INITIAL_RESP = 201,
@@ -163,6 +164,9 @@ namespace client_side
         MC_BACK_TO_TO_DO_LIST_PAGE_RESP = 270,
         MC_MODIFY_ISSUE_RESP = 271,
         MC_MARK_ALL_AS_READ_RESP = 272,
+        MC_FILE_OP_RESP = 273,         // someone else's edit
+        MC_FILE_OP_ACK = 274,          // our edit was applied
+        MC_FILE_RESYNC = 275,          // reload the file from this snapshot
 
         MC_DISCONNECT = 300, //user
         MC_LOGIN_REQUEST = 301,
@@ -569,6 +573,19 @@ namespace client_side
             else if (control is Border border)
             {
                 border.BorderBrush = AppTheme.TextColor; // Apply text color
+                ApplyThemeToControl(border.Child);
+            }
+            else if (control is ICSharpCode.AvalonEdit.TextEditor editor)
+            {
+                editor.Foreground = AppTheme.TextColor;
+            }
+            else if (control is ScrollViewer scrollViewer)
+            {
+                ApplyThemeToControl(scrollViewer.Content as DependencyObject);
+            }
+            else if (control is PasswordBox passwordBox)
+            {
+                passwordBox.Foreground = AppTheme.TextColor;
             }
             else if (control is CheckBox checkBox)
             {

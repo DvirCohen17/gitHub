@@ -139,7 +139,7 @@ namespace client_side
                         communicator.ClearCredentials();
                     }
 
-                    ToDoListWindow filesWindow = new ToDoListWindow(communicator, 2);
+                    HomePage filesWindow = new HomePage(communicator);
                     filesWindow.Show();
                     Close();
                 }
