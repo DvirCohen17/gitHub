@@ -11,49 +11,6 @@ using static client_side.HomePage;
 
 namespace client_side
 {
-    public class MultiVisibilityConverter2 : IMultiValueConverter
-    {
-        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
-        {
-            if (values.Length == 2 &&
-                values[0] is bool type &&
-                values[1] is bool isRead)
-            {
-                // Example logic: Button is visible if Type is true and IsRead is false
-                return (!type && !isRead) ? Visibility.Visible : Visibility.Collapsed;
-            }
-
-            return Visibility.Collapsed; // Default fallback
-        }
-
-        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
-        {
-            throw new NotImplementedException();
-        }
-    }
-
-    public class MultiVisibilityConverter1 : IMultiValueConverter
-    {
-        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
-        {
-            if (values.Length == 2 &&
-                values[0] is bool type &&
-                values[1] is bool isRead)
-            {
-                // Example logic: Button is visible if Type is true and IsRead is false
-                return (type && !isRead) ? Visibility.Visible : Visibility.Collapsed;
-            }
-
-            return Visibility.Collapsed; // Default fallback
-        }
-
-        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
-        {
-            throw new NotImplementedException();
-        }
-    }
-
-
     public partial class MessagesWindow : Window, INotifyPropertyChanged
     {
         private Communicator communicator;
