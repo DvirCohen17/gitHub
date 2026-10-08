@@ -135,6 +135,8 @@ public:
 private:
 	sqlite3* _db;
 
+	std::list<ClientHandler> findUsers(const std::string& usernameOrEmail);
+
 	bool send(sqlite3* db, std::string msg);
 	bool send_users(sqlite3* db, std::string msg, std::list<ClientHandler>* users);
 	bool send_data(sqlite3* db, std::string msg, std::list<std::string>* data);

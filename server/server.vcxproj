@@ -132,6 +132,7 @@
     <ClInclude Include="Communicator.h" />
     <ClInclude Include="FileOperation.h" />
     <ClInclude Include="Helper.h" />
+    <ClInclude Include="PasswordHasher.h" />
     <ClInclude Include="IDatabase.h" />
     <ClInclude Include="Operations.h" />
     <ClInclude Include="sqlite3.h" />
@@ -143,6 +144,7 @@
     <ClCompile Include="Communicator.cpp" />
     <ClCompile Include="FileOperation.cpp" />
     <ClCompile Include="Helper.cpp" />
+    <ClCompile Include="PasswordHasher.cpp" />
     <ClCompile Include="IDatabase.cpp" />
     <ClCompile Include="Operations.cpp" />
     <ClCompile Include="Main.cpp" />
