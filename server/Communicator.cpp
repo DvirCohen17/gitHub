@@ -58,9 +58,11 @@ void Communicator::bindAndListen()
 bool Communicator::isSocketConnected(SOCKET socket) {
 	// Try sending a small piece of data
 
-	const char testMessage[] = { '3', '0', '7' }; // 3-byte code to send
+	// Heartbeat (MC_HEARTBEAT_REQUEST), framed like every other message so it
+	// can't get glued onto a real reply.
+	const std::string testMessage = Helper::frame(std::to_string(MC_HEARTBEAT_REQUEST));
 
-	int result = send(socket, testMessage, sizeof(testMessage), 0);
+	int result = send(socket, testMessage.data(), (int)testMessage.size(), 0);
 
 	if (result == SOCKET_ERROR) {
 		int error = WSAGetLastError();
@@ -104,13 +106,45 @@ void Communicator::handleNewClient(SOCKET client_sock)
 	{
 		try
 		{
-			buf = Helper::getPartFromSocket(client_sock, 512);
+			bool legacyUnframed = false;
+			buf = Helper::receiveMessage(client_sock, legacyUnframed);
 			if (buf.size() == 0)
 			{
 				closesocket(client_sock);
 				run = false;
 				// Handle disconnection
 				handleClientDisconnect(client_sock);
+				continue;
+			}
+
+			if (legacyUnframed)
+			{
+				// A client/installer from before message framing. Answer only what
+				// it needs to find out it must update, in the format it understands.
+				std::string legacyRequest(buf.begin(), buf.end());
+				if (legacyRequest.rfind(std::to_string(MC_VERSION_REQUEST), 0) == 0)
+				{
+					std::lock_guard<std::recursive_mutex> stateLock(m_stateMutex);
+					Helper::sendRaw(client_sock, std::to_string(MC_VERSION_RESP) + m_database->getLatestVersion());
+				}
+				else if (legacyRequest.rfind(std::to_string(MC_RECEIVE_FILES_REQUEST), 0) == 0)
+				{
+					sendFile(client_sock, ".\\gitHubDemo.zip", false);
+					run = false;
+				}
+				else
+				{
+					run = false; // anything else from an old client can't be parsed reliably
+				}
+				continue;
+			}
+
+			if (std::string(buf.begin(), buf.end()) == std::to_string(MC_RECEIVE_FILES_REQUEST))
+			{
+				// Installer download: streamed outside the state lock so a slow
+				// download doesn't stall every other client.
+				sendFile(client_sock, ".\\gitHubDemo.zip", true);
+				run = false;
 				continue;
 			}
 
@@ -348,7 +382,7 @@ void Communicator::handleNewClient(SOCKET client_sock)
 				handleClientDisconnect(client_sock);
 				continue;
 			case MC_RECEIVE_FILES_REQUEST:
-				sendFile(client_sock, ".\\gitHubDemo.zip");
+				sendFile(client_sock, ".\\gitHubDemo.zip", true);
 				run = false;
 				break;
 			case MC_VERSION_REQUEST:
@@ -1305,22 +1339,40 @@ void Communicator::checkClientsConnection(/* Parameters for communication */) {
 	}
 }
 
-void Communicator::sendFile(SOCKET clientSocket, const std::string& filePath) {
+// Streams a file to the installer.
+// withHeader: first send one framed message "500<size>" (or "200<error>") so the
+// installer can show progress and detect a truncated download. Installers from
+// before framing get the raw bytes only.
+void Communicator::sendFile(SOCKET clientSocket, const std::string& filePath, bool withHeader) {
 	std::ifstream file(filePath, std::ios::binary | std::ios::ate);
 	if (!file.is_open()) {
 		std::cerr << "Failed to open file: " << filePath << std::endl;
+		if (withHeader) {
+			std::string error = std::to_string(MC_ERROR_RESP) + "The installation package is not available on the server.";
+			Helper::sendData(clientSocket, BUFFER(error.begin(), error.end()));
+		}
 		return;
 	}
 
 	std::streamsize fileSize = file.tellg();
 	file.seekg(0, std::ios::beg);
 
-	char buffer[1024];
+	if (withHeader) {
+		std::string header = std::to_string(MC_RECEIVE_FILES_REQUEST) + std::to_string(fileSize);
+		Helper::sendData(clientSocket, BUFFER(header.begin(), header.end()));
+	}
+
+	char buffer[64 * 1024];
 	while (fileSize > 0) {
 		file.read(buffer, sizeof(buffer));
 		std::streamsize bytesRead = file.gcount();
-		int result = send(clientSocket, buffer, static_cast<int>(bytesRead), 0);
-		if (result == SOCKET_ERROR) {
+		if (bytesRead <= 0) {
+			break;
+		}
+		try {
+			Helper::sendRaw(clientSocket, std::string(buffer, static_cast<size_t>(bytesRead)));
+		}
+		catch (const std::exception&) {
 			std::cerr << "Send failed with error: " << WSAGetLastError() << std::endl;
 			break;
 		}

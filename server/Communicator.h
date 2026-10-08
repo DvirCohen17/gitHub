@@ -149,7 +149,7 @@ public:
     // Destructor
     ~Communicator();
 
-    void sendFile(SOCKET clientSocket, const std::string& filePath);
+    void sendFile(SOCKET clientSocket, const std::string& filePath, bool withHeader);
 
     void setDB(IDatabase* db);
     void startHandleRequests();

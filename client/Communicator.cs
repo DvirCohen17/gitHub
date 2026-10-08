@@ -236,16 +236,44 @@ namespace client_side
         public event EventHandler ThemeChanged;
 
         public AppSettings settings { get; set; }
+        private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(5);
+        private static readonly TimeSpan ResponseTimeout = TimeSpan.FromSeconds(15);
+
+        // Only opens the connection, so it is safe to call from a background thread.
+        // Call Initialize() on the UI thread afterwards.
         public Communicator(string ip, int port)
         {
             m_socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
-            if (m_socket == null)
+            try
             {
-                throw new ExternalException("Socket failed to initialize");
+                if (!m_socket.ConnectAsync(ip, port).Wait(ConnectTimeout))
+                {
+                    throw new TimeoutException("the server did not answer.");
+                }
             }
+            catch (AggregateException ex) when (ex.InnerException != null)
+            {
+                m_socket.Close();
+                throw ex.InnerException;
+            }
+            catch
+            {
+                m_socket.Close();
+                throw;
+            }
+        }
 
-            m_socket.Connect(ip, port);
+        // While a window is waiting for a direct reply (login, sign-up, ...), a dead
+        // server shouldn't freeze it forever. Background listeners wait indefinitely.
+        public void UseResponseTimeout(bool enabled)
+        {
+            m_socket.ReceiveTimeout = enabled ? (int)ResponseTimeout.TotalMilliseconds : 0;
+        }
 
+        // Loads settings, checks the client version and applies the theme. UI thread only.
+        public void Initialize()
+        {
+            UseResponseTimeout(true);
             LoadSettings();
         }
 
@@ -301,6 +329,7 @@ namespace client_side
                         {
                             FileName = installerPath,
                             WorkingDirectory = "C:\\githubDemo\\installer", // Set the working directory
+                            Arguments = "--update", // installer starts right away instead of waiting for a click
                             UseShellExecute = true
                         };
                         Process.Start(startInfo);
@@ -690,120 +719,122 @@ namespace client_side
             }
         }
 
+        // ---- Message framing -------------------------------------------------
+        // Every message is '#' + 8-digit payload length (bytes) + payload, matching
+        // Helper::frame on the server. TCP doesn't keep message boundaries, so
+        // without this, replies over 512 bytes were cut off and replies that
+        // arrived together were glued into one and misread.
+        private const byte FrameMarker = (byte)'#';
+        private const int FrameLengthDigits = 8;
+        private const int MaxMessageSize = 16 * 1024 * 1024;
+        private readonly object sendLock = new object();
+        private readonly object receiveLock = new object();
+
         public void SendData(string message)
         {
-            //LogAction(message);
-           byte[] data = Encoding.UTF8.GetBytes(message);
-           m_socket.Send(data); 
+            SendFrame(Encoding.UTF8.GetBytes(message));
         }
 
         public void SendImage(byte[] message)
         {
-            //LogAction(message);
-            m_socket.Send(message);
+            SendFrame(message);
+        }
+
+        private void SendFrame(byte[] payload)
+        {
+            byte[] header = Encoding.ASCII.GetBytes("#" + payload.Length.ToString("D" + FrameLengthDigits));
+            byte[] frame = new byte[header.Length + payload.Length];
+            Buffer.BlockCopy(header, 0, frame, 0, header.Length);
+            Buffer.BlockCopy(payload, 0, frame, header.Length, payload.Length);
+            lock (sendLock)
+            {
+                int sent = 0;
+                while (sent < frame.Length)
+                {
+                    sent += m_socket.Send(frame, sent, frame.Length - sent, SocketFlags.None);
+                }
+            }
+        }
+
+        // Blocks until one whole message has arrived and returns its payload.
+        public byte[] ReceiveFrame()
+        {
+            lock (receiveLock)
+            {
+                byte[] header = ReceiveExactly(1 + FrameLengthDigits);
+                if (header[0] != FrameMarker)
+                {
+                    throw new IOException("Protocol error: unexpected data from server.");
+                }
+                if (!int.TryParse(Encoding.ASCII.GetString(header, 1, FrameLengthDigits), out int length)
+                    || length < 0 || length > MaxMessageSize)
+                {
+                    throw new IOException("Protocol error: bad message length from server.");
+                }
+                return ReceiveExactly(length);
+            }
+        }
+
+        private byte[] ReceiveExactly(int count)
+        {
+            byte[] buffer = new byte[count];
+            int received = 0;
+            while (received < count)
+            {
+                int bytes = m_socket.Receive(buffer, received, count - received, SocketFlags.None);
+                if (bytes == 0)
+                {
+                    throw new IOException("The connection to the server was closed.");
+                }
+                received += bytes;
+            }
+            return buffer;
+        }
+
+        public static bool IsConnectionLost(Exception ex)
+        {
+            return ex is IOException || ex is SocketException || ex is ObjectDisposedException
+                || ex.InnerException is SocketException || ex.InnerException is IOException;
+        }
+
+        private int connectionLostReported;
+
+        // Called by the windows' background listeners when their receive loop fails.
+        // A dropped connection is reported once and closes the app, instead of every
+        // open window showing its own error (or silently stopping).
+        public void HandleListenerError(Exception ex)
+        {
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                if (IsConnectionLost(ex))
+                {
+                    if (Interlocked.Exchange(ref connectionLostReported, 1) == 0)
+                    {
+                        MessageBox.Show("Lost the connection to the server. gitHub Demo will now close.",
+                            "Connection lost", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        Application.Current.Shutdown();
+                    }
+                    return;
+                }
+                MessageBox.Show($"Error receiving server updates: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            });
         }
 
         public string ReceiveData()
         {
-            byte[] buffer = new byte[512];  // Adjust the buffer size as needed
-            int bytesRead = m_socket.Receive(buffer);
-            string rep = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-            //LogAction(rep);
-            return rep;
+            return Encoding.UTF8.GetString(ReceiveFrame());
         }
 
         public string ReceiveFileData()
         {
-            byte[] buffer = new byte[30000];  // Adjust the buffer size as needed
-            int bytesRead = m_socket.Receive(buffer);
-            string rep = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-            //LogAction(rep);
-            return rep;
+            return ReceiveData();
         }
 
         public string ReceiveImage(int imageSize)
         {
-            byte[] buffer = new byte[imageSize];
-            int received = 0;
-
-            while (received < imageSize)
-            {
-                int bytes = m_socket.Receive(buffer, received, imageSize - received, SocketFlags.None);
-                if (bytes == 0) throw new Exception("Connection closed prematurely.");
-                received += bytes;
-            }
-
-            return Convert.ToBase64String(buffer);
+            return Convert.ToBase64String(ReceiveFrame());
         }
 
-        /*
-        public string ReceiveData(CancellationToken cancellationToken)
-        {
-            // Adjust the timeout value as needed
-            TimeSpan timeout = TimeSpan.FromSeconds(1);
-
-            // Use CancellationTokenSource to apply timeout
-            using (var timeoutCts = new CancellationTokenSource(timeout))
-            using (var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token))
-            {
-                try
-                {
-                    byte[] buffer = new byte[1024];  // Adjust the buffer size as needed
-                    int bytesRead = m_socket.Receive(buffer);
-                    string rep = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                    LogAction(rep);
-                    return rep;
-                }
-                catch (OperationCanceledException)
-                {
-                    // Handle the case where the operation is canceled due to timeout
-                    throw new TimeoutException("Receive operation timed out.");
-                }
-                catch (Exception ex)
-                {
-                    // Handle other exceptions
-                    throw new Exception($"Error receiving data: {ex.Message}");
-                }
-            }
-        }
-
-        public string ReceiveDataWithTimeout(TimeSpan timeout)
-        {
-            try
-            {
-                using (var cts = new CancellationTokenSource(timeout))
-                {
-                    var token = cts.Token;
-
-                    Task<string> receiveTask = Task.Run(() =>
-                    {
-                        // Replace the following line with your actual ReceiveData logic
-                        // Here, I'm assuming ReceiveData returns a string
-                        return ReceiveData();
-                    }, token);
-
-                    // Wait for the task to complete within the specified timeout
-                    if (receiveTask.Wait(timeout))
-                    {
-                        // Task completed within the timeout
-                        return receiveTask.Result;
-                    }
-                    else
-                    {
-                        // Timeout occurred
-                        return null;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                // Handle exceptions as needed
-                Console.WriteLine($"Error in ReceiveDataWithTimeout: {ex.Message}");
-                return null;
-            }
-        }
-
-        */
         public void LogAction(string action)
         {
             try
@@ -819,22 +850,6 @@ namespace client_side
                 // Handle the exception or log it to another source
                 MessageBox.Show($"Error logging action: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
-        }
-        public bool ContainsSqlInjection(string input)
-        {
-            // Define a list of special characters commonly used in SQL injection
-            string[] sqlSpecialCharacters = { "'", ";", "--", "/*", "*/", "xp_", "exec", "sp_"};
-
-            // Check if the input contains any of the special characters
-            foreach (var specialCharacter in sqlSpecialCharacters)
-            {
-                if (input.Contains(specialCharacter, StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
     }
 }

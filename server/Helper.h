@@ -173,10 +173,20 @@ enum MessageCodes
     MC_VERSION_RESP = 502,
 };
 
+// Largest message either side will accept (file contents, chat history, lists).
+#define MAX_MESSAGE_SIZE (16 * 1024 * 1024)
+
 class Helper
 {
 public:
+    // Sends one framed message ('#' + 8-digit length + payload).
     static void sendData(const SOCKET sc, const BUFFER message);
+    // Sends bytes as-is (installer download, replies to pre-framing clients).
+    static void sendRaw(const SOCKET sc, const std::string& data);
+    static std::string frame(const std::string& payload);
+    // Reads exactly one message. Empty buffer = client disconnected.
+    // legacyUnframed is set when the client didn't use framing (old builds).
+    static BUFFER receiveMessage(const SOCKET sc, bool& legacyUnframed);
 
     static BUFFER getPartFromSocket(const SOCKET sc, const int bytesNum);
     static BUFFER getPartFromSocket(const SOCKET sc, const int bytesNum, const int flags);
