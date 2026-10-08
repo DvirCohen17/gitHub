@@ -37,11 +37,15 @@ Requirements: Windows, Visual Studio 2022 with the **Desktop development with C+
 
 1. **Server** — run the server executable. It listens on port `12345` and creates `syncDBTemp.sqlite` (with all tables) in its working directory on first start. Type `EXIT` to stop it.
    Optional files next to the server: `gitHubDemo.zip` (served to the installer) and a `ClientVersion` row in the database (clients with a different version are told to update).
-2. **Client** — create `config.txt` next to the client executable containing the server address:
-   ```
-   127.0.0.1,12345
-   ```
+2. **Installer** — put the client package as `gitHubDemo.zip` next to the server executable, then run the installer, enter the server address and click **Install**. It downloads the package, installs it to `C:\githubDemo\data` (the previous install is only replaced once the new one is complete), creates a desktop shortcut and starts the client. When the server reports a newer version, the client runs the installer with `--update` automatically.
+3. **Client** — reads the server address (`IP,PORT`, e.g. `127.0.0.1,12345`) from `config.txt` next to the executable, or from `C:\githubDemo\data\config.txt`. If there is none, or the server can't be reached, it asks for the address and saves it.
    The client stores its settings in `C:\githubDemo\settings\appsettings.json` and reads syntax-highlighting files from `C:\githubDemo\data\codeStyles\`.
+
+## Protocol
+
+Every message, in both directions, is framed as `#` + 8-digit payload length in bytes + payload. The payload starts with the 3-digit message code. The server still answers unframed `501` (version) and `500` (download) requests from older clients and installers, so they can update themselves; any other unframed request is refused.
+
+Known limitation: fields inside a payload are length-prefixed in characters by the client but in bytes by the server, so non-ASCII text (e.g. Hebrew) in names, chat or files can still be misparsed. Usernames are restricted to ASCII for this reason.
 
 ## Security notes
 

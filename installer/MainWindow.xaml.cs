@@ -2,188 +2,298 @@
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Net.Sockets;
-using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Media.Animation;
-using IWshRuntimeLibrary; // Ensure this using directive is present
+using IWshRuntimeLibrary;
 
 namespace InstallerApp
 {
     public partial class MainWindow : Window
     {
-        private const string ConfigFilePath = @"C:\githubDemo\data\config.txt";
+        private const string InstallRoot = @"C:\githubDemo";
+        private static readonly string DataPath = Path.Combine(InstallRoot, "data");
+        private static readonly string InstallerPath = Path.Combine(InstallRoot, "installer");
+        private static readonly string ConfigFilePath = Path.Combine(DataPath, "config.txt");
+        private static readonly string ClientExePath = Path.Combine(DataPath, "client_side.exe");
 
-        private System.Windows.Threading.DispatcherTimer timer;
-        private string serverAddress;
-        private int port;
+        private const string DownloadRequest = "500";   // MC_RECEIVE_FILES_REQUEST
+        private const string ErrorResponse = "200";     // MC_ERROR_RESP
+        private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(5);
+
+        private CancellationTokenSource? cancellation;
 
         public MainWindow()
         {
             InitializeComponent();
             LoadServerConfiguration();
-        }
 
-        private async void InstallButton_Click(object sender, RoutedEventArgs e)
-        {
-            installButton.IsEnabled = false;
-            statusTextBlock.Text = "Status: Connecting to server...";
-
-            // Show the loading animation
-            StartLoadingAnimation();
-
-            try
+            // The client launches us with --update when the server has a newer version.
+            if (Environment.GetCommandLineArgs().Any(a => a.Equals("--update", StringComparison.OrdinalIgnoreCase)))
             {
-                await InstallClientAsync();
-                statusTextBlock.Text = "Status: Installation complete!";
-
-                CreateShortcut();
-
-                // Optionally, launch the client application
-                var processStartInfo = new ProcessStartInfo
-                {
-                    FileName = "C:\\githubDemo\\data\\client_side.exe",
-                    WorkingDirectory = "C:\\githubDemo\\data", // Set the working directory
-                    UseShellExecute = false
-                };
-                Process.Start(processStartInfo);
-                this.Close();
-            }
-            catch (Exception ex)
-            {
-                statusTextBlock.Text = "Status: Installation failed.";
-                MessageBox.Show($"Error: {ex.Message}", "Installation Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-            finally
-            {
-                StopLoadingAnimation();
-            }
-        }
-
-        private void StartLoadingAnimation()
-        {
-            loadingGrid.Visibility = Visibility.Visible;
-            Storyboard loadingAnimation = (Storyboard)FindResource("LoadingAnimation");
-            loadingAnimation.Begin();
-        }
-
-        private void StopLoadingAnimation()
-        {
-            loadingGrid.Visibility = Visibility.Collapsed;
-            Storyboard loadingAnimation = (Storyboard)FindResource("LoadingAnimation");
-            loadingAnimation.Stop();
-        }
-
-        private async Task InstallClientAsync()
-        {
-            string zipFilePath = "C:\\githubDemo\\client_files.zip";
-            string extractPath = "C:\\githubDemo\\data";
-            string installerPath = "C:\\githubDemo\\installer";
-
-            if (!Directory.Exists(extractPath))
-            {
-                Directory.CreateDirectory(extractPath);
-            }
-            // Create the installer directory if it doesn't exist
-            if (!Directory.Exists(installerPath))
-            {
-                Directory.CreateDirectory(installerPath);
-            }
-            using (Socket socket = new Socket(SocketType.Stream, ProtocolType.Tcp))
-            {
-                if (socket == null)
-                {
-                    throw new ExternalException("Socket failed to initialize");
-                }
-
-                await Task.Run(() => socket.Connect(serverAddress, port));
-
-                byte[] data = Encoding.UTF8.GetBytes("500");
-                socket.Send(data);
-
-                using (NetworkStream networkStream = new NetworkStream(socket))
-                {
-                    // Receive the ZIP file
-                    await ReceiveFile(networkStream, zipFilePath);
-                }
-            }
-
-            // Extract the ZIP file
-            if (Directory.Exists(extractPath))
-            {
-                Directory.Delete(extractPath, true);
-            }
-
-            ZipFile.ExtractToDirectory(zipFilePath, extractPath);
-
-            // Delete the ZIP file after extraction
-            if (System.IO.File.Exists(zipFilePath))
-            {
-                System.IO.File.Delete(zipFilePath);
-            }
-
-            // Copy installer files from the current directory to the installer directory
-            CopyInstallerFiles(installerPath);
-            // Update config file with new IP and port
-            UpdateConfigFile(serverAddress, port);
-        }
-
-        private async Task ReceiveFile(NetworkStream networkStream, string destinationPath)
-        {
-            long totalBytesRead = 0;
-            long totalBytes = 0; // Set this to the total size of the file if known or handle dynamically
-
-            using (FileStream fs = new FileStream(destinationPath, FileMode.Create, FileAccess.Write))
-            {
-                byte[] buffer = new byte[1024];
-                int bytesRead;
-                while ((bytesRead = await networkStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
-                {
-                    await fs.WriteAsync(buffer, 0, bytesRead);
-                    totalBytesRead += bytesRead;
-                }
+                statusTextBlock.Text = "A new version is available. Updating...";
+                Loaded += (_, _) => InstallButton_Click(this, new RoutedEventArgs());
             }
         }
 
         private void LoadServerConfiguration()
         {
-            if (System.IO.File.Exists(ConfigFilePath))
+            string host = "127.0.0.1";
+            string port = "12345";
+            try
             {
-                var configData = System.IO.File.ReadAllText(ConfigFilePath);
-                var parts = configData.Split(',');
-                if (parts.Length == 2)
+                if (System.IO.File.Exists(ConfigFilePath))
                 {
-                    serverAddress = parts[0];
-                    port = int.Parse(parts[1]);
+                    string[] parts = System.IO.File.ReadAllText(ConfigFilePath).Trim().Split(',');
+                    if (parts.Length == 2)
+                    {
+                        host = parts[0].Trim();
+                        port = parts[1].Trim();
+                    }
                 }
             }
-            else
-            {
-                // Prompt user for IP and Port if the config file does not exist
-                var inputDialog = new InputDialog();
-                if (inputDialog.ShowDialog() == true)
-                {
-                    serverAddress = inputDialog.IPAddress;
-                    port = inputDialog.Port;
-
-                }
-                else
-                {
-                    MessageBox.Show("Configuration is required to proceed.", "Configuration Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                    Application.Current.Shutdown();
-                }
-            }
-
-            // Show the IP and Port on the screen
-            statusTextBlock.Text = $"Server Address: {serverAddress}, Port: {port}";
+            catch (IOException) { }
+            hostTextBox.Text = host;
+            portTextBox.Text = port;
         }
 
-        private void UpdateConfigFile(string newIP, int newPort)
+        private async void InstallButton_Click(object sender, RoutedEventArgs e)
         {
-            System.IO.File.WriteAllText(ConfigFilePath, $"{newIP},{newPort}");
+            string host = hostTextBox.Text.Trim();
+            if (host.Length == 0 || !int.TryParse(portTextBox.Text.Trim(), out int port) || port < 1 || port > 65535)
+            {
+                statusTextBlock.Text = "Enter a server address and a port between 1 and 65535.";
+                return;
+            }
+
+            SetBusy(true);
+            cancellation = new CancellationTokenSource();
+            try
+            {
+                await InstallClientAsync(host, port, cancellation.Token);
+                CreateShortcut();
+                statusTextBlock.Text = "Installation complete. Starting gitHub Demo...";
+
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = ClientExePath,
+                    WorkingDirectory = DataPath,
+                    UseShellExecute = false
+                });
+                Close();
+            }
+            catch (OperationCanceledException)
+            {
+                statusTextBlock.Text = "Installation cancelled. Your existing installation was not changed.";
+            }
+            catch (Exception ex)
+            {
+                statusTextBlock.Text = $"Installation failed: {ex.Message}\nYour existing installation was not changed.";
+            }
+            finally
+            {
+                SetBusy(false);
+                cancellation = null;
+            }
+        }
+
+        private void CancelButton_Click(object sender, RoutedEventArgs e)
+        {
+            cancellation?.Cancel();
+        }
+
+        private void SetBusy(bool busy)
+        {
+            installButton.IsEnabled = !busy;
+            serverPanel.IsEnabled = !busy;
+            cancelButton.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
+            progressBar.Visibility = busy ? Visibility.Visible : Visibility.Hidden;
+            if (busy)
+            {
+                progressBar.IsIndeterminate = true;
+            }
+        }
+
+        private void ReportStatus(string text, double? percent = null)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                statusTextBlock.Text = text;
+                if (percent.HasValue)
+                {
+                    progressBar.IsIndeterminate = false;
+                    progressBar.Value = percent.Value;
+                }
+            });
+        }
+
+        // Download -> extract into a staging folder -> swap with the current install.
+        // Nothing under C:\githubDemo\data is touched until the new files are complete.
+        private async Task InstallClientAsync(string host, int port, CancellationToken token)
+        {
+            Directory.CreateDirectory(InstallRoot);
+            string zipPath = Path.Combine(Path.GetTempPath(), $"githubDemo-{Guid.NewGuid():N}.zip");
+            string stagingPath = DataPath + ".new";
+            string backupPath = DataPath + ".old";
+
+            try
+            {
+                ReportStatus($"Connecting to {host}:{port}...");
+                await DownloadPackageAsync(host, port, zipPath, token);
+
+                ReportStatus("Extracting files...");
+                if (Directory.Exists(stagingPath))
+                {
+                    Directory.Delete(stagingPath, true);
+                }
+                await Task.Run(() => ZipFile.ExtractToDirectory(zipPath, stagingPath), token);
+                if (!System.IO.File.Exists(Path.Combine(stagingPath, "client_side.exe")))
+                {
+                    throw new InvalidDataException("the downloaded package doesn't contain client_side.exe.");
+                }
+                token.ThrowIfCancellationRequested();
+
+                ReportStatus("Waiting for gitHub Demo to close...");
+                await WaitForClientToExitAsync(token);
+
+                ReportStatus("Installing...");
+                if (Directory.Exists(backupPath))
+                {
+                    Directory.Delete(backupPath, true);
+                }
+                if (Directory.Exists(DataPath))
+                {
+                    Directory.Move(DataPath, backupPath);
+                }
+                try
+                {
+                    Directory.Move(stagingPath, DataPath);
+                }
+                catch
+                {
+                    if (Directory.Exists(backupPath) && !Directory.Exists(DataPath))
+                    {
+                        Directory.Move(backupPath, DataPath); // put the old install back
+                    }
+                    throw;
+                }
+
+                System.IO.File.WriteAllText(ConfigFilePath, $"{host},{port}");
+                CopyInstallerFiles();
+                TryDeleteDirectory(backupPath);
+            }
+            finally
+            {
+                TryDeleteFile(zipPath);
+                TryDeleteDirectory(stagingPath);
+            }
+        }
+
+        private async Task DownloadPackageAsync(string host, int port, string destinationPath, CancellationToken token)
+        {
+            using Socket socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
+            using (var connectTimeout = CancellationTokenSource.CreateLinkedTokenSource(token))
+            {
+                connectTimeout.CancelAfter(ConnectTimeout);
+                try
+                {
+                    await socket.ConnectAsync(host, port, connectTimeout.Token);
+                }
+                catch (OperationCanceledException) when (!token.IsCancellationRequested)
+                {
+                    throw new TimeoutException($"the server at {host}:{port} did not answer.");
+                }
+                catch (SocketException ex)
+                {
+                    throw new IOException($"couldn't connect to {host}:{port} ({ex.Message}).");
+                }
+            }
+
+            using NetworkStream stream = new NetworkStream(socket, ownsSocket: false);
+            await SendFrameAsync(stream, DownloadRequest, token);
+
+            // The server answers with one framed "500<size>" (or "200<error>"), then the raw zip.
+            string header = await ReceiveFrameAsync(stream, token);
+            if (header.StartsWith(ErrorResponse))
+            {
+                throw new IOException(header.Substring(ErrorResponse.Length));
+            }
+            if (!header.StartsWith(DownloadRequest) || !long.TryParse(header.Substring(DownloadRequest.Length), out long totalBytes) || totalBytes <= 0)
+            {
+                throw new InvalidDataException("unexpected reply from the server.");
+            }
+
+            using FileStream file = new FileStream(destinationPath, FileMode.Create, FileAccess.Write);
+            byte[] buffer = new byte[64 * 1024];
+            long received = 0;
+            while (received < totalBytes)
+            {
+                int toRead = (int)Math.Min(buffer.Length, totalBytes - received);
+                int read = await stream.ReadAsync(buffer.AsMemory(0, toRead), token);
+                if (read == 0)
+                {
+                    throw new IOException("the connection closed before the download finished.");
+                }
+                await file.WriteAsync(buffer.AsMemory(0, read), token);
+                received += read;
+                ReportStatus($"Downloading... {received / 1048576.0:0.0} of {totalBytes / 1048576.0:0.0} MB",
+                             received * 100.0 / totalBytes);
+            }
+        }
+
+        // Same framing as the client and server: '#' + 8-digit length + payload.
+        private static async Task SendFrameAsync(NetworkStream stream, string payload, CancellationToken token)
+        {
+            byte[] body = Encoding.UTF8.GetBytes(payload);
+            byte[] frame = Encoding.ASCII.GetBytes("#" + body.Length.ToString("D8")).Concat(body).ToArray();
+            await stream.WriteAsync(frame, token);
+        }
+
+        private static async Task<string> ReceiveFrameAsync(NetworkStream stream, CancellationToken token)
+        {
+            byte[] header = await ReadExactlyAsync(stream, 9, token);
+            if (header[0] != (byte)'#' || !int.TryParse(Encoding.ASCII.GetString(header, 1, 8), out int length) || length > 1024 * 1024)
+            {
+                throw new InvalidDataException("unexpected reply from the server (is it an older server version?).");
+            }
+            return Encoding.UTF8.GetString(await ReadExactlyAsync(stream, length, token));
+        }
+
+        private static async Task<byte[]> ReadExactlyAsync(NetworkStream stream, int count, CancellationToken token)
+        {
+            byte[] buffer = new byte[count];
+            int received = 0;
+            while (received < count)
+            {
+                int read = await stream.ReadAsync(buffer.AsMemory(received, count - received), token);
+                if (read == 0)
+                {
+                    throw new IOException("the server closed the connection.");
+                }
+                received += read;
+            }
+            return buffer;
+        }
+
+        private static async Task WaitForClientToExitAsync(CancellationToken token)
+        {
+            for (int i = 0; i < 40; i++)
+            {
+                bool running = Process.GetProcessesByName("client_side").Any(p =>
+                {
+                    try { return string.Equals(p.MainModule?.FileName, ClientExePath, StringComparison.OrdinalIgnoreCase); }
+                    catch { return false; }
+                });
+                if (!running)
+                {
+                    return;
+                }
+                await Task.Delay(250, token);
+            }
+            throw new IOException("gitHub Demo is still running. Close it and try again.");
         }
 
         private void CreateShortcut()
@@ -191,43 +301,48 @@ namespace InstallerApp
             try
             {
                 var shell = new WshShell();
-                string shortcutAddress = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "giThubDemo.lnk");
+                string shortcutAddress = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "gitHub Demo.lnk");
                 var shortcut = (IWshShortcut)shell.CreateShortcut(shortcutAddress);
 
-                shortcut.Description = "New shortcut for GitHub Demo";
-                shortcut.TargetPath = @"C:\githubDemo\data\client_side.exe";
+                shortcut.Description = "gitHub Demo";
+                shortcut.TargetPath = ClientExePath;
+                shortcut.WorkingDirectory = DataPath; // the client looks for config.txt here
 
-                // Set the icon for the shortcut
-                string iconFilePath = @"C:\githubDemo\data\icon.ico"; // Path to the icon file
-                shortcut.IconLocation = $"{iconFilePath},0"; // Set the icon location (0 for the first icon in the file)
+                string iconFilePath = Path.Combine(DataPath, "icon.ico");
+                shortcut.IconLocation = System.IO.File.Exists(iconFilePath) ? $"{iconFilePath},0" : $"{ClientExePath},0";
 
                 shortcut.Save();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error creating shortcut: {ex.Message}", "Shortcut Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                // The install itself succeeded; a missing shortcut isn't worth failing over.
+                Debug.WriteLine($"Shortcut not created: {ex.Message}");
             }
         }
 
-        private void CopyInstallerFiles(string destinationPath)
+        // Keep a copy of the installer in C:\githubDemo\installer so the client can run it to update.
+        private static void CopyInstallerFiles()
         {
-            try
+            string sourcePath = Path.GetFullPath(AppDomain.CurrentDomain.BaseDirectory).TrimEnd('\\');
+            if (string.Equals(sourcePath, Path.GetFullPath(InstallerPath).TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
             {
-                // Get the path of the directory where the application is running
-                string sourcePath = AppDomain.CurrentDomain.BaseDirectory;
+                return; // already running from the installed copy (update flow)
+            }
+            Directory.CreateDirectory(InstallerPath);
+            foreach (string file in Directory.GetFiles(sourcePath))
+            {
+                System.IO.File.Copy(file, Path.Combine(InstallerPath, Path.GetFileName(file)), overwrite: true);
+            }
+        }
 
-                // Copy all files from the source directory to the destination directory
-                foreach (var file in Directory.GetFiles(sourcePath))
-                {
-                    string fileName = Path.GetFileName(file);
-                    string destFile = Path.Combine(destinationPath, fileName);
-                    System.IO.File.Copy(file, destFile, overwrite: true);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error copying installer files: {ex.Message}", "File Copy Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
+        private static void TryDeleteFile(string path)
+        {
+            try { if (System.IO.File.Exists(path)) System.IO.File.Delete(path); } catch (IOException) { }
+        }
+
+        private static void TryDeleteDirectory(string path)
+        {
+            try { if (Directory.Exists(path)) Directory.Delete(path, true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
         }
     }
 }
