@@ -5,26 +5,81 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:client_side"
         mc:Ignorable="d"
-        Title="settingsWindow" Height="600" Width="1000" >
-    <Grid x:Name="MainGrid">
+        Title="Settings" Width="760" Height="560" MinWidth="600" MinHeight="420"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <Grid Margin="18">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="200"/>
+            <ColumnDefinition Width="170"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <StackPanel Grid.Row="1" Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="10">
-            <Button Content="Code Style" Width="140" Height="30" FontSize="17" Click="ModifyCodeStyle_Click" Margin="5,10"/>
-            <Button x:Name="modifyThemeButton" Width="140" Height="30" Content="Theme" FontSize="17" Click="ModifyTheme_Click" Margin="5, 80"/>
-            <!-- Add more buttons here for other actions -->
+        <TextBlock Grid.ColumnSpan="2" Text="Settings" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,14"/>
+
+        <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,16,0">
+            <RadioButton x:Name="themeTab" Content="Theme" GroupName="tab" IsChecked="True" Margin="0,4" Checked="Tab_Checked"/>
+            <RadioButton x:Name="colorsTab" Content="Editor colours" GroupName="tab" Margin="0,4" Checked="Tab_Checked"/>
         </StackPanel>
-        <ScrollViewer Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="10">
-            <StackPanel x:Name="dynamicContentPanel" Orientation="Vertical" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-                <!-- Dynamic content will be added here -->
+
+        <!-- Theme -->
+        <ScrollViewer x:Name="themePanel" Grid.Row="1" Grid.Column="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock Text="Pick a theme. It applies right away and is remembered next time." Opacity="0.65" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                <ItemsControl x:Name="themeList">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <RadioButton GroupName="theme" Margin="0,0,10,10" IsChecked="{Binding IsSelected, Mode=OneWay}"
+                                         Checked="Theme_Checked" Tag="{Binding Name}">
+                                <Border Width="140" Height="56" CornerRadius="6" BorderThickness="1" BorderBrush="Gray"
+                                        Background="{Binding Background}">
+                                    <TextBlock Text="{Binding Name}" Foreground="{Binding Foreground}" HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                </Border>
+                            </RadioButton>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
             </StackPanel>
         </ScrollViewer>
+
+        <!-- Editor colours -->
+        <DockPanel x:Name="colorsPanel" Grid.Row="1" Grid.Column="1" Visibility="Collapsed">
+            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,10">
+                <TextBlock Text="Language" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <ComboBox x:Name="languageComboBox" Width="160" Height="26" SelectionChanged="Language_SelectionChanged"/>
+            </StackPanel>
+            <TextBlock x:Name="txtColorsHint" DockPanel.Dock="Top" Opacity="0.65" TextWrapping="Wrap" Margin="0,0,0,10"/>
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ItemsControl x:Name="colorList">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <DockPanel Margin="0,3">
+                                <TextBlock DockPanel.Dock="Right" Text="Example text" Width="110" Margin="10,0,0,0" VerticalAlignment="Center"
+                                           Foreground="{Binding Brush}" FontFamily="Consolas"/>
+                                <ComboBox DockPanel.Dock="Right" Width="170" Height="24" ItemsSource="{Binding Choices}"
+                                          SelectedItem="{Binding ColorName, Mode=TwoWay}"/>
+                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                            </DockPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </DockPanel>
+
+        <DockPanel Grid.Row="2" Grid.ColumnSpan="2" Margin="0,12,0,0" LastChildFill="True">
+            <Button DockPanel.Dock="Right" Content="Close" Width="90" Height="30" IsCancel="True" Click="Close_Click"/>
+            <Button x:Name="saveColorsBtn" DockPanel.Dock="Right" Content="Save colours" Width="110" Height="30" Margin="0,0,8,0"
+                    Visibility="Collapsed" Click="SaveColors_Click"/>
+            <TextBlock x:Name="txtStatus" VerticalAlignment="Center" Opacity="0.65" TextWrapping="Wrap"/>
+        </DockPanel>
     </Grid>
 </Window>

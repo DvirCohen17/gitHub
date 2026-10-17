@@ -4,80 +4,60 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:client_side"
-        xmlns:fa="http://schemas.fontawesome.io/icons/"
-        Title="Messages" ResizeMode="NoResize" Height="400" Width="600">
-
+        mc:Ignorable="d"
+        Title="Messages" Width="640" Height="520" MinWidth="480" MinHeight="320"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <Window.Resources>
-        <local:MultiVisibilityConverter1 x:Key="MultiVisibilityConverter1" />
-        <local:MultiVisibilityConverter2 x:Key="MultiVisibilityConverter2" />
+        <local:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
+        <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility"/>
     </Window.Resources>
-
-    <Grid>
+    <Grid Margin="18">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Text="Messages" FontSize="20" FontWeight="Bold" Margin="10" Grid.Row="0"/>
+        <DockPanel Grid.Row="0" Margin="0,0,0,12" LastChildFill="False">
+            <TextBlock Text="Messages" FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center"/>
+            <Button DockPanel.Dock="Right" Content="Close" Width="80" Height="28" IsCancel="True" Click="Close_Click"/>
+            <Button DockPanel.Dock="Right" Content="Refresh" Width="80" Height="28" Margin="0,0,8,0" Click="Refresh_Click"/>
+            <Button x:Name="markAllBtn" DockPanel.Dock="Right" Content="Mark all as read" Width="130" Height="28" Margin="0,0,8,0"
+                    Click="MarkAllAsRead_Click" ToolTip="Invites and friend requests stay until you answer them"/>
+        </DockPanel>
 
-        <Button Grid.Row="0" Background="Transparent" Margin="5,0,0,0"
-                Content="Mark all as Read" Click="MarkAllAsRead_Click" />
+        <Grid Grid.Row="1">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ItemsControl x:Name="MessagesListView">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border BorderThickness="1" BorderBrush="#66888888" CornerRadius="6" Padding="12,8" Margin="0,0,0,8">
+                                <DockPanel>
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Button Content="Accept" Width="70" Height="26" Margin="8,0,0,0" Click="approveRequest_Click" Tag="{Binding}"
+                                                Visibility="{Binding IsRequest, Converter={StaticResource BoolToVisibility}}"/>
+                                        <Button Content="Decline" Width="70" Height="26" Margin="8,0,0,0" Click="declineRequest_Click" Tag="{Binding}"
+                                                Visibility="{Binding IsRequest, Converter={StaticResource BoolToVisibility}}"/>
+                                        <Button Content="Mark as read" Width="100" Height="26" Margin="8,0,0,0" Click="MarkAsRead_Click" Tag="{Binding}"
+                                                Visibility="{Binding IsRequest, Converter={StaticResource InverseBoolToVisibility}}"/>
+                                    </StackPanel>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Kind}" FontSize="11" Opacity="0.6"/>
+                                        <TextBlock TextWrapping="Wrap">
+                                            <Run Text="{Binding Sender, Mode=OneWay}" FontWeight="SemiBold"/>
+                                            <Run Text="{Binding Text, Mode=OneWay}"/>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+            <TextBlock x:Name="txtEmpty" Text="You're all caught up." HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Opacity="0.65" FontSize="15" Visibility="Collapsed"/>
+        </Grid>
 
-        <Button Grid.Row="0" Grid.Column="4" Background="Transparent" Margin="405,0,0,0"
-                Click="Refresh_Click" HorizontalAlignment="Center" VerticalAlignment="Center">
-            <Button.Content>
-                <fa:FontAwesome Icon="Refresh" Width="20" Height="20" />
-            </Button.Content>
-        </Button>
-
-        <ListView x:Name="MessagesListView" Background="Transparent" Grid.Row="1" Margin="10" ItemsSource="{Binding Messages}">
-            <ListView.ItemTemplate>
-                <DataTemplate>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-
-                        <TextBlock Grid.Column="0" Text="{Binding Text}" Margin="5,0,0,0" VerticalAlignment="Center" />
-
-                        <!-- 'X' button for declining -->
-                        <Button Grid.Column="1" Content="X" Width="20" Height="20" Margin="5,0,0,0" Background="Transparent" Foreground="Red" BorderThickness="0"
-                                Click="declineRequest_Click" CommandParameter="{Binding}">
-                            <Button.Visibility>
-                                <MultiBinding Converter="{StaticResource MultiVisibilityConverter1}">
-                                    <Binding Path="Type" />
-                                    <Binding Path="IsRead" />
-                                </MultiBinding>
-                            </Button.Visibility>
-                        </Button>
-
-                        <!-- 'V' button for approving -->
-                        <Button Grid.Column="2" Content="V" Width="20" Height="20" Margin="5,0,0,0" Background="Transparent" Foreground="Green" BorderThickness="0"
-                                Click="approveRequest_Click" CommandParameter="{Binding}">
-                            <Button.Visibility>
-                                <MultiBinding Converter="{StaticResource MultiVisibilityConverter1}">
-                                    <Binding Path="Type" />
-                                    <Binding Path="IsRead" />
-                                </MultiBinding>
-                            </Button.Visibility>
-                        </Button>
-
-                        <!-- 'Mark as Read' button -->
-                        <Button Grid.Column="3" Background="Transparent" Margin="5,0,0,0" Content="Mark as Read"
-                                Click="MarkAsRead_Click" CommandParameter="{Binding}">
-                            <Button.Visibility>
-                                <MultiBinding Converter="{StaticResource MultiVisibilityConverter2}">
-                                    <Binding Path="Type" />
-                                    <Binding Path="IsRead" />
-                                </MultiBinding>
-                            </Button.Visibility>
-                        </Button>
-                    </Grid>
-                </DataTemplate>
-            </ListView.ItemTemplate>
-        </ListView>
+        <TextBlock x:Name="txtStatus" Grid.Row="2" Margin="0,8,0,0" Opacity="0.65" TextWrapping="Wrap"/>
     </Grid>
 </Window>

@@ -1255,6 +1255,20 @@ void SqliteDataBase::createProject(std::string projectName, std::map<ProfileInfo
 	
 }
 
+std::list<ProjectJoinInvite> SqliteDataBase::getProjectInvites(int projectId)
+{
+	std::string msg = "SELECT * from ProjectJoinInvite WHERE projectId = " + std::to_string(projectId) + ";";
+	std::list<ProjectJoinInvite> invites;
+	send_ProjectJoinInvite(_db, msg, &invites);
+	return invites;
+}
+
+void SqliteDataBase::setProjectCreator(int projectId, int userId)
+{
+	std::string msg = "UPDATE UserProjects SET creatorId = " + std::to_string(userId) + " WHERE Id = " + std::to_string(projectId) + ";";
+	send(_db, msg);
+}
+
 void SqliteDataBase::deleteProject(const std::string projectName)
 {
 	std::string msg = "DELETE FROM UserProjects WHERE ProjectName = " + sqlStr(projectName) + ";";

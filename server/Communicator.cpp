@@ -834,7 +834,7 @@ Action Communicator::deconstructReq(const std::string& req) {
 		newAction.userName = action.substr(5, newAction.userNameLength);
 		break;
 	case MC_MARK_AS_READ_REQUEST:
-		newAction.messageId = std::stoi(action.substr(0, 5));
+		newAction.messageId = std::stoi(action);
 		break;
 	case MC_MARK_ALL_AS_READ_REQUEST:
 		break;

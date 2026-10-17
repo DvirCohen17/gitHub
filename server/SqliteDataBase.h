@@ -119,6 +119,8 @@ public:
 	void createProject(std::string projectName, std::map<ProfileInfo, std::string> addedUsers, std::string codeLan, int creatorId, int projectId) override;
 	void modifyProjectInfo(int projectId, std::string newProjectName, std::map<ProfileInfo, std::string> addedUsers, std::string codeLan) override;
 	void deleteProject(const std::string projectName) override;
+	void setProjectCreator(int projectId, int userId) override;
+	std::list<ProjectJoinInvite> getProjectInvites(int projectId) override;
 	void leaveProject(const std::string projectName, int userId) override;
 
 	// ******* PROFILE *******

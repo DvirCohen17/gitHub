@@ -164,9 +164,9 @@ void Communicator::deleteProject(SOCKET client_sock, int projectId)
 	{
 		throw std::exception("cannot delete. Someone is inside");
 	}
-	else if (!m_database->hasPermissionToProject(project.projectId, userId))
+	else if (!m_database->isCreator(projectName, userId))
 	{
-		throw std::exception("dont have permission for this file");
+		throw std::runtime_error("Only the project's creator can delete it.");
 	}
 	else
 	{
@@ -236,16 +236,14 @@ void Communicator::deleteProject(SOCKET client_sock, int projectId)
 				return pair.second->getUsername() == currUserName; // Assuming pair.first is the SOCKET identifier
 				});
 
-			if (userIr != m_clients.end() && userIr->second->getWindow() == HOME_PAGE) {
+			if (userIr != m_clients.end() && userIr->second->getWindow() == HOME_PAGE && currUserId != userId) {
 
 				std::string repCode = std::to_string(MC_SEND_MSG_RESP);
 				Helper::sendData(userIr->first, BUFFER(repCode.begin(), repCode.end()));
 
-				if (m_database->hasPermissionToProject(project.projectId, currUserId))
-				{
-					repCode = std::to_string(MC_UPDATE_PROJECT_LIST_REQUEST);
-					Helper::sendData(userIr->first, BUFFER(repCode.begin(), repCode.end()));
-				}
+				// (membership is already deleted at this point, so don't check it)
+				repCode = std::to_string(MC_UPDATE_PROJECT_LIST_REQUEST);
+				Helper::sendData(userIr->first, BUFFER(repCode.begin(), repCode.end()));
 			}
 		}
 
@@ -263,10 +261,10 @@ void Communicator::modifyProjectInfo(SOCKET client_sock, int projectId, std::str
 	std::string repCode;
 	std::string currUserName = m_clients[client_sock]->getUsername();
 	int currUserId = m_database->getUserId(currUserName);
-	if (!m_database->hasPermissionToProject(projectId, currUserId))
+	std::string myRole = m_database->getUserRoleInProject(currUserId, projectId);
+	if (myRole != "creator" && myRole != "admin")
 	{
-		throw std::runtime_error("You dont longer have permission to this project");
-
+		throw std::runtime_error("Only the project's creator and admins can change it.");
 	}
 
 	std::map<ProfileInfo, std::string> friends; // info, role
@@ -274,6 +272,16 @@ void Communicator::modifyProjectInfo(SOCKET client_sock, int projectId, std::str
 	int index = 0;
 	Project project = m_database->getProject("", projectId);
 	std::string oldProjectName = project.name;
+
+	projectName = trim(projectName);
+	if (projectName.empty() || projectName.length() > 50)
+	{
+		throw std::runtime_error("Project name must be 1-50 characters.");
+	}
+	if (projectName != oldProjectName && m_database->getProject(projectName, -1).name == projectName)
+	{
+		throw std::runtime_error("A project with this name already exists.");
+	}
 	std::map<std::string, std::string> oldFriendList;
 	std::map<std::string, std::string> newFriendList;
 
@@ -303,6 +311,26 @@ void Communicator::modifyProjectInfo(SOCKET client_sock, int projectId, std::str
 			role = "participant";
 		}
 		newFriendList[name] = role;
+	}
+
+	// Pending invites that were taken off the list are withdrawn.
+	for (const ProjectJoinInvite& invite : m_database->getProjectInvites(projectId))
+	{
+		std::string invitedName = m_database->getUserName("", invite.userId);
+		if (newFriendList.find(invitedName) == newFriendList.end())
+		{
+			m_database->deleteProjectJoinInvite(projectId, invite.userId);
+			m_database->DeleteMessage(projectId, invite.userId);
+		}
+	}
+
+	// The creator can't be removed (or demoted) by an admin.
+	for (auto& participant : m_database->getProjectParticipants(projectId))
+	{
+		if (participant.second == "creator" && participant.first != currUserName)
+		{
+			newFriendList[participant.first] = "creator";
+		}
 	}
 
 	// check if all reemoved users not working on the project
@@ -368,11 +396,28 @@ void Communicator::modifyProjectInfo(SOCKET client_sock, int projectId, std::str
 	for (auto item : newFriendList)
 	{
 		std::string name = item.first;
-		ProfileInfo profile = m_database->getUsersInfo(m_database->getUserId(name));
+		int memberId = m_database->getUserId(name);
+		ProfileInfo profile = m_database->getUsersInfo(memberId);
 		friends[profile] = item.second;
 
-		msg = currUserName + " had changed project info - " + oldProjectName;
-		m_database->AddMsg(currUserId, m_database->getUserId(name), msg, 0, -1);
+		if (!m_database->hasPermissionToProject(projectId, memberId))
+		{
+			// Newly added: send an invite they can accept from Messages (once).
+			if (m_database->getAUserProjectInvite(memberId, projectId).projectId != projectId)
+			{
+				m_database->AddMsg(currUserId, memberId, " Added you to Project - " + projectName, 2, projectId);
+			}
+			else
+			{
+				friends.erase(profile); // invite already pending
+				continue;
+			}
+		}
+		else
+		{
+			msg = currUserName + " had changed project info - " + oldProjectName;
+			m_database->AddMsg(currUserId, memberId, msg, 0, -1);
+		}
 
 		auto userIr = std::find_if(m_clients.begin(), m_clients.end(), [&name](const auto& pair) {
 			return pair.second->getUsername() == name; // Assuming pair.first is the SOCKET identifier
@@ -517,67 +562,78 @@ void Communicator::exitProject(SOCKET client_sock)
 
 void Communicator::leaveProject(SOCKET client_sock, int projectId, std::string userName)
 {
+	userName = m_clients[client_sock]->getUsername(); // never a name sent by the client
+	int userId = m_clients[client_sock]->getId();
+	Project project = m_database->getProject("", projectId);
+	if (project.projectId != projectId || !m_database->hasPermissionToProject(projectId, userId))
+	{
+		throw std::runtime_error("You're not a member of this project.");
+	}
+
+	bool wasCreator = m_database->isCreator(project.name, userId);
+	m_database->leaveProject(project.name, userId);
+
+	// Unassign the leaver from the project's tasks.
+	for (auto issue : m_database->getAllProjectIssues(projectId))
+	{
+		size_t i = 0;
+		bool assigned = false;
+		std::string remaining;
+		while (i + 5 <= issue.usersAssigment.length())
+		{
+			std::string lengthStr = issue.usersAssigment.substr(i, 5);
+			size_t length = std::stoul(lengthStr);
+			std::string name = issue.usersAssigment.substr(i + 5, length);
+			i += 5 + length;
+			if (name == userName)
+				assigned = true;
+			else
+				remaining += lengthStr + name;
+		}
+		if (assigned)
+		{
+			m_database->UpdateIssue(issue.id, issue.data, issue.date, remaining);
+		}
+	}
+
 	std::string repCode = std::to_string(MC_LEAVE_PROJECT_RESP);
 	Helper::sendData(client_sock, BUFFER(repCode.begin(), repCode.end()));
 
-	int userId = m_database->getUserId(userName);
-	Project project = m_database->getProject("", projectId);
-	m_database->leaveProject(project.name, userId);
-
-	if (m_database->isCreator(project.name, userId))
+	if (wasCreator)
 	{
+		// Hand the project to an admin (or any participant). getNextAdmin deletes
+		// the project when nobody is left.
 		int replacerId = m_database->getNextAdmin(project.projectId);
-
-		if (replacerId != -1)
+		if (replacerId == -1)
 		{
-			std::map<ProfileInfo, std::string> friends; // info, role
-			m_database->createProject(project.name, friends, project.codeLan, replacerId, project.projectId);
-			m_database->changeUserRoleInProject(project.projectId, replacerId, "creator");
-			
-			for (auto issue : m_database->getAllProjectIssues(projectId))
+			return;
+		}
+		m_database->setProjectCreator(project.projectId, replacerId);
+		m_database->changeUserRoleInProject(project.projectId, replacerId, "creator");
+
+		std::string replacerName = m_database->getUserName("", replacerId);
+		for (auto& pair : m_clients)
+		{
+			if (pair.second->getUsername() == replacerName)
 			{
-				int i = 0;
-				bool inIssue = false;
-				std::string newList = "";
-				while (i < issue.usersAssigment.length()) {
-					// Extract the length of the name
-					std::string lengthStr = issue.usersAssigment.substr(i, 5);
-					int length = std::stoi(lengthStr);
-					i += 5;
-
-					// Extract the name itself
-					std::string extractedName = issue.usersAssigment.substr(i, length);
-					i += length;
-
-					// Compare the extracted name with the name to search
-					if (extractedName == userName) {
-						inIssue = true;
-						continue;
-					}
-					else
-					{
-						newList += lengthStr + extractedName;
-					}
-				}
-				if (inIssue)
-				{
-					m_database->UpdateIssue(issue.id, issue.data, issue.date, newList);
-				}
+				std::string refresh = std::to_string(MC_UPDATE_PROJECT_LIST_REQUEST);
+				Helper::sendData(pair.first, BUFFER(refresh.begin(), refresh.end()));
 			}
+		}
+	}
 
-			std::string replacerName = m_database->getUserName("", replacerId);
-			auto it = std::find_if(m_clients.begin(), m_clients.end(), [&replacerName](const auto& pair) {
-				return pair.second->getUsername() == replacerName; // Assuming pair.first is the SOCKET identifier
-				});
-
-			if (it != m_clients.end()) {
-				// Client handler found, client is online
-				repCode = std::to_string(MC_UPDATE_PROJECT_LIST_REQUEST);
-				Helper::sendData(it->first, BUFFER(repCode.begin(), repCode.end()));
+	// Tell the remaining members (inbox message for those not in the project).
+	for (auto& participant : m_database->getProjectParticipants(projectId))
+	{
+		int memberId = m_database->getUserId(participant.first);
+		m_database->AddMsg(userId, memberId, " left project - " + project.name, 0, -1);
+		for (auto& pair : m_clients)
+		{
+			if (pair.second->getId() == memberId && pair.second->getWindow() == HOME_PAGE)
+			{
+				std::string ping = std::to_string(MC_SEND_MSG_RESP);
+				Helper::sendData(pair.first, BUFFER(ping.begin(), ping.end()));
 			}
-
-			std::string msg = userName + " Left Project - " + project.name;
-			notifyAllclientsOnProject("", client_sock, msg);
 		}
 	}
 }
@@ -665,6 +721,13 @@ void Communicator::getProjectInfo(SOCKET client_sock, std::string projectName)
 		}
 
 		userList += role;
+	}
+	for (const ProjectJoinInvite& invite : m_database->getProjectInvites(project.projectId))
+	{
+		std::string name = m_database->getUserName("", invite.userId);
+		lengthString = std::to_string(name.length());
+		lengthString = std::string(5 - lengthString.length(), '0') + lengthString;
+		userList += lengthString + name + (invite.role == "admin" ? "4" : "3");
 	}
 	
 	lengthString = std::to_string(userList.length());

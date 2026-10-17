@@ -483,7 +483,7 @@ namespace client_side
 
         private void SetHighlighting(string fileName)
         {
-            txtFileContent.SyntaxHighlighting = HighlightingManager.Instance.GetDefinitionByExtension(Path.GetExtension(fileName));
+            txtFileContent.SyntaxHighlighting = SyntaxStyles.ForFile(fileName, communicator.CodeStylesDir);
         }
 
         // ---- live editing

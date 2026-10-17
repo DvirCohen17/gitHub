@@ -1,601 +1,220 @@
-﻿using Microsoft.VisualBasic;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 
 namespace client_side
 {
-    public partial class AddProjectWindow : Window
+    // Create a project, or edit / view an existing one's name and members.
+    // mode: "create", "creator" or "editor" (may edit), "viewer" (read-only).
+    // Server replies arrive through the home page's listener (IServerMessageHandler).
+    public partial class AddProjectWindow : Window, IServerMessageHandler
     {
-        private Communicator communicator;
+        private readonly Communicator communicator;
+        private readonly string mode;
+        private readonly int projectId;
+        private readonly string originalName;
+        private bool awaitingInfo, awaitingFriends, awaitingSave;
+        private readonly List<string> friends = new List<string>();
 
-        public ObservableCollection<User> SearchResults { get; set; }
-        public ObservableCollection<User> SelectedUsers { get; set; }
-        public List<User> UserFriends { get; set; }
+        public ObservableCollection<Member> Members { get; } = new ObservableCollection<Member>();
 
-        private bool disconnect = true;
-        private bool isListeningToServer = true;
-
-        private int ProjectId = -1;
-
-        private string Access;
-        private bool isEditable;
-        private string oldProjectName;
-
-        public class User : INotifyPropertyChanged
-        {
-            private string _name;
-            private bool _isAdmin;
-            private bool _isParticipant;
-            private bool _isCreator;
-            private bool _isEnabled = true;
-            private string _IsEnabledRemove;
-
-            public bool IsEnabled
-            {
-                get { return _isEnabled; }
-                set
-                {
-                    if (_isEnabled != value)
-                    {
-                        _isEnabled = value;
-                        OnPropertyChanged(nameof(IsEnabled));
-                    }
-                }
-            }
-
-            public string IsEnabledRemove
-            {
-                get { return _IsEnabledRemove; }
-                set
-                {
-                    if (_IsEnabledRemove != value)
-                    {
-                        _IsEnabledRemove = value;
-                        OnPropertyChanged(nameof(IsEnabledRemove));
-                    }
-                }
-            }
-
-            public string Name
-            {
-                get { return _name; }
-                set
-                {
-                    if (_name != value)
-                    {
-                        _name = value;
-                        OnPropertyChanged(nameof(Name));
-                    }
-                }
-            }
-
-            public bool IsAdmin
-            {
-                get { return _isAdmin; }
-                set
-                {
-                    if (_isAdmin != value)
-                    {
-                        _isAdmin = value;
-                        OnPropertyChanged(nameof(IsAdmin));
-                        // Ensure mutual exclusivity with IsCreator
-                        if (_isAdmin && _isCreator)
-                        {
-                            _isAdmin = false;
-                            OnPropertyChanged(nameof(IsAdmin));
-                        }
-                        if (_isParticipant && _isAdmin)
-                        {
-                            IsParticipant = false;
-                        }
-                    }
-                }
-            }
-
-            public bool IsParticipant
-            {
-                get { return _isParticipant; }
-                set
-                {
-                    if (_isParticipant != value)
-                    {
-                        _isParticipant = value;
-                        OnPropertyChanged(nameof(IsParticipant));
-                        // Ensure mutual exclusivity with IsCreator
-                        if (_isParticipant && _isCreator)
-                        {
-                            _isParticipant = false;
-                            OnPropertyChanged(nameof(IsParticipant));
-                        }
-                        if (_isParticipant && _isAdmin)
-                        {
-                            IsAdmin = false;
-                        }
-                    }
-                }
-            }
-
-            public bool IsCreator
-            {
-                get { return _isCreator; }
-                set
-                {
-                    if (_isCreator != value)
-                    {
-                        _isCreator = value;
-                        OnPropertyChanged(nameof(IsCreator));
-                        // Ensure mutual exclusivity
-                        if (_isCreator)
-                        {
-                            _isAdmin = false;
-                            _isParticipant = false;
-                            _IsEnabledRemove = "Collapsed";
-                            OnPropertyChanged(nameof(IsAdmin));
-                            OnPropertyChanged(nameof(IsParticipant));
-                            OnPropertyChanged(nameof(IsEnabledRemove));
-                        }
-                    }
-                }
-            }
-
-            public event PropertyChangedEventHandler PropertyChanged;
-
-            protected virtual void OnPropertyChanged(string propertyName)
-            {
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-            }
-        }
-
-        private UserProfile currentRole;
-
-        private Info projectInfo;
-
-        public class Info
-        {
-            public string ProjectName { get; set; }
-            public int ProjectId { get; set; }
-            public string CodeLan { get; set; }
-            public bool IsPrivate { get; set; }
-            public List<User> users { get; set; } = new List<User>();
-        }
-
-        public class UserProfile
-        {
-            public bool isCretor { get; set; }
-            public bool isViewer { get; set; }
-            public bool isEditor { get; set; }
-            public bool isCreate { get; set; }
-            public bool isEditable { get; set; }
-        }
+        private bool IsCreate => mode == "create";
+        private bool CanEdit => mode == "create" || mode == "creator" || mode == "editor";
 
         public AddProjectWindow(Communicator communicator, string mode, string projectName, int projectId)
         {
             InitializeComponent();
-            Style = (Style)FindResource(typeof(System.Windows.Window)); // Specified full namespace for Window
-            communicator.ApplyTheme(this);
-
+            Style = (Style)FindResource(typeof(Window));
             this.communicator = communicator;
-            this.Access = mode;
-            DataContext = this;
+            this.mode = mode;
+            this.projectId = projectId;
+            originalName = projectName;
+            SelectedUsersListBox.ItemsSource = Members;
+            Members.CollectionChanged += (_, _) => UpdateMembersUi();
 
-            SearchResults = new ObservableCollection<User>();
-            SelectedUsers = new ObservableCollection<User>();
-            UserFriends = new List<User>();
+            Title = IsCreate ? "New project" : CanEdit ? $"Edit {projectName}" : projectName;
+            txtHeading.Text = IsCreate ? "New project" : CanEdit ? "Edit project" : "Project info";
+            craeteBtn.Content = IsCreate ? "Create" : "Save";
+            craeteBtn.Visibility = CanEdit ? Visibility.Visible : Visibility.Collapsed;
+            cancelBtn.Content = CanEdit ? "Cancel" : "Close";
+            ProjectNameTextBox.Text = projectName;
+            ProjectNameTextBox.IsReadOnly = !CanEdit;
+            CodeLanguageComboBox.IsEnabled = IsCreate; // a project's language is fixed once created
+            CodeLanguageComboBox.SelectedIndex = 0;
+            addMemberPanel.Visibility = CanEdit ? Visibility.Visible : Visibility.Collapsed;
+            txtMembersHint.Visibility = CanEdit ? Visibility.Visible : Visibility.Collapsed;
 
-            SearchResultsListBox.ItemsSource = SearchResults;
-            SelectedUsersListBox.ItemsSource = SelectedUsers;
+            communicator.ApplyTheme(this);
+            Loaded += (_, _) => { if (CanEdit) ProjectNameTextBox.Focus(); };
 
-            isEditable = mode != "viewer";
-
-            currentRole = new UserProfile
+            if (!IsCreate)
             {
-                isViewer = mode == "viewer" ? true : false,
-                isCreate = mode == "create" ? true : false,
-                isCretor = mode == "creator" ? true : false,
-                isEditor = mode == "editor" ? true : false,
-                isEditable = mode == "editor" || mode == "creator" ? true : false
-            };
-
-            this.projectInfo = null;
-
-            if (mode != "create")
-            {
-                string projectInfoCode = ((int)MessageCodes.MC_GET_PROJECT_INFO_REQUEST).ToString();
-
-                communicator.SendData($"{projectInfoCode}{projectName.Length:D5}{projectName}");
-
-                string update = communicator.ReceiveData();
-                string code = update.Substring(0, 3);
-
-                if (code == ((int)MessageCodes.MC_HEARTBEAT_REQUEST).ToString())
-                {
-                    update = communicator.ReceiveData();
-                    code = update.Substring(0, 3);
-                }
-
-                if (code == ((int)MessageCodes.MC_GET_PROJECT_INFO_RESP).ToString() && update.Length > 3)
-                {
-                    projectInfo = new Info();
-                    int currentIndex = 3;
-
-                    int projectNameLength = int.Parse(update.Substring(currentIndex, 5));
-                    currentIndex += 5;
-                    string MsgProjectName = update.Substring(currentIndex, projectNameLength);
-                    currentIndex += projectNameLength;
-
-                    // Extract selected users data
-                    int selectedUsersDataLength = int.Parse(update.Substring(currentIndex, 5));
-                    currentIndex += 5;
-                    string selectedUsersData = update.Substring(currentIndex, selectedUsersDataLength);
-                    currentIndex += selectedUsersDataLength;
-
-                    // Extract code language
-                    int codeLanguageLength = int.Parse(update.Substring(currentIndex, 5));
-                    currentIndex += 5;
-                    string codeLanguage = update.Substring(currentIndex, codeLanguageLength);
-                    currentIndex += codeLanguageLength;
-
-                    // Extract private/public flag
-                    string privateFlag = update.Substring(currentIndex, 1); // Assuming it's a single character
-                    bool isPrivate = privateFlag == "1"; // Example logic based on your protocol
-
-                    projectInfo.IsPrivate = isPrivate;
-                    projectInfo.CodeLan = codeLanguage;
-                    projectInfo.ProjectName = MsgProjectName;
-                    projectInfo.ProjectId = projectId;
-                    ProjectId = projectId;
-                    oldProjectName = projectInfo.ProjectName;
-                    int index = 0;
-                    while (index < selectedUsersData.Length)
-                    {
-                        int nameLen = int.Parse(selectedUsersData.Substring(index, 5));
-                        index += 5;
-                        string name = selectedUsersData.Substring(index, nameLen);
-                        index += nameLen;
-
-                        // Extract admin and participant roles
-                        bool isAdmin = selectedUsersData[index] == '1';
-                        bool isParticipant = selectedUsersData[index] == '0';
-                        bool isCreator = selectedUsersData[index] == '2';
-                        index++;
-                        User user = new User();
-                        user.Name = name;
-                        user.IsAdmin = isAdmin;
-                        user.IsParticipant = isParticipant;
-                        user.IsCreator = isCreator;
-                        // Create User object and add to projectInfo.users
-                        projectInfo.users.Add(user);
-                    }
-                }
-
-                if (projectInfo != null)
-                {
-                    CodeLanguageComboBox.SelectedItem = CodeLanguageComboBox.Items.OfType<ComboBoxItem>()
-                        .FirstOrDefault(item => item.Content.ToString() == projectInfo.CodeLan);
-                    // Populate selected users
-                    foreach (var user in projectInfo.users)
-                    {
-                        SelectedUsers.Add(new User
-                        {
-                            Name = user.Name,
-                            IsAdmin = user.IsAdmin,
-                            IsParticipant = user.IsParticipant,
-                            IsCreator = user.IsCreator,
-                        });
-
-                    }
-                    DataContext = projectInfo;
-                }
-
-                if (currentRole.isViewer)
-                {
-                    UserSearchText.Visibility = Visibility.Visible;
-                    UserSearchTextBox.Visibility = Visibility.Visible;
-                    UserSearchTextBox.IsReadOnly = true;
-                    ProjectNameTextBox.Visibility = Visibility.Visible;
-                    ProjectNameTextBox.IsReadOnly = true;
-                    craeteBtn.Visibility = Visibility.Collapsed;
-                    CodeLanguageComboBox.IsEnabled = false;
-                    editBtn.Visibility = Visibility.Collapsed;
-                    PrivateCheckBox.IsEnabled = false;
-                    // Disable checkboxes for existing users in SelectedUsersListBox
-                    foreach (User user in SelectedUsersListBox.Items)
-                    {
-                        user.IsEnabled = false;
-                        user.IsEnabledRemove = "Collapsed";
-                    }
-                }
-                else if (currentRole.isEditable)
-                {
-                    UserSearchText.Visibility = Visibility.Visible;
-                    UserSearchTextBox.Visibility = Visibility.Visible;
-                    UserSearchTextBox.IsReadOnly = false;
-                    ProjectNameTextBox.Visibility = Visibility.Visible;
-                    ProjectNameTextBox.IsReadOnly = false;
-                    CodeLanguageComboBox.IsEnabled = false;
-                    craeteBtn.Visibility = Visibility.Collapsed;
-                    editBtn.Visibility = Visibility.Visible;
-                    PrivateCheckBox.IsEnabled = true;
-                    foreach (User user in SelectedUsersListBox.Items)
-                    {
-                        user.IsEnabled = true;
-                        if(user.IsCreator)
-                        {
-                            user.IsEnabledRemove = "Collapsed";
-                        }
-                        else
-                        {
-                            user.IsEnabledRemove = "Visible";
-                        }
-                    }
-                }
-                
-
+                awaitingInfo = true;
+                Send(MessageCodes.MC_GET_PROJECT_INFO_REQUEST, Wire.Field(projectName));
             }
-            else if (currentRole.isCreate)
+            if (CanEdit)
             {
-                UserSearchText.Visibility = Visibility.Visible;
-                UserSearchTextBox.Visibility = Visibility.Visible;
-                UserSearchTextBox.IsReadOnly = false;
-                ProjectNameTextBox.Visibility = Visibility.Visible;
-                ProjectNameTextBox.IsReadOnly = false;
-                CodeLanguageComboBox.IsEnabled = true;
-                craeteBtn.Visibility = Visibility.Visible;
-                editBtn.Visibility = Visibility.Collapsed;
-                PrivateCheckBox.IsEnabled = true;
+                awaitingFriends = true;
+                Send(MessageCodes.MC_FRIENDS_LIST_REQUEST, Wire.Field(communicator.UserName));
             }
+            UpdateMembersUi();
+        }
 
-            string friends = ((int)MessageCodes.MC_FRIENDS_LIST_REQUEST).ToString();
-
-            communicator.SendData($"{friends}{communicator.UserName.Length:D5}{communicator.UserName}");
-
-            string result = communicator.ReceiveData();
-            string friendsRepCode = result.Substring(0, 3);
-
-            if (friendsRepCode == ((int)MessageCodes.MC_HEARTBEAT_REQUEST).ToString())
+        private void Send(MessageCodes code, string body)
+        {
+            try
             {
-                result = communicator.ReceiveData();
-                friendsRepCode = result.Substring(0, 3);
+                communicator.SendData($"{(int)code}{body}");
             }
-
-            if (friendsRepCode == ((int)MessageCodes.MC_FRIENDS_LIST_RESP).ToString())
+            catch (Exception ex)
             {
-                int index = 3;
-
-                while (index < result.Length)
-                {
-                    int friendNameLen = int.Parse(result.Substring(index, 5));
-                    index += 5;
-                    string friendName = result.Substring(index, friendNameLen);
-                    index += friendNameLen;
-                    index += 1;
-
-                    UserFriends.Add(new User
-                    {
-                        Name = friendName,
-                        IsAdmin = false, // Initialize admin and participant status
-                        IsParticipant = false,
-                    });
-                }
+                communicator.HandleListenerError(ex);
             }
         }
 
-        private async void CreateProject_Click(object sender, RoutedEventArgs e)
+        public bool HandleServerMessage(string update)
         {
-            // Validate fields
-            if (string.IsNullOrEmpty(ProjectNameTextBox.Text))
+            switch (update.Substring(0, 3))
             {
-                HandleError("Please enter a project name.");
-                return;
-            }
-
-            if (CodeLanguageComboBox.SelectedItem == null)
-            {
-                HandleError("Please select a code language.");
-                return;
-            }
-
-            string selectedUsersData = "";
-            foreach (var user in SelectedUsers)
-            {
-                if (!user.IsAdmin && !user.IsParticipant)
-                {
-                    HandleError("Please select a role for every user.");
-                    return;
-                }
-
-                if (user.IsAdmin && user.IsParticipant)
-                {
-                    HandleError("Please select one role for every user.");
-                    return;
-                }
-
-                selectedUsersData += $"{user.Name.Length:D5}{user.Name}{(user.IsAdmin ? "1" : "")}{(user.IsParticipant ? "0" : "")}";
-            }
-
-            // Gather project data
-            string projectName = ProjectNameTextBox.Text;
-            string codeLanguage = ((ComboBoxItem)CodeLanguageComboBox.SelectedItem).Content.ToString();
-            bool isPrivate = PrivateCheckBox.IsChecked ?? true;
-
-            // Prepare selected users data
-
-            // Example: Send data to server and handle response
-            string createProjectCode = ((int)MessageCodes.MC_CREATE_PROJECT_REQUEST).ToString();
-
-            communicator.SendData($"{createProjectCode}{projectName.Length:D5}{projectName}{selectedUsersData.Length:D5}" +
-                $"{selectedUsersData}{codeLanguage.Length:D5}{codeLanguage}{isPrivate}");
-
-            string update = communicator.ReceiveData();
-            string code = update.Substring(0, 3);
-
-            if (code == ((int)MessageCodes.MC_HEARTBEAT_REQUEST).ToString())
-            {
-                update = communicator.ReceiveData();
-                code = update.Substring(0, 3);
-            }
-
-            if (code == ((int)MessageCodes.MC_BACK_TO_HOME_PAGE_RESP).ToString())
-            {
-                HandleBackToMainPage();
-            }
-            else if (code == ((int)MessageCodes.MC_ERROR_RESP).ToString())
-            {
-                HandleError(update);
+                case "248" when awaitingInfo:
+                    awaitingInfo = false;
+                    ShowProjectInfo(update);
+                    return true;
+                case "221" when awaitingFriends:
+                    awaitingFriends = false;
+                    ShowFriends(update);
+                    return true;
+                case "240" when awaitingSave:            // saved
+                    awaitingSave = false;
+                    Close();
+                    return true;
+                case "200" when awaitingSave || awaitingInfo:
+                    awaitingSave = awaitingInfo = false;
+                    ErrorTextBlock.Text = update.Substring(3);
+                    craeteBtn.IsEnabled = true;
+                    return true;
+                default:
+                    return false;
             }
         }
 
-        private async void EditProject_Click(object sender, RoutedEventArgs e)
+        // "248<name><members: name+roleDigit ...><language><private flag>"
+        private void ShowProjectInfo(string update)
         {
-            if (string.IsNullOrEmpty(ProjectNameTextBox.Text))
+            var reader = new WireReader(update);
+            ProjectNameTextBox.Text = reader.Field();
+            var members = new WireReader(reader.Field(), 0);
+            string language = reader.Field();
+
+            Members.Clear();
+            while (!members.AtEnd)
             {
-                HandleError("Please enter a project name.");
-                return;
+                string name = members.Field();
+                string code = members.Take(1);
+                string role = code switch { "2" => "creator", "1" or "4" => "admin", _ => "participant" };
+                bool invited = code == "3" || code == "4"; // invite not accepted yet
+                Members.Add(new Member { Name = name, Role = role, CanChange = CanEdit && role != "creator", Invited = invited });
             }
-
-            if (CodeLanguageComboBox.SelectedItem == null)
-            {
-                HandleError("Please select a code language.");
-                return;
-            }
-
-            string selectedUsersData = "";
-            foreach (var user in SelectedUsers)
-            {
-                if ((!user.IsAdmin && !user.IsParticipant) && !user.IsCreator)
-                {
-                    HandleError("Please select a role for every user.");
-                    return;
-                }
-
-                if (user.IsAdmin && user.IsParticipant)
-                {
-                    HandleError("Please select one role for every user.");
-                    return;
-                }
-
-                selectedUsersData += $"{user.Name.Length:D5}{user.Name}{(user.IsCreator ? "2" : "")}{(user.IsAdmin ? "1" : "")}{(user.IsParticipant ? "0" : "")}";
-            }
-
-            // Gather project data
-            string projectName = ProjectNameTextBox.Text;
-            string codeLanguage = ((ComboBoxItem)CodeLanguageComboBox.SelectedItem).Content.ToString();
-            bool isPrivate = PrivateCheckBox.IsChecked ?? true;
-
-            // Prepare selected users data
-
-            // Example: Send data to server and handle response
-            string createProjectCode = ((int)MessageCodes.MC_MODIFY_PROJECT_INFO_REQUEST).ToString();
-
-            communicator.SendData($"{createProjectCode}{ProjectId.ToString().Length:D5}{ProjectId}{projectName.Length:D5}{projectName}{selectedUsersData.Length:D5}" +
-                $"{selectedUsersData}{codeLanguage.Length:D5}{codeLanguage}{isPrivate}");
-
-            string update = communicator.ReceiveData();
-            string code = update.Substring(0, 3);
-
-            if (code == ((int)MessageCodes.MC_HEARTBEAT_REQUEST).ToString())
-            {
-                update = communicator.ReceiveData();
-                code = update.Substring(0, 3);
-            }
-
-            if (code == ((int)MessageCodes.MC_BACK_TO_HOME_PAGE_RESP).ToString())
-            {
-                HandleBackToMainPage();
-            }
-            else if (code == ((int)MessageCodes.MC_ERROR_RESP).ToString())
-            {
-                HandleError(update);
-            }
+            var item = CodeLanguageComboBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == language);
+            if (item != null) CodeLanguageComboBox.SelectedItem = item;
+            RefreshFriendChoices();
         }
 
-        private void HandleBackToMainPage()
+        private void ShowFriends(string update)
         {
-            disconnect = false;
-            isListeningToServer = false;
-
-            Dispatcher.Invoke(() =>
+            var reader = new WireReader(update);
+            friends.Clear();
+            while (!reader.AtEnd)
             {
-                Close();
-            });
+                friends.Add(reader.Field());
+                reader.Take(1); // online flag
+            }
+            RefreshFriendChoices();
         }
 
-        private void UserSearchTextBox_KeyUp(object sender, KeyEventArgs e)
+        private void RefreshFriendChoices()
         {
-            var query = UserSearchTextBox.Text.ToLower();
-            if (query.Length > 0)
-            {
-                var filteredUsers = UserFriends
-            .           Where(u => !string.IsNullOrEmpty(u.Name) &&
-                        u.Name.ToLower().Contains(query) &&
-                        u.Name.ToLower() != communicator.UserName.ToLower()).ToList();
-
-                Dispatcher.Invoke(() =>
-                {
-                    SearchResults.Clear();
-                    borderSerachBlock.Visibility = filteredUsers.Any() ? Visibility.Visible : Visibility.Collapsed;
-
-                    foreach (var user in filteredUsers)
-                    {
-                        SearchResults.Add(new User
-                        {
-                            Name = user.Name,
-                            IsAdmin = false, // Initialize admin and participant status
-                            IsParticipant = false,
-                        });
-                    }
-                });
-            }
-            else
-            {
-                SearchResults.Clear();
-                borderSerachBlock.Visibility = Visibility.Collapsed;
-            }
+            var available = friends.Where(f => Members.All(m => m.Name != f)).OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToList();
+            FriendsComboBox.ItemsSource = available;
+            FriendsComboBox.SelectedIndex = available.Count > 0 ? 0 : -1;
+            FriendsComboBox.IsEnabled = available.Count > 0;
+            FriendsComboBox.ToolTip = available.Count > 0 ? "Only friends can be invited" : "No more friends to invite";
         }
 
-        private void SearchResultsListBox_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        private void UpdateMembersUi()
         {
-            // Add selected user from search results to selected users list
-            if (SearchResultsListBox.SelectedItem is User selectedUser && !SelectedUsers.Any(u => u.Name == selectedUser.Name))
+            txtNoMembers.Visibility = Members.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private void AddMember_Click(object sender, RoutedEventArgs e)
+        {
+            if (FriendsComboBox.SelectedItem is string name)
             {
-                SelectedUsers.Add(new User
-                {
-                    Name = selectedUser.Name,
-                    IsAdmin = false,
-                    IsParticipant = false,
-                });
+                Members.Add(new Member { Name = name, Role = "participant", CanChange = true });
+                RefreshFriendChoices();
             }
         }
 
         private void RemoveUser_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is System.Windows.Controls.Button button)
+            if ((sender as FrameworkElement)?.Tag is Member member && member.CanChange)
             {
-                if (button.Tag is User userToRemove)
-                {
-                    SelectedUsers.Remove(userToRemove);
-                }
+                Members.Remove(member);
+                RefreshFriendChoices();
             }
         }
 
-        private void HandleError(string update)
+        private void Save_Click(object sender, RoutedEventArgs e)
         {
-            string errorMessage = update;
-
-            Dispatcher.Invoke(() =>
+            string name = ProjectNameTextBox.Text.Trim();
+            if (name.Length == 0)
             {
-                ErrorTextBlock.Text = errorMessage;
-                ErrorTextBlock.Visibility = Visibility.Visible;
-            });
+                ErrorTextBlock.Text = "Give the project a name.";
+                return;
+            }
+            if (CodeLanguageComboBox.SelectedItem is not ComboBoxItem languageItem)
+            {
+                ErrorTextBlock.Text = "Pick a language.";
+                return;
+            }
+            string language = (string)languageItem.Tag;
+            string members = string.Concat(Members.Select(m =>
+                Wire.Field(m.Name) + (m.Role == "creator" ? "2" : m.Role == "admin" ? "1" : "0")));
+
+            ErrorTextBlock.Text = "";
+            craeteBtn.IsEnabled = false;
+            awaitingSave = true;
+            if (IsCreate)
+            {
+                Send(MessageCodes.MC_CREATE_PROJECT_REQUEST, Wire.Field(name) + Wire.Field(members) + Wire.Field(language) + "False");
+            }
+            else
+            {
+                Send(MessageCodes.MC_MODIFY_PROJECT_INFO_REQUEST,
+                     Wire.Field(projectId.ToString()) + Wire.Field(name) + Wire.Field(members) + Wire.Field(language) + "False");
+            }
+        }
+
+        private void Cancel_Click(object sender, RoutedEventArgs e) => Close();
+
+        public class Member : INotifyPropertyChanged
+        {
+            private string role;
+            public string Name { get; set; }
+            public bool CanChange { get; set; }
+            public bool Invited { get; set; }
+            public string StatusLabel => Invited ? "  (invited)" : "";
+            public string Role
+            {
+                get => role;
+                set { role = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Role))); }
+            }
+            public event PropertyChangedEventHandler PropertyChanged;
         }
     }
-
 }

@@ -217,6 +217,8 @@ public:
 	virtual void createProject(std::string projectName, std::map<ProfileInfo, std::string> addedUsers, std::string codeLan, int creatorId, int projectId) = 0;
 	virtual void modifyProjectInfo(int projectId, std::string newProjectName, std::map<ProfileInfo, std::string> addedUsers, std::string codeLan) = 0;
 	virtual void deleteProject(const std::string projectName) = 0;
+	virtual void setProjectCreator(int projectId, int userId) = 0;
+	virtual std::list<ProjectJoinInvite> getProjectInvites(int projectId) = 0;
 	virtual void leaveProject(const std::string projectName, int userId) = 0;
 
 	// ******* PROFILE *******

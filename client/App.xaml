@@ -4,65 +4,78 @@
              xmlns:local="clr-namespace:client_side"
              StartupUri="LoginWindow.xaml">
     <Application.Resources>
+        <!-- Theme colours. Communicator.ModifyTheme replaces these, and every style below
+             reads them with DynamicResource, so buttons and inputs inside lists and
+             dialogs follow the theme too. Defaults = Dark. -->
+        <SolidColorBrush x:Key="Theme.WindowBackground" Color="#121212"/>
+        <SolidColorBrush x:Key="Theme.Foreground" Color="White"/>
+        <SolidColorBrush x:Key="Theme.ButtonBackground" Color="#121212"/>
+        <SolidColorBrush x:Key="Theme.ButtonForeground" Color="White"/>
+        <SolidColorBrush x:Key="Theme.ButtonBorder" Color="White"/>
+        <SolidColorBrush x:Key="Theme.ButtonHover" Color="#3A3A3A"/>
+        <SolidColorBrush x:Key="Theme.InputBackground" Color="#2A2A2A"/>
+        <SolidColorBrush x:Key="Theme.InputForeground" Color="White"/>
+        <SolidColorBrush x:Key="Theme.InputBorder" Color="#7A7A7A"/>
+
         <Style TargetType="Window">
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Background" Value="#121212"/>
+            <Setter Property="Foreground" Value="{DynamicResource Theme.Foreground}"/>
+            <Setter Property="Background" Value="{DynamicResource Theme.WindowBackground}"/>
             <Setter Property="FontFamily" Value="Segoe UI"/>
         </Style>
+
         <Style TargetType="Button">
-            <Setter Property="Background" Value="#121212"/>
-            <Setter Property="Foreground"
-            Value="{Binding RelativeSource={RelativeSource AncestorType={x:Type FrameworkElement}}, Path=(TextElement.Foreground)}"/>
+            <Setter Property="Background" Value="{DynamicResource Theme.ButtonBackground}"/>
+            <Setter Property="Foreground" Value="{DynamicResource Theme.ButtonForeground}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource Theme.ButtonBorder}"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
-
                     <ControlTemplate TargetType="{x:Type Button}">
-                        <Border x:Name="bg"
-                            Background="{TemplateBinding Background}"
-                            BorderThickness="2"
-                            BorderBrush="{TemplateBinding BorderBrush}">
-                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
-                                VerticalAlignment="{TemplateBinding VerticalAlignment}" />
+                        <Border x:Name="bg" Background="{TemplateBinding Background}" BorderThickness="1.5"
+                                BorderBrush="{TemplateBinding BorderBrush}" CornerRadius="5" Padding="8,0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#005DA3" TargetName="bg" />
+                                <Setter Property="Background" Value="{DynamicResource Theme.ButtonHover}" TargetName="bg"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" TargetName="bg"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
-            <Style.Resources>
-                <Style TargetType="Border">
-                    <Setter Property="CornerRadius" Value="5"/>
-                </Style>
-            </Style.Resources>
-
         </Style>
+
         <Style TargetType="Label">
             <Setter Property="Foreground"
-            Value="{Binding RelativeSource={RelativeSource AncestorType={x:Type FrameworkElement}}, Path=(TextElement.Foreground)}"/>
+                    Value="{Binding RelativeSource={RelativeSource AncestorType={x:Type FrameworkElement}}, Path=(TextElement.Foreground)}"/>
         </Style>
+
         <Style x:Key="TextBoxPasswordBoxStyle" TargetType="Control">
-            <Setter Property="Background" Value="#555555"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="{DynamicResource Theme.InputBackground}"/>
+            <Setter Property="Foreground" Value="{DynamicResource Theme.InputForeground}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource Theme.InputBorder}"/>
+            <Setter Property="Padding" Value="3,0"/>
             <Style.Resources>
                 <Style TargetType="Border">
                     <Setter Property="CornerRadius" Value="5"/>
                 </Style>
             </Style.Resources>
         </Style>
-        <Style TargetType="TextBox"
-            BasedOn="{StaticResource TextBoxPasswordBoxStyle}">
+        <Style TargetType="TextBox" BasedOn="{StaticResource TextBoxPasswordBoxStyle}">
+            <Setter Property="CaretBrush" Value="{DynamicResource Theme.InputForeground}"/>
         </Style>
-        <Style TargetType="PasswordBox"
-            BasedOn="{StaticResource TextBoxPasswordBoxStyle}">
+        <Style TargetType="PasswordBox" BasedOn="{StaticResource TextBoxPasswordBoxStyle}">
+            <Setter Property="CaretBrush" Value="{DynamicResource Theme.InputForeground}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type PasswordBox}">
-                        <Border x:Name="border" CornerRadius="5" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
+                        <Border x:Name="border" CornerRadius="5" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                                Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
                             <ScrollViewer x:Name="PART_ContentHost" Focusable="false" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"/>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -81,10 +94,9 @@
             </Setter>
         </Style>
 
-
         <Style TargetType="ListBox">
-            <Setter Property="Background" Value="#121212"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource Theme.Foreground}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
@@ -92,16 +104,24 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type ListBox}">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}">
                             <ScrollViewer Padding="{TemplateBinding Padding}">
-                                <ItemsPresenter />
+                                <ItemsPresenter/>
                             </ScrollViewer>
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+        <Style TargetType="ListView">
+            <Setter Property="Foreground" Value="{DynamicResource Theme.Foreground}"/>
+        </Style>
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="{DynamicResource Theme.Foreground}"/>
+        </Style>
+        <Style TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{DynamicResource Theme.Foreground}"/>
         </Style>
     </Application.Resources>
 </Application>

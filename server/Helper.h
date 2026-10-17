@@ -155,6 +155,7 @@ enum MessageCodes
     MC_MARK_ALL_AS_READ_RESP = 272,
     MC_FILE_OP_RESP = 273,   // someone else's edit: "<fileId>|<revision>|<operation>"
     MC_FILE_OP_ACK = 274,    // your edit was applied: "<fileId>|<revision>"
+    MC_FRIEND_REQ_SENT_RESP = 276, // your friend request was sent: "<name>"
     MC_FILE_RESYNC = 275,    // start over from this snapshot: "<fileId>|<revision>|<text>"
 
     MC_DISCONNECT = 300, //user

@@ -1,4 +1,11 @@
 #include "Communicator.h"
+#include <algorithm>
+
+static std::string field(const std::string& value)
+{
+	std::string length = std::to_string(value.size());
+	return std::string(5 - length.size(), '0') + length + value;
+}
 
 // Profiles, friends, user search, in-app messages and project chat.
 
@@ -185,6 +192,15 @@ void Communicator::approveFriendReq(SOCKET client_sock, int userId)
 	
 	std::string currentUserName = m_clients[client_sock]->getUsername();
 	std::string userName = m_database->getUserName("", userId);
+	{
+		std::list<FriendReq> pending = m_database->getUserFriendReq(m_clients[client_sock]->getId());
+		if (std::none_of(pending.begin(), pending.end(), [userId](const FriendReq& r) { return r.userId == userId; }))
+		{
+			throw std::runtime_error("That friend request is no longer pending.");
+		}
+		std::string confirm = std::to_string(MC_APPROVE_FRIEND_REQ_RESP) + field(userName);
+		Helper::sendData(client_sock, BUFFER(confirm.begin(), confirm.end()));
+	}
 
 	m_friends[userName].push_back(currentUserName);
 	m_friends[currentUserName].push_back(userName);
@@ -244,6 +260,10 @@ void Communicator::rejectFriendReq(SOCKET client_sock, int userId)
 	int currUserId = m_database->getUserId(currentUserName);
 
 	m_database->rejectFriendReq(userId, currUserId);
+	{
+		std::string confirm = std::to_string(MC_REJECT_FRIEND_REQ_RESP) + field(userName);
+		Helper::sendData(client_sock, BUFFER(confirm.begin(), confirm.end()));
+	}
 
 	m_database->DeleteMessage(userId, currUserId);
 	std::string msg = " Rejected friend request";
@@ -274,6 +294,14 @@ void Communicator::rejectFriendReq(SOCKET client_sock, int userId)
 void Communicator::addFriend(SOCKET client_sock, std::string userName)
 {
 	std::string currUserName = m_clients[client_sock]->getUsername();
+	if (userName == currUserName)
+	{
+		throw std::runtime_error("You can't add yourself as a friend.");
+	}
+	if (!m_database->doesUserExist(userName))
+	{
+		throw std::runtime_error("There is no user called " + userName + ".");
+	}
 	Friends friends = m_database->getUserFriends(m_database->getUserId(currUserName));
 	std::list<FriendReq> friendReq = m_database->getUserFriendReq(m_database->getUserId(userName));
 	
@@ -297,14 +325,20 @@ void Communicator::addFriend(SOCKET client_sock, std::string userName)
 		FriendsReqList.insert(friendName);
 	}
 
-	if (FriendsReqList.find(userName) == FriendsReqList.end())
+	if (FriendsReqList.find(userName) != FriendsReqList.end())
 	{
+		throw std::runtime_error("You're already friends with " + userName + ", or a request is pending.");
+	}
+	{
+		std::string sent = std::to_string(MC_FRIEND_REQ_SENT_RESP) + userName;
+		Helper::sendData(client_sock, BUFFER(sent.begin(), sent.end()));
+
 		int recieverUserId = m_database->getUserId(userName);
 
 		m_database->addFriendReq(m_database->getUserId(currUserName), recieverUserId);
 
 		std::string msg = " Send friend request";
-		m_database->AddMsg(m_database->getUserId(currUserName), recieverUserId, msg, 1, recieverUserId);
+		m_database->AddMsg(m_database->getUserId(currUserName), recieverUserId, msg, 1, m_database->getUserId(currUserName));
 
 
 		auto it = std::find_if(m_clients.begin(), m_clients.end(), [&userName](const auto& pair) {
@@ -334,6 +368,7 @@ void Communicator::addFriend(SOCKET client_sock, std::string userName)
 void Communicator::removeFriend(SOCKET client_sock, std::string userName, std::string userNameToRemove)
 {
 	std::string repCode = std::to_string(MC_REMOVE_FRIEND_RESP);
+	userName = m_clients[client_sock]->getUsername(); // always act as the logged-in user, never a name the client sent
 
 	std::string friendsListCurrUser = m_database->getUserFriends(m_database->getUserId(userName)).fiendsList;
 	std::string friendsListRemovedUser = m_database->getUserFriends(m_database->getUserId(userNameToRemove)).fiendsList;
@@ -481,7 +516,12 @@ void Communicator::removeFriend(SOCKET client_sock, std::string userName, std::s
 
 void Communicator::editInfo(SOCKET client_sock, std::string bio)
 {
-	std::string repCode = std::to_string(MC_PROJECTS_LIST_RESP);;
+	// (replied with MC_PROJECTS_LIST_RESP and no body, which emptied the client's project list)
+	std::string repCode = std::to_string(MC_EDIT_PROFILE_INFO_RESP);
+	if (bio.size() > 300)
+	{
+		throw std::runtime_error("Your bio can be up to 300 characters.");
+	}
 
 	int userId = m_database->getUserId(m_clients[client_sock]->getUsername());
 	ProfileInfo profile = m_database->getUsersInfo(userId);
@@ -496,7 +536,7 @@ void Communicator::searchUsers(SOCKET client_sock, std::string nsearchCommand)
 	std::string repCode = std::to_string(MC_SEARCH_RESP);
 
 	std::list<std::string> userList = m_database->searchUsers(nsearchCommand);
-	m_clients[client_sock]->setWindow("searchUsers");
+	// (this used to switch the window to "searchUsers", which stopped message notifications)
 	std::string currentUser = m_clients[client_sock]->getUsername();
 	Friends friends = m_database->getUserFriends(m_database->getUserId(currentUser));
 	std::unordered_set<std::string> FriendsList;
@@ -642,6 +682,11 @@ void Communicator::getMessages(SOCKET client_sock, std::string userName)
 
 void Communicator::markMessageAsRead(SOCKET client_sock, int messageId)
 {
+	std::list<Message> mine = m_database->getUserMessages(m_clients[client_sock]->getId());
+	if (std::none_of(mine.begin(), mine.end(), [messageId](const Message& m) { return m.id == messageId; }))
+	{
+		throw std::runtime_error("That message isn't in your inbox.");
+	}
 	m_database->MarkAsRead(messageId);
 }
 

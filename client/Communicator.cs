@@ -388,12 +388,14 @@ namespace client_side
             m_socket.Close();
         }
 
-        public void ModifyTheme(string theme)
+        // The colours of a theme, without applying or saving anything.
+        public static Theme CreateTheme(string theme)
         {
+            Theme result = null;
             switch (theme.ToLower())
             {
                 case "light":
-                    AppTheme = new Theme(
+                    result = new Theme(
                         Brushes.White,
                         Brushes.Black,
                         Brushes.White,
@@ -402,7 +404,7 @@ namespace client_side
                         Brushes.Black, "Light");
                     break;
                 case "dark":
-                    AppTheme = new Theme(
+                    result = new Theme(
                         Brushes.Black,
                         Brushes.White,
                         Brushes.Black,
@@ -411,7 +413,7 @@ namespace client_side
                         Brushes.White, "Dark");
                     break;
                 case "blue":
-                    AppTheme = new Theme(
+                    result = new Theme(
                         Brushes.LightBlue,
                         Brushes.DarkBlue,
                         Brushes.LightBlue,
@@ -420,7 +422,7 @@ namespace client_side
                         Brushes.DarkBlue, "Blue");
                     break;
                 case "green":
-                    AppTheme = new Theme(
+                    result = new Theme(
                         Brushes.LightGreen,
                         Brushes.DarkGreen,
                         Brushes.LightGreen,
@@ -429,7 +431,7 @@ namespace client_side
                         Brushes.DarkGreen, "Green");
                     break;
                 case "red":
-                    AppTheme = new Theme(
+                    result = new Theme(
                         Brushes.LightCoral,
                         Brushes.DarkRed,
                         Brushes.LightCoral,
@@ -438,7 +440,7 @@ namespace client_side
                         Brushes.DarkRed, "Red");
                     break;
                 case "cyberpunk":
-                    AppTheme = new Theme(
+                    result = new Theme(
                         new SolidColorBrush(Color.FromRgb(10, 0, 50)),
                         new SolidColorBrush(Color.FromRgb(0, 255, 255)),
                         new SolidColorBrush(Color.FromRgb(255, 20, 147)),
@@ -447,7 +449,7 @@ namespace client_side
                         new SolidColorBrush(Color.FromRgb(0, 255, 255)), "CyberPunk");
                     break;
                 case "matrix":
-                    AppTheme = new Theme(
+                    result = new Theme(
                         Brushes.Black,
                         new SolidColorBrush(Color.FromRgb(0, 255, 0)),
                         Brushes.Black,
@@ -456,7 +458,7 @@ namespace client_side
                         new SolidColorBrush(Color.FromRgb(0, 255, 0)), "Matrix");
                     break;
                 case "solarized light":
-                    AppTheme = new Theme(
+                    result = new Theme(
                         new SolidColorBrush(Color.FromRgb(253, 246, 227)),
                         new SolidColorBrush(Color.FromRgb(101, 123, 131)),
                         new SolidColorBrush(Color.FromRgb(238, 232, 213)),
@@ -465,7 +467,7 @@ namespace client_side
                         new SolidColorBrush(Color.FromRgb(101, 123, 131)), "Solarized Light");
                     break;
                 case "solarized dark":
-                    AppTheme = new Theme(
+                    result = new Theme(
                         new SolidColorBrush(Color.FromRgb(0, 43, 54)),
                         new SolidColorBrush(Color.FromRgb(131, 148, 153)),
                         new SolidColorBrush(Color.FromRgb(7, 54, 33)),
@@ -474,7 +476,7 @@ namespace client_side
                         new SolidColorBrush(Color.FromRgb(131, 148, 153)), "Solarized Dark");
                     break;
                 case "vintage":
-                    AppTheme = new Theme(
+                    result = new Theme(
                         new SolidColorBrush(Color.FromRgb(244, 227, 227)),
                         new SolidColorBrush(Color.FromRgb(108, 79, 79)),
                         new SolidColorBrush(Color.FromRgb(208, 182, 182)),
@@ -483,7 +485,7 @@ namespace client_side
                         new SolidColorBrush(Color.FromRgb(108, 79, 79)), "Vintage");
                     break;
                 case "neon":
-                    AppTheme = new Theme(
+                    result = new Theme(
                         Brushes.Black,
                         new SolidColorBrush(Color.FromRgb(57, 255, 20)),
                         new SolidColorBrush(Color.FromRgb(255, 0, 127)),
@@ -492,7 +494,7 @@ namespace client_side
                         new SolidColorBrush(Color.FromRgb(57, 255, 20)), "Neon");
                     break;
                 case "pastel":
-                    AppTheme = new Theme(
+                    result = new Theme(
                         new SolidColorBrush(Color.FromRgb(251, 232, 235)),
                         new SolidColorBrush(Color.FromRgb(195, 162, 176)),
                         new SolidColorBrush(Color.FromRgb(245, 227, 230)),
@@ -501,7 +503,7 @@ namespace client_side
                         new SolidColorBrush(Color.FromRgb(195, 162, 176)), "Pastel");
                     break;
                 default:
-                    AppTheme = new Theme(
+                    result = new Theme(
                         Brushes.White,
                         Brushes.Black,
                         Brushes.White,
@@ -511,13 +513,45 @@ namespace client_side
                         "Light");
                     break;
             }
+            return result ?? CreateTheme("dark");
+        }
+
+        // Applies a theme everywhere and remembers it for next time.
+        public void ModifyTheme(string theme)
+        {
+            AppTheme = CreateTheme(theme);
+            UpdateThemeResources();
             SaveSettings(theme);
             ThemeChanged?.Invoke(this, EventArgs.Empty);
-
-            settings.Theme = theme;
-
-            SaveSettings(settingsFilePath, settings);
+            if (settings != null)
+            {
+                settings.Theme = theme;
+                SaveSettings(settingsFilePath, settings);
+            }
         }
+
+        // App.xaml styles read these, so every button and input (also inside lists
+        // and dialogs, which ApplyTheme doesn't reach) follows the theme.
+        private void UpdateThemeResources()
+        {
+            var resources = Application.Current?.Resources;
+            if (resources == null || AppTheme == null) return;
+            Color background = (AppTheme.Background as SolidColorBrush)?.Color ?? Colors.Black;
+            Color text = (AppTheme.TextColor as SolidColorBrush)?.Color ?? Colors.White;
+            resources["Theme.WindowBackground"] = AppTheme.Background;
+            resources["Theme.Foreground"] = AppTheme.TextColor;
+            resources["Theme.ButtonBackground"] = AppTheme.ButtonBackground;
+            resources["Theme.ButtonForeground"] = AppTheme.ButtonForeground;
+            resources["Theme.ButtonBorder"] = AppTheme.ButtonBorder;
+            resources["Theme.ButtonHover"] = new SolidColorBrush(Blend(background, text, 0.18));
+            resources["Theme.InputBackground"] = new SolidColorBrush(Blend(background, text, 0.10));
+            resources["Theme.InputForeground"] = AppTheme.TextColor;
+            resources["Theme.InputBorder"] = new SolidColorBrush(Blend(background, text, 0.45));
+        }
+
+        private static Color Blend(Color a, Color b, double amount) => Color.FromRgb(
+            (byte)(a.R + (b.R - a.R) * amount), (byte)(a.G + (b.G - a.G) * amount), (byte)(a.B + (b.B - a.B) * amount));
+
 
         public void ApplyTheme(Window window)
         {
@@ -671,6 +705,8 @@ namespace client_side
             Properties.Settings.Default.Theme = theme;
             Properties.Settings.Default.Save();
         }
+
+        public void SaveTheme(string theme) => ModifyTheme(theme);
 
         public void SaveCredentials(string username, string hashedPassword)
         {
