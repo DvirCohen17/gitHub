@@ -6,140 +6,162 @@
         xmlns:local="clr-namespace:client_side"
         xmlns:avalonedit="http://icsharpcode.net/sharpdevelop/avalonedit"
         mc:Ignorable="d"
-        Title="Project" Width="1280" Height="760" MinWidth="900" MinHeight="520"
+        Title="Project" Width="1320" Height="800" MinWidth="960" MinHeight="560"
         WindowStartupLocation="CenterScreen">
 
-    <Window.Resources>
-        <Style x:Key="SectionTitle" TargetType="TextBlock">
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Margin" Value="0,0,0,6"/>
-        </Style>
-        <Style x:Key="Hint" TargetType="TextBlock">
-            <Setter Property="Opacity" Value="0.65"/>
-            <Setter Property="TextWrapping" Value="Wrap"/>
-        </Style>
-    </Window.Resources>
-
-    <Grid Margin="12">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="230"/>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="290"/>
-        </Grid.ColumnDefinitions>
 
-        <!-- Header -->
-        <DockPanel Grid.Row="0" Grid.ColumnSpan="3" Margin="0,0,0,10" LastChildFill="False">
-            <Button DockPanel.Dock="Left" Content="← Projects" Width="110" Height="30" Click="ReturnToMainPage_Click"/>
-            <TextBlock x:Name="txtProjectTitle" DockPanel.Dock="Left" FontSize="20" FontWeight="SemiBold"
-                       VerticalAlignment="Center" Margin="16,0,10,0"/>
-            <TextBlock x:Name="txtReadOnlyBadge" DockPanel.Dock="Left" Text="view only" VerticalAlignment="Center"
-                       Style="{StaticResource Hint}" Visibility="Collapsed"/>
-            <Button x:Name="ToDoListBtn" DockPanel.Dock="Right" Content="To-do list" Width="100" Height="30"
-                    Click="ToDoList_Click"/>
-        </DockPanel>
-
-        <!-- Files -->
-        <DockPanel Grid.Row="1" Grid.Column="0" Margin="0,0,12,0">
-            <TextBlock DockPanel.Dock="Top" Text="Files" Style="{StaticResource SectionTitle}"/>
-            <StackPanel x:Name="newFilePanel" DockPanel.Dock="Bottom" Margin="0,8,0,0">
-                <DockPanel>
-                    <Button DockPanel.Dock="Right" Content="Add" Width="50" Height="26" Margin="6,0,0,0" Click="AddFile_Click"/>
-                    <TextBox x:Name="txtNewFileName" Height="26" VerticalContentAlignment="Center" MaxLength="90"
-                             KeyDown="TxtNewFileName_KeyDown" ToolTip="New file name (the extension is added for you)"/>
-                </DockPanel>
-                <TextBlock x:Name="lblCreteErr" Foreground="IndianRed" TextWrapping="Wrap" Margin="0,4,0,0"/>
-            </StackPanel>
-            <Border BorderThickness="1" CornerRadius="4" Opacity="1">
-                <ListBox x:Name="lstFileList" FontSize="14" Background="Transparent" BorderThickness="0"
-                         SelectionChanged="LstFiles_SelectionChanged" PreviewKeyDown="LstFiles_PreviewKeyDown">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding FileName}" Padding="4,3"/>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                    <ListBox.ContextMenu>
-                        <ContextMenu x:Name="fileContextMenu">
-                            <MenuItem Header="Rename" Click="RenameFileMenu_Click"/>
-                            <MenuItem Header="Delete" Click="DeleteFileMenu_Click"/>
-                        </ContextMenu>
-                    </ListBox.ContextMenu>
-                </ListBox>
-            </Border>
-        </DockPanel>
-
-        <!-- Editor -->
-        <DockPanel Grid.Row="1" Grid.Column="1">
-            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6" LastChildFill="False">
-                <TextBlock x:Name="txtFileName" DockPanel.Dock="Left" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                <Button x:Name="closeFileBtn" DockPanel.Dock="Right" Content="Close file" Width="90" Height="26"
-                        Click="CloseFile_Click" Visibility="Collapsed"/>
-            </DockPanel>
-            <Grid>
-                <Border BorderThickness="1" CornerRadius="4">
-                    <avalonedit:TextEditor x:Name="txtFileContent"
-                                           FontFamily="Cascadia Mono, Consolas"
-                                           FontSize="15"
-                                           ShowLineNumbers="True"
-                                           Background="Transparent"
-                                           Padding="4"
-                                           IsReadOnly="True"
-                                           Visibility="Hidden"/>
+        <!-- Header bar -->
+        <Border Grid.Row="0" Background="{DynamicResource Theme.Surface}" BorderBrush="{DynamicResource Theme.Border}" BorderThickness="0,0,0,1">
+            <DockPanel Margin="16,10" LastChildFill="False">
+                <Button DockPanel.Dock="Left" Content="←  Projects" Style="{StaticResource GhostButton}" Height="32" Click="ReturnToMainPage_Click"/>
+                <Border DockPanel.Dock="Left" Style="{StaticResource BrandMark}" Margin="10,0,10,0"/>
+                <TextBlock x:Name="txtProjectTitle" DockPanel.Dock="Left" Style="{StaticResource H2}" FontSize="17" VerticalAlignment="Center"/>
+                <Border x:Name="txtReadOnlyBadgeBorder" DockPanel.Dock="Left" Margin="10,0,0,0" Padding="8,2" CornerRadius="10"
+                        Background="{DynamicResource Theme.SurfaceHover}" VerticalAlignment="Center"
+                        Visibility="{Binding Visibility, ElementName=txtReadOnlyBadge}">
+                    <TextBlock x:Name="txtReadOnlyBadge" Text="View only" Style="{StaticResource Caption}" Visibility="Collapsed"/>
                 </Border>
-                <TextBlock x:Name="txtEditorPlaceholder" HorizontalAlignment="Center" VerticalAlignment="Center"
-                           Style="{StaticResource Hint}" FontSize="15" TextAlignment="Center"
-                           Text="Select a file on the left to open it.&#x0a;Everyone in the file sees changes as they are typed."/>
-            </Grid>
-        </DockPanel>
+                <Button x:Name="ToDoListBtn" DockPanel.Dock="Right" Content="To-do list" Style="{StaticResource PrimaryButton}" Height="32"
+                        Click="ToDoList_Click"/>
+            </DockPanel>
+        </Border>
 
-        <!-- Members + chat -->
-        <DockPanel Grid.Row="1" Grid.Column="2" Margin="12,0,0,0">
-            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-                <TextBlock Text="Members" Style="{StaticResource SectionTitle}"/>
-                <ItemsControl x:Name="lstMembers">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Padding="0,1">
-                                <Run Text="{Binding Name, Mode=OneWay}"/>
-                                <Run Text="{Binding RoleLabel, Mode=OneWay}" FontStyle="Italic"/>
-                            </TextBlock>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel>
+        <Grid Grid.Row="1" Margin="14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="240"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="300"/>
+            </Grid.ColumnDefinitions>
 
-            <TextBlock DockPanel.Dock="Top" Text="Chat" Style="{StaticResource SectionTitle}"/>
-            <StackPanel x:Name="chatInputPanel" DockPanel.Dock="Bottom" Margin="0,8,0,0">
+            <!-- Files -->
+            <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,12,0" Padding="10">
                 <DockPanel>
-                    <Button DockPanel.Dock="Right" Content="Send" Width="60" Height="30" Margin="6,0,0,0" Click="SendChat_Click"/>
-                    <TextBox x:Name="txtChatInput" MinHeight="30" MaxHeight="90" MaxLength="1000" TextWrapping="Wrap"
-                             VerticalContentAlignment="Center" KeyDown="TxtChatInput_KeyDown"
-                             ToolTip="Enter to send"/>
+                    <TextBlock DockPanel.Dock="Top" Text="FILES" Style="{StaticResource Caption}" FontWeight="SemiBold" Margin="6,2,0,8"/>
+                    <StackPanel x:Name="renamePanel" DockPanel.Dock="Bottom" Margin="0,8,0,0" Visibility="Collapsed">
+                        <TextBlock x:Name="txtRenameLabel" Style="{StaticResource Caption}" Margin="2,0,0,4"/>
+                        <TextBox x:Name="txtRename" MaxLength="100" KeyDown="TxtRename_KeyDown"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
+                            <Button Content="Cancel" Style="{StaticResource GhostButton}" Height="28" Margin="0,0,6,0" Click="CancelRename_Click"/>
+                            <Button Content="Rename" Style="{StaticResource PrimaryButton}" Height="28" Click="ConfirmRename_Click"/>
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel x:Name="newFilePanel" DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="Add" Width="56" Height="30" Margin="6,0,0,0" Click="AddFile_Click"/>
+                            <TextBox x:Name="txtNewFileName" MaxLength="90" KeyDown="TxtNewFileName_KeyDown"/>
+                        </DockPanel>
+                        <TextBlock x:Name="lblCreteErr" Style="{StaticResource ErrorText}" FontSize="12" Margin="2,4,0,0"/>
+                    </StackPanel>
+                    <ListBox x:Name="lstFileList" Padding="0" SelectionChanged="LstFiles_SelectionChanged" PreviewKeyDown="LstFiles_PreviewKeyDown">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE8A5;" FontFamily="Segoe MDL2 Assets" Foreground="{DynamicResource Theme.Muted}"
+                                               VerticalAlignment="Center" Margin="0,0,8,0" FontSize="13"/>
+                                    <TextBlock Text="{Binding FileName}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                        <ListBox.ContextMenu>
+                            <ContextMenu x:Name="fileContextMenu">
+                                <MenuItem Header="Rename      F2" Click="RenameFileMenu_Click"/>
+                                <MenuItem Header="Delete      Del" Click="DeleteFileMenu_Click"/>
+                            </ContextMenu>
+                        </ListBox.ContextMenu>
+                    </ListBox>
                 </DockPanel>
-                <TextBlock x:Name="lblErr" Foreground="IndianRed" TextWrapping="Wrap" Margin="0,4,0,0"/>
-            </StackPanel>
-            <Border BorderThickness="1" CornerRadius="4">
-                <ScrollViewer x:Name="chatScroll" VerticalScrollBarVisibility="Auto" Padding="8,6">
-                    <ItemsControl x:Name="lstChat">
+            </Border>
+
+            <!-- Editor -->
+            <Border Grid.Column="1" Style="{StaticResource Card}">
+                <DockPanel>
+                    <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource Theme.Border}" BorderThickness="0,0,0,1" Padding="14,8">
+                        <DockPanel LastChildFill="False">
+                            <TextBlock x:Name="txtFileName" DockPanel.Dock="Left" FontFamily="Cascadia Mono, Consolas" FontSize="13"
+                                       VerticalAlignment="Center"/>
+                            <Button x:Name="closeFileBtn" DockPanel.Dock="Right" Content="Close file" Style="{StaticResource GhostButton}"
+                                    Height="28" Click="CloseFile_Click" Visibility="Collapsed"/>
+                        </DockPanel>
+                    </Border>
+                    <Grid>
+                        <avalonedit:TextEditor x:Name="txtFileContent"
+                                               FontFamily="Cascadia Mono, Consolas"
+                                               FontSize="14.5"
+                                               ShowLineNumbers="True"
+                                               Background="Transparent"
+                                               Padding="10,8"
+                                               IsReadOnly="True"
+                                               Visibility="Hidden"/>
+                        <StackPanel x:Name="txtEditorPlaceholder" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock Text="&#xE8A5;" FontFamily="Segoe MDL2 Assets" FontSize="40" HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource Theme.Border}"/>
+                            <TextBlock Text="No file open" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,12,0,4"/>
+                            <TextBlock Style="{StaticResource Muted}" TextAlignment="Center"
+                                       Text="Pick a file on the left. Everyone in the file sees edits as they're typed."/>
+                        </StackPanel>
+                    </Grid>
+                </DockPanel>
+            </Border>
+
+            <!-- Members + chat -->
+            <Border Grid.Column="2" Style="{StaticResource Card}" Margin="12,0,0,0" Padding="12">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="MEMBERS" Style="{StaticResource Caption}" FontWeight="SemiBold" Margin="2,0,0,6"/>
+                    <ItemsControl x:Name="lstMembers" DockPanel.Dock="Top" Margin="0,0,0,14">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <StackPanel Margin="0,0,0,8">
-                                    <TextBlock Text="{Binding Sender}" FontWeight="SemiBold" FontSize="12"/>
-                                    <TextBlock Text="{Binding Text}" TextWrapping="Wrap"/>
+                                <StackPanel Orientation="Horizontal" Margin="2,3">
+                                    <Border Width="24" Height="24" CornerRadius="12" Background="{DynamicResource Theme.AccentSoft}">
+                                        <TextBlock Text="{Binding Initial}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   FontWeight="SemiBold" FontSize="11.5"/>
+                                    </Border>
+                                    <TextBlock VerticalAlignment="Center" Margin="8,0,0,0">
+                                        <Run Text="{Binding Name, Mode=OneWay}"/>
+                                        <Run Text="{Binding RoleLabel, Mode=OneWay}" Foreground="{DynamicResource Theme.Muted}"/>
+                                    </TextBlock>
                                 </StackPanel>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                </ScrollViewer>
+
+                    <TextBlock DockPanel.Dock="Top" Text="CHAT" Style="{StaticResource Caption}" FontWeight="SemiBold" Margin="2,0,0,6"/>
+                    <StackPanel x:Name="chatInputPanel" DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="Send" Style="{StaticResource PrimaryButton}" Width="64" Height="34"
+                                    Margin="6,0,0,0" Click="SendChat_Click"/>
+                            <TextBox x:Name="txtChatInput" MinHeight="34" MaxHeight="96" MaxLength="1000" TextWrapping="Wrap"
+                                     KeyDown="TxtChatInput_KeyDown" ToolTip="Enter to send, Shift+Enter for a new line"/>
+                        </DockPanel>
+                        <TextBlock x:Name="lblErr" Style="{StaticResource ErrorText}" FontSize="12" Margin="2,4,0,0"/>
+                    </StackPanel>
+                    <ScrollViewer x:Name="chatScroll" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl x:Name="lstChat">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{DynamicResource Theme.SurfaceHover}" CornerRadius="8" Padding="10,6" Margin="0,0,0,6">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Sender}" FontWeight="SemiBold" FontSize="12"
+                                                       Foreground="{DynamicResource Theme.Accent}"/>
+                                            <TextBlock Text="{Binding Text}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
             </Border>
-        </DockPanel>
+        </Grid>
 
         <!-- Status bar -->
-        <TextBlock x:Name="txtStatus" Grid.Row="2" Grid.ColumnSpan="3" Margin="0,8,0,0" Style="{StaticResource Hint}"/>
+        <Border Grid.Row="2" BorderBrush="{DynamicResource Theme.Border}" BorderThickness="0,1,0,0" Padding="16,6">
+            <TextBlock x:Name="txtStatus" Style="{StaticResource Caption}"/>
+        </Border>
     </Grid>
 </Window>

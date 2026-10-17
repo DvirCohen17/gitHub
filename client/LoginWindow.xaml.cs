@@ -1,4 +1,4 @@
-﻿using client_side.Properties;
+using client_side.Properties;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -30,6 +30,7 @@ namespace client_side
         public LoginWindow()
         {
             InitializeComponent();
+            MainFrame.Attach(this); // same size and place as the previous screen
             Style = (Style)FindResource(typeof(Window));
 
             Communicator? connected = ConnectToServer();
@@ -179,6 +180,7 @@ namespace client_side
         public LoginWindow(Communicator _communicator)
         {
             InitializeComponent();
+            MainFrame.Attach(this); // same size and place as the previous screen
             Style = (Style)FindResource(typeof(Window));
             communicator = _communicator;
             communicator.UseResponseTimeout(true);

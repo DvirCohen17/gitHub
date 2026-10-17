@@ -5,132 +5,152 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:client_side"
         mc:Ignorable="d"
-        Title="Profile Page" Width="1150" Height="720" MinWidth="860" MinHeight="520"
+        Title="Profile Page" Width="1200" Height="760" MinWidth="900" MinHeight="560"
         WindowStartupLocation="CenterScreen">
 
     <Window.Resources>
         <local:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
-        <Style x:Key="SectionTitle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="16"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-        </Style>
-        <Style x:Key="Hint" TargetType="TextBlock">
-            <Setter Property="Opacity" Value="0.65"/>
-            <Setter Property="TextWrapping" Value="Wrap"/>
-        </Style>
     </Window.Resources>
 
-    <Grid Margin="16">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="320"/>
-        </Grid.ColumnDefinitions>
 
-        <!-- Profile header -->
-        <DockPanel Grid.Row="0" Grid.ColumnSpan="2" Margin="0,0,0,16" LastChildFill="True">
-            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
-                <Button x:Name="msgBtn" Content="Messages" Width="120" Height="30" Margin="0,0,8,0" Click="Messages_Click"/>
-                <Button x:Name="settingsBtn" Content="Settings" Width="90" Height="30" Margin="0,0,8,0" Click="Settings_Click"/>
-                <Button x:Name="LogoutBtn" Content="Log out" Width="90" Height="30" Click="LogoutButton_Click"/>
-            </StackPanel>
-            <StackPanel>
-                <StackPanel Orientation="Horizontal">
-                    <Button x:Name="backButton" Content="← My profile" Width="110" Height="28" Margin="0,0,12,0"
-                            Visibility="Collapsed" Click="BackButton_Click"/>
-                    <TextBlock x:Name="txtProfileName" FontSize="24" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    <Button x:Name="addFriendBtn" Content="Add friend" Width="100" Height="28" Margin="14,0,0,0"
-                            Visibility="Collapsed" Click="AddFriend_Click"/>
-                    <Button x:Name="removeFriendBtn" Content="Remove friend" Width="120" Height="28" Margin="14,0,0,0"
-                            Visibility="Collapsed" Click="RemoveDisplayedFriend_Click"/>
-                </StackPanel>
-                <TextBlock x:Name="txtProfileEmail" Style="{StaticResource Hint}" Margin="0,2,0,6"/>
-                <StackPanel x:Name="bioEditPanel" Orientation="Horizontal">
-                    <TextBox x:Name="BioTextBox" Width="420" Height="26" MaxLength="300" VerticalContentAlignment="Center"
-                             ToolTip="A short bio others see on your profile"/>
-                    <Button x:Name="editButton" Content="Save bio" Width="90" Height="26" Margin="8,0,0,0" Click="EditBio_Click"/>
-                </StackPanel>
-                <TextBlock x:Name="BioTextBlock" TextWrapping="Wrap" MaxWidth="600" HorizontalAlignment="Left" Visibility="Collapsed"/>
-            </StackPanel>
-        </DockPanel>
-
-        <!-- Projects -->
-        <DockPanel Grid.Row="1" Grid.Column="0" Margin="0,0,16,0">
-            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8" LastChildFill="False">
-                <TextBlock x:Name="txtProjectsTitle" Text="My projects" Style="{StaticResource SectionTitle}"/>
-                <Button x:Name="AddProjectBtn" DockPanel.Dock="Right" Content="+ New project" Width="120" Height="28" Click="AddProject_Click"/>
+        <!-- Header bar -->
+        <Border Grid.Row="0" Background="{DynamicResource Theme.Surface}" BorderBrush="{DynamicResource Theme.Border}" BorderThickness="0,0,0,1">
+            <DockPanel Margin="18,10" LastChildFill="False">
+                <Border DockPanel.Dock="Left" Style="{StaticResource BrandMark}"/>
+                <TextBlock DockPanel.Dock="Left" Text="gitHub Demo" Style="{StaticResource H2}" FontSize="16" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                <Button x:Name="LogoutBtn" DockPanel.Dock="Right" Content="Log out" Style="{StaticResource GhostButton}" Height="32" Click="LogoutButton_Click"/>
+                <Button x:Name="settingsBtn" DockPanel.Dock="Right" Content="Settings" Style="{StaticResource GhostButton}" Height="32" Margin="0,0,4,0" Click="Settings_Click"/>
+                <Button x:Name="msgBtn" DockPanel.Dock="Right" Content="Messages" Style="{StaticResource GhostButton}" Height="32" Margin="0,0,4,0" Click="Messages_Click"/>
             </DockPanel>
-            <Grid>
-                <Border BorderThickness="1" CornerRadius="6" BorderBrush="#66888888">
-                    <ListView x:Name="lstProjects" Background="Transparent" BorderThickness="0"
-                              MouseDoubleClick="LstProjects_MouseDoubleClick" HorizontalContentAlignment="Stretch">
-                        <ListView.ItemTemplate>
-                            <DataTemplate>
-                                <DockPanel Margin="4,6" LastChildFill="True">
-                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                                        <Button Content="Open" Width="62" Height="24" Margin="6,0,0,0" Click="OpenProject_Click" Tag="{Binding}"/>
-                                        <Button Content="Edit" Width="56" Height="24" Margin="6,0,0,0" Click="EditProjectInfo_Click" Tag="{Binding}"
-                                                Visibility="{Binding CanEdit, Converter={StaticResource BoolToVisibility}}"/>
-                                        <Button Content="Info" Width="56" Height="24" Margin="6,0,0,0" Click="ViewProjectInfo_Click" Tag="{Binding}"
-                                                Visibility="{Binding CanViewInfo, Converter={StaticResource BoolToVisibility}}"/>
-                                        <Button Content="Leave" Width="60" Height="24" Margin="6,0,0,0" Click="LeaveProject_Click" Tag="{Binding}"
-                                                Visibility="{Binding CanLeave, Converter={StaticResource BoolToVisibility}}"/>
-                                        <Button Content="Delete" Width="64" Height="24" Margin="6,0,0,0" Click="DeleteProject_Click" Tag="{Binding}"
-                                                Visibility="{Binding CanDelete, Converter={StaticResource BoolToVisibility}}"/>
-                                    </StackPanel>
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding ProjectName}" FontSize="15" FontWeight="SemiBold"/>
-                                        <TextBlock Text="{Binding RoleLabel}" Opacity="0.65" FontSize="12"/>
-                                    </StackPanel>
-                                </DockPanel>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
-                </Border>
-                <TextBlock x:Name="txtNoProjects" HorizontalAlignment="Center" VerticalAlignment="Center" Style="{StaticResource Hint}"
-                           TextAlignment="Center" Visibility="Collapsed"/>
-            </Grid>
-        </DockPanel>
+        </Border>
 
-        <!-- People -->
-        <DockPanel Grid.Row="1" Grid.Column="1">
-            <TextBlock DockPanel.Dock="Top" x:Name="txtPeopleTitle" Text="Friends" Style="{StaticResource SectionTitle}" Margin="0,0,0,8"/>
-            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-                <Button x:Name="closeSerachBtn" DockPanel.Dock="Right" Content="Clear" Width="56" Height="28" Margin="6,0,0,0"
-                        Visibility="Collapsed" Click="closeSearch_Click"/>
-                <Grid>
-                    <TextBox x:Name="searchBarTextBox" Height="28" VerticalContentAlignment="Center" MaxLength="30"
-                             TextChanged="SearchBox_TextChanged" KeyDown="SearchBox_KeyDown"/>
-                    <TextBlock x:Name="searchPlaceholder" Text="Search people by name..." Margin="6,0,0,0" VerticalAlignment="Center"
-                               IsHitTestVisible="False" Style="{StaticResource Hint}"/>
-                </Grid>
-            </DockPanel>
-            <Grid>
-                <Border BorderThickness="1" CornerRadius="6" BorderBrush="#66888888">
-                    <ListBox x:Name="lstFriends" Background="Transparent" BorderThickness="0" MouseDoubleClick="LstFriends_MouseDoubleClick"
-                             HorizontalContentAlignment="Stretch">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <DockPanel Margin="2,4" ToolTip="Double-click to view profile">
-                                    <Ellipse DockPanel.Dock="Left" Width="9" Height="9" Margin="0,0,8,0" Fill="{Binding StatusBrush}"
-                                             VerticalAlignment="Center"/>
-                                    <TextBlock DockPanel.Dock="Right" Text="{Binding StatusLabel}" Opacity="0.6" FontSize="12" VerticalAlignment="Center"/>
-                                    <TextBlock Text="{Binding Name}" FontSize="14" VerticalAlignment="Center"/>
-                                </DockPanel>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </Border>
-                <TextBlock x:Name="txtNoPeople" HorizontalAlignment="Center" VerticalAlignment="Center" Style="{StaticResource Hint}"
-                           TextAlignment="Center" Margin="16" Visibility="Collapsed"/>
-            </Grid>
-        </DockPanel>
+        <Grid Grid.Row="1" Margin="18">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="330"/>
+            </Grid.ColumnDefinitions>
 
-        <TextBlock x:Name="txtStatus" Grid.Row="2" Grid.ColumnSpan="2" Margin="0,10,0,0" Style="{StaticResource Hint}"/>
+            <!-- Profile card -->
+            <Border Grid.Row="0" Grid.ColumnSpan="2" Style="{StaticResource Card}" Padding="18" Margin="0,0,0,16">
+                <DockPanel>
+                    <Border DockPanel.Dock="Left" Width="64" Height="64" CornerRadius="32" Background="{DynamicResource Theme.Accent}" VerticalAlignment="Top">
+                        <TextBlock x:Name="txtAvatar" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="26" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Theme.AccentForeground}"/>
+                    </Border>
+                    <StackPanel Margin="16,0,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <Button x:Name="backButton" Content="←  My profile" Style="{StaticResource GhostButton}" Height="30" Margin="-8,0,8,0"
+                                    Visibility="Collapsed" Click="BackButton_Click"/>
+                            <TextBlock x:Name="txtProfileName" Style="{StaticResource H1}" VerticalAlignment="Center"/>
+                            <Button x:Name="addFriendBtn" Content="+ Add friend" Style="{StaticResource PrimaryButton}" Height="30" Margin="14,0,0,0"
+                                    Visibility="Collapsed" Click="AddFriend_Click"/>
+                            <Button x:Name="removeFriendBtn" Content="Remove friend" Style="{StaticResource DangerButton}" Height="30" Margin="14,0,0,0"
+                                    Visibility="Collapsed" Click="RemoveDisplayedFriend_Click"/>
+                        </StackPanel>
+                        <TextBlock x:Name="txtProfileEmail" Style="{StaticResource Muted}" Margin="0,2,0,10"/>
+                        <StackPanel x:Name="bioEditPanel" Orientation="Horizontal">
+                            <TextBox x:Name="BioTextBox" Width="460" MaxLength="300" ToolTip="A short bio others see on your profile"/>
+                            <Button x:Name="editButton" Content="Save bio" Height="30" Margin="8,0,0,0" Click="EditBio_Click"/>
+                        </StackPanel>
+                        <TextBlock x:Name="BioTextBlock" TextWrapping="Wrap" MaxWidth="700" HorizontalAlignment="Left" Visibility="Collapsed"/>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <!-- Projects -->
+            <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource Card}" Padding="14" Margin="0,0,16,0">
+                <DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="2,0,0,10" LastChildFill="False">
+                        <TextBlock x:Name="txtProjectsTitle" Text="My projects" Style="{StaticResource H2}" VerticalAlignment="Center"/>
+                        <Button x:Name="AddProjectBtn" DockPanel.Dock="Right" Content="+ New project" Style="{StaticResource PrimaryButton}" Height="32"
+                                Click="AddProject_Click"/>
+                    </DockPanel>
+                    <Grid>
+                        <ListView x:Name="lstProjects" Padding="0" MouseDoubleClick="LstProjects_MouseDoubleClick">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel Margin="2,6" LastChildFill="True">
+                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                            <Button Content="Open" Style="{StaticResource PrimaryButton}" Height="28" Margin="6,0,0,0" Click="OpenProject_Click" Tag="{Binding}"/>
+                                            <Button Content="Edit" Height="28" Margin="6,0,0,0" Click="EditProjectInfo_Click" Tag="{Binding}"
+                                                    Visibility="{Binding CanEdit, Converter={StaticResource BoolToVisibility}}"/>
+                                            <Button Content="Info" Height="28" Margin="6,0,0,0" Click="ViewProjectInfo_Click" Tag="{Binding}"
+                                                    Visibility="{Binding CanViewInfo, Converter={StaticResource BoolToVisibility}}"/>
+                                            <Button Content="Leave" Style="{StaticResource DangerButton}" Height="28" Margin="6,0,0,0" Click="LeaveProject_Click" Tag="{Binding}"
+                                                    Visibility="{Binding CanLeave, Converter={StaticResource BoolToVisibility}}"/>
+                                            <Button Content="Delete" Style="{StaticResource DangerButton}" Height="28" Margin="6,0,0,0" Click="DeleteProject_Click" Tag="{Binding}"
+                                                    Visibility="{Binding CanDelete, Converter={StaticResource BoolToVisibility}}"/>
+                                        </StackPanel>
+                                        <Border DockPanel.Dock="Left" Width="36" Height="36" CornerRadius="8" Background="{DynamicResource Theme.AccentSoft}" Margin="0,0,12,0">
+                                            <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource Theme.Accent}"/>
+                                        </Border>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding ProjectName}" FontSize="14.5" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding RoleLabel}" Style="{StaticResource Caption}"/>
+                                        </StackPanel>
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                        <TextBlock x:Name="txtNoProjects" HorizontalAlignment="Center" VerticalAlignment="Center" Style="{StaticResource Muted}"
+                                   TextAlignment="Center" Visibility="Collapsed"/>
+                    </Grid>
+                </DockPanel>
+            </Border>
+
+            <!-- People -->
+            <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource Card}" Padding="14">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" x:Name="txtPeopleTitle" Text="Friends" Style="{StaticResource H2}" Margin="2,0,0,10"/>
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <Button x:Name="closeSerachBtn" DockPanel.Dock="Right" Content="Clear" Style="{StaticResource GhostButton}" Height="30" Margin="4,0,0,0"
+                                Visibility="Collapsed" Click="closeSearch_Click"/>
+                        <Grid>
+                            <TextBox x:Name="searchBarTextBox" MaxLength="30" Padding="28,0,6,0" TextChanged="SearchBox_TextChanged" KeyDown="SearchBox_KeyDown"/>
+                            <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" Foreground="{DynamicResource Theme.Muted}" Margin="9,0,0,0"
+                                       VerticalAlignment="Center" IsHitTestVisible="False"/>
+                            <TextBlock x:Name="searchPlaceholder" Text="Search people by name" Margin="29,0,0,0" VerticalAlignment="Center"
+                                       IsHitTestVisible="False" Style="{StaticResource Muted}"/>
+                        </Grid>
+                    </DockPanel>
+                    <Grid>
+                        <ListBox x:Name="lstFriends" Padding="0" MouseDoubleClick="LstFriends_MouseDoubleClick">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel Margin="0,3" ToolTip="Double-click to view profile">
+                                        <Grid DockPanel.Dock="Left" Width="30" Height="30" Margin="0,0,10,0">
+                                            <Border CornerRadius="15" Background="{DynamicResource Theme.AccentSoft}">
+                                                <TextBlock Text="{Binding Initial}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                            </Border>
+                                            <Ellipse Width="10" Height="10" Fill="{Binding StatusBrush}" Stroke="{DynamicResource Theme.Surface}" StrokeThickness="2"
+                                                     HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
+                                        </Grid>
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding StatusLabel}" Style="{StaticResource Caption}" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding Name}" FontSize="14" VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        <TextBlock x:Name="txtNoPeople" HorizontalAlignment="Center" VerticalAlignment="Center" Style="{StaticResource Muted}"
+                                   TextAlignment="Center" Margin="16" Visibility="Collapsed"/>
+                    </Grid>
+                </DockPanel>
+            </Border>
+        </Grid>
+
+        <Border Grid.Row="2" BorderBrush="{DynamicResource Theme.Border}" BorderThickness="0,1,0,0" Padding="18,6">
+            <TextBlock x:Name="txtStatus" Style="{StaticResource Caption}"/>
+        </Border>
     </Grid>
 </Window>

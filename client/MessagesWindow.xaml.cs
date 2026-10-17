@@ -1,26 +1,35 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Windows;
-using System.Windows.Media;
+using System.Windows.Controls;
 
 namespace client_side
 {
-    // Inbox: notifications, project invites (mode 2) and friend requests (mode 1).
-    // Server replies arrive through the home page's listener (IServerMessageHandler).
-    public partial class MessagesWindow : Window, IServerMessageHandler
+    // Inbox screen: notifications, project invites (mode 2) and friend requests (mode 1).
+    public partial class MessagesWindow : Window
     {
         private readonly Communicator communicator;
+        private volatile bool isListeningToServer = true;
+        private bool disconnect = true;
         public ObservableCollection<Message> Messages { get; } = new ObservableCollection<Message>();
 
         public MessagesWindow(Communicator communicator)
         {
             InitializeComponent();
+            MainFrame.Attach(this); // same size and place as the previous screen
             Style = (Style)FindResource(typeof(Window));
             this.communicator = communicator;
             MessagesListView.ItemsSource = Messages;
             communicator.ApplyTheme(this);
+            Closing += (_, _) =>
+            {
+                isListeningToServer = false;
+                if (disconnect) Send(MessageCodes.MC_DISCONNECT, $"{communicator.UserId:D5}");
+            };
+            new Thread(ReceiveServerUpdates) { IsBackground = true }.Start();
             Load();
         }
 
@@ -39,27 +48,47 @@ namespace client_side
         private void SetStatus(string text, bool isError = false)
         {
             txtStatus.Text = text;
-            txtStatus.Foreground = isError ? Brushes.IndianRed : (communicator.AppTheme?.TextColor ?? Brushes.White);
-            txtStatus.Opacity = isError ? 1 : 0.65;
+            txtStatus.SetResourceReference(TextBlock.ForegroundProperty, isError ? "Theme.Danger" : "Theme.Muted");
+        }
+
+        private void ReceiveServerUpdates()
+        {
+            try
+            {
+                while (isListeningToServer)
+                {
+                    string update = communicator.ReceiveData();
+                    Dispatcher.Invoke(() => HandleMessage(update));
+                }
+            }
+            catch (Exception ex)
+            {
+                if (isListeningToServer) communicator.HandleListenerError(ex);
+            }
+        }
+
+        private void HandleMessage(string update)
+        {
+            if (update.Length < 3) return;
+            try
+            {
+                switch (update.Substring(0, 3))
+                {
+                    case "253": if (update.Length != 8) ShowMessages(update); break;
+                    case "236": SetStatus($"You're now friends with {new WireReader(update).Field()}."); Load(); break;
+                    case "237": SetStatus("Friend request declined."); Load(); break;
+                    case "240": GoHome(); break;                      // back-to-home acknowledged
+                    case "200": SetStatus(update.Substring(3), true); Load(); break;
+                    default: break;
+                }
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"Couldn't process a message from the server ({ex.Message}).", true);
+            }
         }
 
         private void Load() => Send(MessageCodes.MC_GET_MESSAGES_REQUEST, Wire.Field(communicator.UserName));
-
-        public bool HandleServerMessage(string update)
-        {
-            switch (update.Substring(0, 3))
-            {
-                case "253":
-                    if (update.Length == 8) return false; // a message *count* for the home page
-                    ShowMessages(update);
-                    return true;
-                case "236": SetStatus($"You're now friends with {new WireReader(update).Field()}."); Load(); return true;
-                case "237": SetStatus("Friend request declined."); Load(); return true;
-                case "256": Load(); return true; // new message arrived
-                case "200": SetStatus(update.Substring(3), true); Load(); return true;
-                default: return false;
-            }
-        }
 
         // "253" then per message: <mode digit><sender><text><itemId><id>
         private void ShowMessages(string update)
@@ -141,7 +170,16 @@ namespace client_side
 
         private void Refresh_Click(object sender, RoutedEventArgs e) => Load();
 
-        private void Close_Click(object sender, RoutedEventArgs e) => Close();
+        // The reply (240) ends this screen's listener before the home screen starts its own.
+        private void Back_Click(object sender, RoutedEventArgs e) => Send(MessageCodes.MC_BACK_TO_HOME_PAGE_REQUEST);
+
+        private void GoHome()
+        {
+            disconnect = false;
+            isListeningToServer = false;
+            new HomePage(communicator).Show();
+            Close();
+        }
 
         public class Message
         {
@@ -153,6 +191,7 @@ namespace client_side
 
             public bool IsRequest => Mode == 1 || Mode == 2;
             public string Kind => Mode switch { 1 => "Friend request", 2 => "Project invitation", _ => "Notification" };
+            public string Icon => Mode switch { 1 => "", 2 => "", _ => "" };
         }
     }
 }

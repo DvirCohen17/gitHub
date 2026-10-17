@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -36,6 +36,7 @@ namespace client_side
         public HomePage(Communicator communicator)
         {
             InitializeComponent();
+            MainFrame.Attach(this); // same size and place as the previous screen
             Style = (Style)FindResource(typeof(Window));
             this.communicator = communicator;
             displayedUser = communicator.UserName;
@@ -78,8 +79,7 @@ namespace client_side
         private void SetStatus(string text, bool isError = false)
         {
             txtStatus.Text = text;
-            txtStatus.Foreground = isError ? Brushes.IndianRed : (communicator.AppTheme?.TextColor ?? Brushes.White);
-            txtStatus.Opacity = isError ? 1 : 0.65;
+            txtStatus.SetResourceReference(TextBlock.ForegroundProperty, isError ? "Theme.Danger" : "Theme.Muted");
         }
 
         private void RefreshAll()
@@ -163,8 +163,8 @@ namespace client_side
                     case "240": if (ViewingSelf) Send(MessageCodes.MC_PROJECTS_LIST_REQUEST, Wire.Field(communicator.UserName)); break;
                     case "305": HandleEnterProject(update); break;
                     case "229": OpenChild(CreateProjectWindow(update)); break;
-                    case "254": OpenChild(new MessagesWindow(communicator)); break;
-                    case "251": OpenChild(new settingsWindow(communicator)); break;
+                    case "254": ReplaceWith(new MessagesWindow(communicator)); break;
+                    case "251": ReplaceWith(new settingsWindow(communicator)); break;
                     case "406": HandleLogout(); break;
                     case "200": SetStatus(update.Substring(3), true); break;
                     default: break;
@@ -192,6 +192,7 @@ namespace client_side
             displayedIsFriend = relation == "0";
 
             txtProfileName.Text = name;
+            txtAvatar.Text = name.Length > 0 ? name.Substring(0, 1).ToUpperInvariant() : "?";
             txtProfileEmail.Text = email;
             bool self = ViewingSelf;
             Title = self ? "Profile Page" : $"{name} - Profile";
@@ -344,9 +345,15 @@ namespace client_side
             string codeLan = reader.Field();
             bool isEditable = reader.Rest() == "true";
 
+            ReplaceWith(new ProjectDirectory(communicator, projectName, projectId, codeLan, isEditable));
+        }
+
+        // Another main screen takes over this window's place and the connection.
+        private void ReplaceWith(Window next)
+        {
             disconnect = false;
-            isListeningToServer = false; // the project window takes over the connection
-            new ProjectDirectory(communicator, projectName, projectId, codeLan, isEditable).Show();
+            isListeningToServer = false;
+            next.Show();
             Close();
         }
 
@@ -528,6 +535,7 @@ namespace client_side
         {
             public string Name { get; set; }
             public char Status { get; set; } // '1' online friend, '0' offline friend, '2' not a friend
+            public string Initial => string.IsNullOrEmpty(Name) ? "?" : Name.Substring(0, 1).ToUpperInvariant();
 
             public string StatusLabel => Status switch { '1' => "online", '0' => "offline", _ => "" };
             public Brush StatusBrush => Status switch { '1' => Brushes.LimeGreen, '0' => Brushes.Gray, _ => Brushes.Transparent };

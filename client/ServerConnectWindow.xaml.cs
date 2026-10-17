@@ -13,6 +13,7 @@ namespace client_side
         public ServerConnectWindow(ServerConfig? current, string reason)
         {
             InitializeComponent();
+            MainFrame.Attach(this); // same size and place as the previous screen
             Style = (Style)FindResource(typeof(Window));
 
             ServerConfig config = current ?? new ServerConfig();

@@ -1,33 +1,43 @@
-﻿<Window x:Class="client_side.SignupWindow"
+<Window x:Class="client_side.SignupWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:client_side"
         mc:Ignorable="d"
-        Title="Sign up" Width="380" SizeToContent="Height"
-        ResizeMode="NoResize" WindowStartupLocation="CenterScreen">
-    <StackPanel Margin="24,16,24,20">
-        <Label HorizontalAlignment="Center" FontSize="24">Create account</Label>
+        Title="Sign up" Width="1240" Height="780">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Grid MinHeight="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
+            <Border Style="{StaticResource Card}" Width="440" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,24" CornerRadius="12">
+    <StackPanel Margin="36,30,36,30">
+        <Border Style="{StaticResource BrandMark}" Width="52" Height="52" CornerRadius="12" HorizontalAlignment="Center"/>
+        <TextBlock Text="Create your account" Style="{StaticResource H1}" HorizontalAlignment="Center" Margin="0,14,0,2"/>
+        <TextBlock Text="Code together in real time" Style="{StaticResource Muted}" HorizontalAlignment="Center" Margin="0,0,0,12"/>
 
-        <Label Content="Username (3-30 letters, digits, . __ -)" Padding="0,8,0,2"/>
-        <TextBox x:Name="txtUsername" MaxLength="30" Height="26" VerticalContentAlignment="Center"/>
+        <TextBlock Text="Username" Style="{StaticResource FieldLabel}"/>
+        <TextBox x:Name="txtUsername" MaxLength="30" Height="34" ToolTip="3-30 characters: letters, digits, . _ -"/>
+        <TextBlock Text="3-30 characters: letters, digits, . _ -" Style="{StaticResource Caption}" Margin="0,4,0,0"/>
 
-        <Label Content="Email" Padding="0,8,0,2"/>
-        <TextBox x:Name="txtEmail" MaxLength="100" Height="26" VerticalContentAlignment="Center"/>
+        <TextBlock Text="Email" Style="{StaticResource FieldLabel}"/>
+        <TextBox x:Name="txtEmail" MaxLength="100" Height="34"/>
 
-        <Label Content="Password (at least 6 characters)" Padding="0,8,0,2"/>
-        <PasswordBox x:Name="pwdPassword" MaxLength="64" Height="26" VerticalContentAlignment="Center"/>
+        <TextBlock Text="Password" Style="{StaticResource FieldLabel}"/>
+        <PasswordBox x:Name="pwdPassword" MaxLength="64" Height="34"/>
+        <TextBlock Text="At least 6 characters" Style="{StaticResource Caption}" Margin="0,4,0,0"/>
 
-        <Label Content="Confirm password" Padding="0,8,0,2"/>
-        <PasswordBox x:Name="pwdConfirm" MaxLength="64" Height="26" VerticalContentAlignment="Center"/>
+        <TextBlock Text="Confirm password" Style="{StaticResource FieldLabel}"/>
+        <PasswordBox x:Name="pwdConfirm" MaxLength="64" Height="34"/>
 
-        <TextBlock x:Name="lblErrMsg" Foreground="Red" FontWeight="Bold" TextWrapping="Wrap" Margin="0,10,0,0"/>
+        <TextBlock x:Name="lblErrMsg" Style="{StaticResource ErrorText}" Margin="0,12,0,0"/>
 
-        <Button x:Name="btnSignup" Content="Sign up" Width="150" Height="30" Margin="0,12,0,0" IsDefault="True" Click="btnSignup_Click"/>
+        <Button x:Name="btnSignup" Content="Create account" Style="{StaticResource PrimaryButton}" Height="38"
+                HorizontalAlignment="Stretch" Margin="0,14,0,0" IsDefault="True" Click="btnSignup_Click"/>
 
-        <TextBlock HorizontalAlignment="Center" Margin="0,16,0,0">Already have an account?
-            <Hyperlink Click="hprlnkLogin">Login</Hyperlink>
+        <TextBlock HorizontalAlignment="Center" Margin="0,18,0,0" Style="{StaticResource Muted}">Already have an account?
+            <Hyperlink Click="hprlnkLogin" Foreground="{DynamicResource Theme.Accent}">Sign in</Hyperlink>
         </TextBlock>
     </StackPanel>
+            </Border>
+        </Grid>
+    </ScrollViewer>
 </Window>

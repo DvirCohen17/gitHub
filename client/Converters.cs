@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Data;
+using System.Windows.Media;
 
 namespace client_side
 {
@@ -153,5 +154,18 @@ namespace client_side
         {
             throw new NotImplementedException();
         }
+    }
+    // "Red" / "#FF8000" -> brush, for colour swatches.
+    public class ColorNameToBrushConverter : IValueConverter
+    {
+        public static Brush ToBrush(string name)
+        {
+            try { return new SolidColorBrush((Color)ColorConverter.ConvertFromString(name)); }
+            catch { return Brushes.Transparent; }
+        }
+
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture) => ToBrush(value as string ?? "");
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
     }
 }

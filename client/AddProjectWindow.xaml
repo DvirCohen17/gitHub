@@ -7,14 +7,14 @@
         mc:Ignorable="d"
         Title="New project" Width="520" SizeToContent="Height" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
-    <StackPanel Margin="22">
-        <TextBlock x:Name="txtHeading" Text="New project" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,14"/>
+    <StackPanel Margin="26,22,26,22">
+        <TextBlock x:Name="txtHeading" Text="New project" Style="{StaticResource H1}" Margin="0,0,0,6"/>
 
-        <TextBlock Text="Name"/>
-        <TextBox x:Name="ProjectNameTextBox" Height="28" MaxLength="50" Margin="0,4,0,12" VerticalContentAlignment="Center"/>
+        <TextBlock Text="Name" Style="{StaticResource FieldLabel}"/>
+        <TextBox x:Name="ProjectNameTextBox" Height="32" MaxLength="50"/>
 
-        <TextBlock Text="Language"/>
-        <ComboBox x:Name="CodeLanguageComboBox" Height="28" Margin="0,4,0,12">
+        <TextBlock Text="Language" Style="{StaticResource FieldLabel}"/>
+        <ComboBox x:Name="CodeLanguageComboBox" Height="32">
             <ComboBoxItem Content="C++" Tag="cpp"/>
             <ComboBoxItem Content="C#" Tag="cs"/>
             <ComboBoxItem Content="Python" Tag="python"/>
@@ -22,18 +22,18 @@
             <ComboBoxItem Content="JavaScript" Tag="JavaScript"/>
         </ComboBox>
 
-        <TextBlock Text="Members"/>
-        <TextBlock x:Name="txtMembersHint" Opacity="0.65" TextWrapping="Wrap" FontSize="12" Margin="0,2,0,6"
+        <TextBlock Text="Members" Style="{StaticResource FieldLabel}"/>
+        <TextBlock x:Name="txtMembersHint" Style="{StaticResource Caption}" Margin="0,0,0,8"
                    Text="Invite friends. Admins can edit the project and its members; participants can edit files, chat and manage tasks."/>
-        <Border BorderThickness="1" BorderBrush="#66888888" CornerRadius="4" MinHeight="60" MaxHeight="220">
+        <Border Style="{StaticResource Card}" MinHeight="60" MaxHeight="220" Padding="4">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <ItemsControl x:Name="SelectedUsersListBox" Margin="8,4">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <DockPanel Margin="0,3">
-                                <Button DockPanel.Dock="Right" Content="Remove" Width="70" Height="24" Margin="8,0,0,0"
+                                <Button DockPanel.Dock="Right" Content="Remove" Style="{StaticResource DangerButton}" Height="26" Margin="8,0,0,0"
                                         Click="RemoveUser_Click" Tag="{Binding}" IsEnabled="{Binding CanChange}"/>
-                                <ComboBox DockPanel.Dock="Right" Width="120" Height="24" SelectedValuePath="Tag"
+                                <ComboBox DockPanel.Dock="Right" Width="120" Height="26" MinHeight="26" SelectedValuePath="Tag"
                                           SelectedValue="{Binding Role, Mode=TwoWay}" IsEnabled="{Binding CanChange}">
                                     <ComboBoxItem Content="Participant" Tag="participant"/>
                                     <ComboBoxItem Content="Admin" Tag="admin"/>
@@ -48,18 +48,18 @@
                 </ItemsControl>
             </ScrollViewer>
         </Border>
-        <TextBlock x:Name="txtNoMembers" Text="Nobody else yet." Opacity="0.65" Margin="0,4,0,0"/>
+        <TextBlock x:Name="txtNoMembers" Text="Nobody else yet." Style="{StaticResource Caption}" Margin="2,6,0,0"/>
 
         <DockPanel x:Name="addMemberPanel" Margin="0,8,0,0">
-            <Button DockPanel.Dock="Right" Content="Add" Width="70" Height="28" Margin="8,0,0,0" Click="AddMember_Click"/>
-            <ComboBox x:Name="FriendsComboBox" Height="28" IsEditable="False" ToolTip="Only friends can be invited"/>
+            <Button DockPanel.Dock="Right" Content="Invite" Width="80" Height="32" Margin="8,0,0,0" Click="AddMember_Click"/>
+            <ComboBox x:Name="FriendsComboBox" Height="32" IsEditable="False" ToolTip="Only friends can be invited"/>
         </DockPanel>
 
-        <TextBlock x:Name="ErrorTextBlock" Foreground="IndianRed" TextWrapping="Wrap" Margin="0,12,0,0"/>
+        <TextBlock x:Name="ErrorTextBlock" Style="{StaticResource ErrorText}" Margin="0,12,0,0"/>
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
-            <Button x:Name="craeteBtn" Content="Create" Width="110" Height="30" Margin="0,0,8,0" IsDefault="True" Click="Save_Click"/>
-            <Button x:Name="cancelBtn" Content="Cancel" Width="110" Height="30" IsCancel="True" Click="Cancel_Click"/>
+            <Button x:Name="cancelBtn" Content="Cancel" Width="100" Height="34" Margin="0,0,8,0" IsCancel="True" Click="Cancel_Click"/>
+            <Button x:Name="craeteBtn" Content="Create" Style="{StaticResource PrimaryButton}" Width="110" Height="34" IsDefault="True" Click="Save_Click"/>
         </StackPanel>
     </StackPanel>
 </Window>

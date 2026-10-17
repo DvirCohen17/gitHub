@@ -20,7 +20,7 @@
     </Window.Resources>
     <Grid>
         <!-- Background Image -->
-        <Image Source="C:\Users\test0\OneDrive\Documents\cyber\cloud\client\client_side\logo.jpg" Stretch="Fill" />
+        <Image Source="pack://application:,,,/logo.jpg" Stretch="Fill" />
 
         <!-- App Name -->
         <TextBlock Text="Anas" HorizontalAlignment="Center" VerticalAlignment="Center"

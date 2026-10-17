@@ -396,21 +396,21 @@ namespace client_side
             {
                 case "light":
                     result = new Theme(
-                        Brushes.White,
-                        Brushes.Black,
-                        Brushes.White,
-                        Brushes.Black,
-                        Brushes.Black,
-                        Brushes.Black, "Light");
+                        Hex("#F6F7F9"),
+                        Hex("#1F2328"),
+                        Hex("#FFFFFF"),
+                        Hex("#1F2328"),
+                        Hex("#D0D7DE"),
+                        Hex("#1F2328"), "Light");
                     break;
                 case "dark":
                     result = new Theme(
-                        Brushes.Black,
-                        Brushes.White,
-                        Brushes.Black,
-                        Brushes.White,
-                        Brushes.White,
-                        Brushes.White, "Dark");
+                        Hex("#16181D"),
+                        Hex("#E6E8EB"),
+                        Hex("#22252B"),
+                        Hex("#E6E8EB"),
+                        Hex("#3A3F47"),
+                        Hex("#E6E8EB"), "Dark");
                     break;
                 case "blue":
                     result = new Theme(
@@ -532,170 +532,80 @@ namespace client_side
 
         // App.xaml styles read these, so every button and input (also inside lists
         // and dialogs, which ApplyTheme doesn't reach) follows the theme.
+        private static SolidColorBrush Hex(string color)
+        {
+            var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(color));
+            brush.Freeze();
+            return brush;
+        }
+
+        // Accent colour (primary buttons, focus, selection) for each theme.
+        public static Brush AccentBrushFor(string theme) => Solid(AccentFor(theme));
+
+        private static Color AccentFor(string theme) => (Color)ColorConverter.ConvertFromString(theme.ToLower() switch
+        {
+            "light" => "#2563EB",
+            "blue" => "#1D4ED8",
+            "green" => "#15803D",
+            "red" => "#B91C1C",
+            "cyberpunk" => "#FF1493",
+            "matrix" => "#00B140",
+            "solarized light" => "#268BD2",
+            "solarized dark" => "#2AA198",
+            "vintage" => "#8B5E3C",
+            "neon" => "#39FF14",
+            "pastel" => "#B57EDC",
+            _ => "#3B82F6",
+        });
+
+        // App.xaml styles read these (DynamicResource), so every control in every
+        // window - including inside lists and dialogs - follows the theme.
         private void UpdateThemeResources()
         {
             var resources = Application.Current?.Resources;
             if (resources == null || AppTheme == null) return;
             Color background = (AppTheme.Background as SolidColorBrush)?.Color ?? Colors.Black;
             Color text = (AppTheme.TextColor as SolidColorBrush)?.Color ?? Colors.White;
+            Color accent = AccentFor(AppTheme.theame ?? "dark");
+            bool lightAccent = (accent.R * 0.299 + accent.G * 0.587 + accent.B * 0.114) > 160;
+
             resources["Theme.WindowBackground"] = AppTheme.Background;
             resources["Theme.Foreground"] = AppTheme.TextColor;
-            resources["Theme.ButtonBackground"] = AppTheme.ButtonBackground;
-            resources["Theme.ButtonForeground"] = AppTheme.ButtonForeground;
-            resources["Theme.ButtonBorder"] = AppTheme.ButtonBorder;
-            resources["Theme.ButtonHover"] = new SolidColorBrush(Blend(background, text, 0.18));
-            resources["Theme.InputBackground"] = new SolidColorBrush(Blend(background, text, 0.10));
+            resources["Theme.Muted"] = Solid(Blend(text, background, 0.38));
+            resources["Theme.Surface"] = Solid(Blend(background, text, 0.04));
+            resources["Theme.SurfaceHover"] = Solid(Blend(background, text, 0.09));
+            resources["Theme.Border"] = Solid(Blend(background, text, 0.16));
+            resources["Theme.ButtonBackground"] = Solid(Blend(background, text, 0.06));
+            resources["Theme.ButtonForeground"] = AppTheme.TextColor;
+            resources["Theme.ButtonBorder"] = Solid(Blend(background, text, 0.22));
+            resources["Theme.ButtonHover"] = Solid(Blend(background, text, 0.13));
+            resources["Theme.InputBackground"] = Solid(Blend(background, text, 0.04));
             resources["Theme.InputForeground"] = AppTheme.TextColor;
-            resources["Theme.InputBorder"] = new SolidColorBrush(Blend(background, text, 0.45));
+            resources["Theme.InputBorder"] = Solid(Blend(background, text, 0.22));
+            resources["Theme.Accent"] = Solid(accent);
+            resources["Theme.AccentHover"] = Solid(Blend(accent, lightAccent ? Colors.Black : Colors.White, 0.12));
+            resources["Theme.AccentForeground"] = lightAccent ? Brushes.Black : Brushes.White;
+            resources["Theme.AccentSoft"] = Solid(Blend(background, accent, 0.22));
+        }
+
+        private static SolidColorBrush Solid(Color color)
+        {
+            var brush = new SolidColorBrush(color);
+            brush.Freeze();
+            return brush;
         }
 
         private static Color Blend(Color a, Color b, double amount) => Color.FromRgb(
             (byte)(a.R + (b.R - a.R) * amount), (byte)(a.G + (b.G - a.G) * amount), (byte)(a.B + (b.B - a.B) * amount));
 
 
+        // Styles in App.xaml follow the theme through dynamic resources; this just
+        // makes sure they're up to date (kept so windows can call it as before).
         public void ApplyTheme(Window window)
         {
             if (AppTheme != null)
             {
-                var resourceDictionary = new ResourceDictionary();
-
-                window.Background = AppTheme.Background;
-                window.Foreground = AppTheme.Foreground;
-
-                if (window.Content is Panel panel)
-                {
-                    ApplyThemeToControls(panel);
-                }
-            }
-        }
-
-        private void ApplyThemeToControls(Panel panel)
-        {
-            if (panel == null)
-                return;
-
-            foreach (var control in panel.Children)
-            {
-                ApplyThemeToControl(control as DependencyObject); // Cast to DependencyObject
-            }
-        }
-
-        private void ApplyThemeToControl(DependencyObject control)
-        {
-            if (control == null)
-                return;
-
-            if (control is Button button)
-            {
-                // Apply the background and foreground colors
-                button.Background = AppTheme.ButtonBackground;
-                button.Foreground = AppTheme.ButtonForeground;
-
-                // Apply the border color for buttons
-                button.BorderBrush = AppTheme.ButtonBorder;
-            }
-            else if (control is TextBlock textBlock)
-            {
-                textBlock.Foreground = AppTheme.TextColor; // Apply text color
-
-            }
-            else if (control is TextBox textBox)
-            {
-                textBox.Foreground = AppTheme.TextColor; // Apply text color
-                textBox.BorderBrush = AppTheme.TextColor; 
-            }
-            else if (control is Border border)
-            {
-                border.BorderBrush = AppTheme.TextColor; // Apply text color
-                ApplyThemeToControl(border.Child);
-            }
-            else if (control is ICSharpCode.AvalonEdit.TextEditor editor)
-            {
-                editor.Foreground = AppTheme.TextColor;
-            }
-            else if (control is ScrollViewer scrollViewer)
-            {
-                ApplyThemeToControl(scrollViewer.Content as DependencyObject);
-            }
-            else if (control is PasswordBox passwordBox)
-            {
-                passwordBox.Foreground = AppTheme.TextColor;
-            }
-            else if (control is CheckBox checkBox)
-            {
-                checkBox.Foreground = AppTheme.TextColor; // Apply text color
-                if (checkBox.Content is string contentString)
-                {
-                    checkBox.Content = new TextBlock
-                    {
-                        Text = contentString,
-                        Foreground = AppTheme.TextColor
-                    };
-                }
-                else if (checkBox.Content is TextBlock contentTextBlock)
-                {
-                    contentTextBlock.Foreground = AppTheme.TextColor;
-                }
-            }
-            else if (control is ListBox listBox)
-            {
-                listBox.Foreground = AppTheme.TextColor; // Apply text color
-                foreach (var item in listBox.Items)
-                {
-                    // Find the ListBoxItem and apply theme to it
-                    ListBoxItem listBoxItem = listBox.ItemContainerGenerator.ContainerFromItem(item) as ListBoxItem;
-                    if (listBoxItem != null)
-                    {
-                        ApplyThemeToControl(listBoxItem);
-                    }
-                }
-            }
-            else if (control is ListView listView)
-            {
-                listView.Foreground = AppTheme.TextColor;
-                foreach (var item in listView.Items)
-                {
-                    ListViewItem listViewItem = listView.ItemContainerGenerator.ContainerFromItem(item) as ListViewItem;
-                    if (listViewItem != null)
-                    {
-                        ApplyThemeToControl(listViewItem);
-                    }
-                }
-            }
-            else if (control is Panel childPanel)
-            {
-                foreach (var child in childPanel.Children)
-                {
-                    ApplyThemeToControl(child as DependencyObject); // Cast to DependencyObject
-                }
-            }
-            else if (control is ListBoxItem listBoxItem)
-            {
-                for (int i = 0; i < VisualTreeHelper.GetChildrenCount(listBoxItem); i++)
-                {
-                    DependencyObject child = VisualTreeHelper.GetChild(listBoxItem, i);
-                    ApplyThemeToControl(child);
-                }
-            }
-            else if (control is ListViewItem listViewItem)
-            {
-                for (int i = 0; i < VisualTreeHelper.GetChildrenCount(listViewItem); i++)
-                {
-                    DependencyObject child = VisualTreeHelper.GetChild(listViewItem, i);
-                    ApplyThemeToControl(child);
-                }
-            }
-        }
-
-        private void ApplyThemeToControl(ListBoxItem listBoxItem)
-        {
-            if (listBoxItem == null)
-                return;
-
-            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(listBoxItem); i++)
-            {
-                DependencyObject child = VisualTreeHelper.GetChild(listBoxItem, i);
-                ApplyThemeToControl(child);
+                UpdateThemeResources();
             }
         }
 

@@ -28,6 +28,7 @@ namespace client_side
         public ToDoListWindow(Communicator communicator, int projectId)
         {
             InitializeComponent();
+            MainFrame.Attach(this); // same size and place as the previous screen
             Style = (Style)FindResource(typeof(Window));
             this.communicator = communicator;
             this.projectId = projectId;
@@ -58,8 +59,7 @@ namespace client_side
         private void SetStatus(string text, bool isError = false)
         {
             txtStatus.Text = text;
-            txtStatus.Foreground = isError ? Brushes.IndianRed : (communicator.AppTheme?.TextColor ?? Brushes.White);
-            txtStatus.Opacity = isError ? 1 : 0.65;
+            txtStatus.SetResourceReference(TextBlock.ForegroundProperty, isError ? "Theme.Danger" : "Theme.Muted");
         }
 
         private void ReceiveServerUpdates()
@@ -177,21 +177,18 @@ namespace client_side
             }
         }
 
-        private void Create_Click(object sender, RoutedEventArgs e)
-        {
-            var dialog = new IssueDataWindow(this, members, null);
-            if (dialog.ShowDialog() == true)
-            {
-                Send(MessageCodes.MC_ADD_TASK_REQUEST, Wire.Field(dialog.Detail) + Wire.Field(dialog.EncodedAssignees) + Wire.Field(dialog.DueDate));
-                SetStatus("Saving...");
-            }
-        }
+        // ---- task editor panel (beside the list, not a pop-up)
+
+        private Issue editing;               // null = new task
+        private List<MemberChoice> choices = new List<MemberChoice>();
+
+        private void Create_Click(object sender, RoutedEventArgs e) => OpenEditor(null);
 
         private void EditIssue_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button button && button.Tag is Issue issue)
             {
-                Edit(issue);
+                OpenEditor(issue);
             }
         }
 
@@ -199,19 +196,61 @@ namespace client_side
         {
             if (e.ClickCount == 2 && sender is FrameworkElement element && element.Tag is Issue issue && issue.CanEdit)
             {
-                Edit(issue);
+                OpenEditor(issue);
             }
         }
 
-        private void Edit(Issue issue)
+        private void OpenEditor(Issue issue)
         {
-            var dialog = new IssueDataWindow(this, members, issue);
-            if (dialog.ShowDialog() == true)
+            editing = issue;
+            var assigned = new HashSet<string>(issue?.Users.Select(u => u.Name) ?? Enumerable.Empty<string>());
+            // keep assignees who have since left the project visible (and selected)
+            choices = members.Union(assigned).OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+                .Select(n => new MemberChoice { Name = n, IsSelected = assigned.Contains(n) }).ToList();
+            MembersList.ItemsSource = choices;
+
+            txtEditorHeading.Text = issue == null ? "New task" : "Edit task";
+            SaveBtn.Content = issue == null ? "Create" : "Save";
+            IssueDataTextBox.Text = issue?.Detail ?? "";
+            IssueDatePicker.SelectedDate = issue?.Date ?? DateTime.Today.AddDays(7);
+            ErrorTextBlock.Text = "";
+            editorPanel.Visibility = Visibility.Visible;
+            IssueDataTextBox.Focus();
+        }
+
+        private void CancelEdit_Click(object sender, RoutedEventArgs e) => editorPanel.Visibility = Visibility.Collapsed;
+
+        private void SaveTask_Click(object sender, RoutedEventArgs e)
+        {
+            string text = IssueDataTextBox.Text.Trim();
+            if (text.Length == 0)
             {
-                Send(MessageCodes.MC_MODIFY_ISSUE_REQUEST,
-                     Wire.Field(dialog.Detail) + Wire.Field(dialog.EncodedAssignees) + Wire.Field(dialog.DueDate) + issue.Id);
-                SetStatus("Saving...");
+                ErrorTextBlock.Text = "Describe the task.";
+                return;
             }
+            if (IssueDatePicker.SelectedDate == null)
+            {
+                ErrorTextBlock.Text = "Pick a due date.";
+                return;
+            }
+            string date = IssueDatePicker.SelectedDate.Value.ToString(Issue.DateFormat, CultureInfo.InvariantCulture);
+            string assignees = string.Concat(choices.Where(c => c.IsSelected).Select(c => Wire.Field(c.Name)));
+            if (editing == null)
+            {
+                Send(MessageCodes.MC_ADD_TASK_REQUEST, Wire.Field(text) + Wire.Field(assignees) + Wire.Field(date));
+            }
+            else
+            {
+                Send(MessageCodes.MC_MODIFY_ISSUE_REQUEST, Wire.Field(text) + Wire.Field(assignees) + Wire.Field(date) + editing.Id);
+            }
+            editorPanel.Visibility = Visibility.Collapsed;
+            SetStatus("Saving...");
+        }
+
+        public class MemberChoice
+        {
+            public string Name { get; set; }
+            public bool IsSelected { get; set; }
         }
 
         private void Back_Click(object sender, RoutedEventArgs e)
@@ -283,5 +322,9 @@ namespace client_side
             int id = int.Parse(reader.Field());
             return new Issue { Id = id, Detail = detail, Users = users, Date = date, IsCompleted = completed };
         }
+    }
+    public class User
+    {
+        public string Name { get; set; }
     }
 }

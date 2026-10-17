@@ -49,6 +49,7 @@ namespace client_side
         public ProjectDirectory(Communicator communicator, string projectName, int projectId, string codeLan, bool isEditable)
         {
             InitializeComponent();
+            MainFrame.Attach(this); // same size and place as the previous screen
             Style = (Style)FindResource(typeof(Window));
             this.communicator = communicator;
             ProjectName = projectName;
@@ -74,8 +75,10 @@ namespace client_side
             txtFileContent.Options.IndentationSize = 4;
 
             communicator.ApplyTheme(this);
-            txtFileContent.Foreground = communicator.AppTheme?.TextColor ?? Brushes.White;
-            txtFileContent.LineNumbersForeground = Brushes.Gray;
+            txtFileContent.SetResourceReference(ForegroundProperty, "Theme.Foreground");
+            txtFileContent.SetResourceReference(ICSharpCode.AvalonEdit.TextEditor.LineNumbersForegroundProperty, "Theme.Muted");
+            txtFileContent.TextArea.SelectionBrush = new SolidColorBrush(Color.FromArgb(0x55, 0x3B, 0x82, 0xF6));
+            txtFileContent.TextArea.SelectionBorder = null;
 
             Closing += ProjectDirectory_CloseFile;
 
@@ -115,8 +118,7 @@ namespace client_side
         private void SetStatus(string text, bool isError = false)
         {
             txtStatus.Text = text;
-            txtStatus.Foreground = isError ? Brushes.IndianRed : (communicator.AppTheme?.TextColor ?? Brushes.White);
-            txtStatus.Opacity = isError ? 1 : 0.65;
+            txtStatus.SetResourceReference(TextBlock.ForegroundProperty, isError ? "Theme.Danger" : "Theme.Muted");
         }
 
         // =====================================================================
@@ -311,25 +313,55 @@ namespace client_side
             return null;
         }
 
+        // Rename happens inline at the bottom of the file list (no pop-up).
+        private string renamingFile;
+
         private void RenameFileMenu_Click(object sender, RoutedEventArgs e)
         {
             if (lstFileList.SelectedItem is not FileViewModel file)
             {
                 return;
             }
-            string newName = TextPrompt.Show(this, "Rename file", "New name:", file.FileName);
-            if (newName == null || newName.Trim() == file.FileName)
+            renamingFile = file.FileName;
+            txtRenameLabel.Text = $"Rename {file.FileName} to:";
+            txtRename.Text = file.FileName;
+            newFilePanel.Visibility = Visibility.Collapsed;
+            renamePanel.Visibility = Visibility.Visible;
+            txtRename.Focus();
+            int dot = file.FileName.LastIndexOf('.');
+            txtRename.Select(0, dot > 0 ? dot : file.FileName.Length); // select the name, not the extension
+        }
+
+        private void TxtRename_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter) { ConfirmRename_Click(sender, e); e.Handled = true; }
+            else if (e.Key == Key.Escape) { CancelRename_Click(sender, e); e.Handled = true; }
+        }
+
+        private void CancelRename_Click(object sender, RoutedEventArgs e)
+        {
+            renamingFile = null;
+            renamePanel.Visibility = Visibility.Collapsed;
+            newFilePanel.Visibility = isEditable ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private void ConfirmRename_Click(object sender, RoutedEventArgs e)
+        {
+            if (renamingFile == null) return;
+            string newName = txtRename.Text.Trim();
+            if (newName == renamingFile)
             {
+                CancelRename_Click(sender, e);
                 return;
             }
-            newName = newName.Trim();
             string problem = ValidateFileName(newName);
             if (problem != null)
             {
                 SetStatus(problem, true);
                 return;
             }
-            Send(MessageCodes.MC_RENAME_FILE_REQUEST, Wire.Field(newName) + Wire.Field(file.FileName) + Wire.Field(ProjectId.ToString()));
+            Send(MessageCodes.MC_RENAME_FILE_REQUEST, Wire.Field(newName) + Wire.Field(renamingFile) + Wire.Field(ProjectId.ToString()));
+            CancelRename_Click(sender, e);
         }
 
         private void DeleteFileMenu_Click(object sender, RoutedEventArgs e) => DeleteSelectedFile();
@@ -691,6 +723,7 @@ namespace client_side
         {
             public string Name { get; set; }
             public string RoleLabel { get; set; }
+            public string Initial => string.IsNullOrEmpty(Name) ? "?" : Name.Substring(0, 1).ToUpperInvariant();
         }
     }
 }

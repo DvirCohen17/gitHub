@@ -65,11 +65,13 @@ namespace InstallerApp
             string host = hostTextBox.Text.Trim();
             if (host.Length == 0 || !int.TryParse(portTextBox.Text.Trim(), out int port) || port < 1 || port > 65535)
             {
+                statusTextBlock.Foreground = (System.Windows.Media.Brush)FindResource("Danger");
                 statusTextBlock.Text = "Enter a server address and a port between 1 and 65535.";
                 return;
             }
 
             SetBusy(true);
+            statusTextBlock.Foreground = (System.Windows.Media.Brush)FindResource("Muted");
             cancellation = new CancellationTokenSource();
             try
             {
@@ -91,6 +93,7 @@ namespace InstallerApp
             }
             catch (Exception ex)
             {
+                statusTextBlock.Foreground = (System.Windows.Media.Brush)FindResource("Danger");
                 statusTextBlock.Text = $"Installation failed: {ex.Message}\nYour existing installation was not changed.";
             }
             finally
