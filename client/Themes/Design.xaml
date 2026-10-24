@@ -741,6 +741,23 @@
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Foreground" Value="{DynamicResource Theme.Foreground}"/>
         <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+        <!-- the default template turns white when disabled (e.g. while offline) -->
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TreeView">
+                    <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                        <ScrollViewer Focusable="False" CanContentScroll="False" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                            <ItemsPresenter/>
+                        </ScrollViewer>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.6"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
     <Style TargetType="TreeViewItem">
         <Setter Property="Foreground" Value="{DynamicResource Theme.Foreground}"/>
@@ -935,6 +952,11 @@
                 </Setter>
             </Trigger>
         </Style.Triggers>
+    </Style>
+
+    <!-- scroll areas never show a dotted focus frame -->
+    <Style TargetType="ScrollViewer">
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
     </Style>
 
     <!-- ===== Menus & tooltips ===== -->
