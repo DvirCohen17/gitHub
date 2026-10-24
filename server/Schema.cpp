@@ -443,11 +443,8 @@ void Schema::importLegacy(Db& db, const std::string& legacyPath)
 		}
 	}
 
-	if (old.tableExists("ClientVersion"))
-	{
-		if (auto version = old.text("SELECT Version FROM ClientVersion LIMIT 1"))
-			db.exec("INSERT OR REPLACE INTO settings (key, value) VALUES ('client_version', ?1)", *version);
-	}
+	// The v1 "ClientVersion" isn't carried over: version 2 clients would all be
+	// told to "update" to it. Set the required version with the console's `version`.
 
 	tx.commit();
 	LOG_INFO("Imported " << db.scalar(0, "SELECT COUNT(*) FROM users") << " users, "

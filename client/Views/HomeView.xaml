@@ -16,21 +16,6 @@
                 <!-- header -->
                 <DockPanel>
                     <c:Avatar DockPanel.Dock="Left" User="{Binding Session.Me}" Size="56" Margin="0,0,16,0"/>
-                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBox Text="{Binding JoinCode, UpdateSourceTrigger=PropertyChanged}" Width="190" c:Hint.Text="Invite code or link"
-                                 AutomationProperties.AutomationId="JoinCode">
-                            <TextBox.InputBindings>
-                                <KeyBinding Key="Return" Command="{Binding JoinCommand}"/>
-                            </TextBox.InputBindings>
-                        </TextBox>
-                        <Button Content="Join" Margin="6,0,12,0" Command="{Binding JoinCommand}" AutomationProperties.AutomationId="Join"/>
-                        <Button Style="{StaticResource PrimaryButton}" Command="{Binding NewProjectCommand}" AutomationProperties.AutomationId="NewProject">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" Foreground="{DynamicResource Theme.AccentForeground}"/>
-                                <TextBlock Text="New project"/>
-                            </StackPanel>
-                        </Button>
-                    </StackPanel>
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="{Binding Greeting}" Style="{StaticResource H1}" FontSize="24"/>
                         <!-- bio -->
@@ -91,8 +76,23 @@
 
                 <!-- projects -->
                 <DockPanel Margin="0,28,0,12">
-                    <TextBox DockPanel.Dock="Right" Style="{StaticResource SearchBox}" Width="220" c:Hint.Text="Filter projects"
-                             Text="{Binding ProjectFilter, UpdateSourceTrigger=PropertyChanged}"/>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBox Style="{StaticResource SearchBox}" Width="180" c:Hint.Text="Filter projects" Margin="0,0,12,0"
+                                 Text="{Binding ProjectFilter, UpdateSourceTrigger=PropertyChanged}"/>
+                        <TextBox Text="{Binding JoinCode, UpdateSourceTrigger=PropertyChanged}" Width="170" c:Hint.Text="Invite code or link"
+                                 AutomationProperties.AutomationId="JoinCode">
+                            <TextBox.InputBindings>
+                                <KeyBinding Key="Return" Command="{Binding JoinCommand}"/>
+                            </TextBox.InputBindings>
+                        </TextBox>
+                        <Button Content="Join" Margin="6,0,12,0" Command="{Binding JoinCommand}" AutomationProperties.AutomationId="Join"/>
+                        <Button Style="{StaticResource PrimaryButton}" Command="{Binding NewProjectCommand}" AutomationProperties.AutomationId="NewProject">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" Foreground="{DynamicResource Theme.AccentForeground}"/>
+                                <TextBlock Text="New project"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
                     <TextBlock Text="YOUR PROJECTS" Style="{StaticResource H3}" VerticalAlignment="Center"/>
                 </DockPanel>
                 <ItemsControl ItemsSource="{Binding Projects}" AutomationProperties.AutomationId="Projects">

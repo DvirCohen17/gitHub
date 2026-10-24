@@ -14,6 +14,7 @@ public sealed class RemoteCursor
     public long SessionId { get; init; }
     public int Anchor { get; set; }
     public int Head { get; set; }
+    public DateTime MovedAt { get; set; } = DateTime.Now; // the name flag shows for a few seconds after a move
     public Color Color => ThemeManager.UserColor(User.Name);
 }
 
@@ -287,6 +288,7 @@ public sealed partial class LiveDocument : ObservableObject
         {
             cursor.Anchor = anchor;
             cursor.Head = head;
+            cursor.MovedAt = DateTime.Now;
         }
         CursorsChanged?.Invoke();
     }

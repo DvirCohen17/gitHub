@@ -78,6 +78,7 @@ public static class ThemeManager
         r["Theme.Overlay"] = Solid(Color.FromArgb(0x99, 0, 0, 0));
         r["Theme.ShadowColor"] = p.IsDark ? Colors.Black : Color.FromRgb(0x30, 0x34, 0x3C);
         r["Theme.AccentColor"] = accent;
+        CodeStyles.Invalidate(); // syntax colours depend on light/dark
         Changed?.Invoke();
     }
 

@@ -79,7 +79,9 @@ Json App::hChatSend(Session& s, const Json& req)
 	Json message = chatMessageJson(id);
 	broadcastToRoom(projectId, Json::object({ { "t", "ev.chat" }, { "projectId", projectId }, { "message", message } }), s.id);
 
-	std::string snippet = Util::truncateUtf8(text, 120);
+	// first line only (not a whole code block), shortened
+	std::string snippet = Util::truncateUtf8(Util::trim(text.substr(0, text.find('\n'))), 120);
+	if (snippet.rfind("```", 0) == 0) snippet = "(code)";
 	for (long long userId : mentioned)
 		addInbox(userId, "mention", "mentioned you in " + projectName + ": " + snippet, me, projectId);
 	return Json::object({ { "message", message } });

@@ -38,6 +38,8 @@ public sealed class Connection
     private static readonly JsonSerializerOptions WireOptions = new()
     {
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        // needed to write values added from code (numbers in an edit, etc.)
+        TypeInfoResolver = new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver(),
     };
 
     private sealed class Pending

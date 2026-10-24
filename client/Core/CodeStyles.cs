@@ -87,8 +87,25 @@ public static class CodeStyles
         {
             // a broken colour file shouldn't stop files from opening
         }
+        if (definition != null && ThemeManager.Current.IsDark) AdaptToDarkBackground(definition);
         Cache[language] = definition;
         return definition;
+    }
+
+    // The default colour files were made for white backgrounds: on a dark theme,
+    // brighten colours that would be too dark to read (e.g. Blue, DarkGreen).
+    public static void AdaptToDarkBackground(IHighlightingDefinition definition)
+    {
+        var background = ThemeManager.Current.Background;
+        foreach (var named in definition.NamedHighlightingColors)
+        {
+            if (named.Foreground?.GetColor(null) is not { } color) continue;
+            double luma = color.R * 0.299 + color.G * 0.587 + color.B * 0.114;
+            double backgroundLuma = background.R * 0.299 + background.G * 0.587 + background.B * 0.114;
+            if (luma - backgroundLuma >= 90) continue;
+            var lighter = ThemeManager.Blend(color, System.Windows.Media.Colors.White, Math.Min(0.75, (90 - (luma - backgroundLuma)) / 160.0 + 0.25));
+            named.Foreground = new SimpleHighlightingBrush(lighter);
+        }
     }
 
     // Code blocks in chat: ```cpp, ```python...

@@ -17,6 +17,7 @@ public sealed class EditorPane : ContentControl
         nameof(Document), typeof(LiveDocument), typeof(EditorPane), new PropertyMetadata(null, (d, e) => ((EditorPane)d).Attach(e.OldValue as LiveDocument, e.NewValue as LiveDocument)));
 
     private readonly TextEditor _editor;
+    private readonly System.Windows.Threading.DispatcherTimer _flagTimer;
     private IBackgroundRenderer? _selections;
     private IBackgroundRenderer? _carets;
 
@@ -65,6 +66,13 @@ public sealed class EditorPane : ContentControl
         };
 
         Content = _editor;
+        // repaint once the name flags of other people's cursors have expired
+        _flagTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(RemoteCaretRenderer.FlagSeconds + 0.2) };
+        _flagTimer.Tick += (_, _) =>
+        {
+            _flagTimer.Stop();
+            _editor.TextArea.TextView.InvalidateLayer(KnownLayer.Caret);
+        };
         ApplySettings();
         CodeStyles.Changed += OnStylesChanged;
         Unloaded += (_, _) => CodeStyles.Changed -= OnStylesChanged;
@@ -112,7 +120,7 @@ public sealed class EditorPane : ContentControl
         }
         _editor.Document = doc.Document;
         _editor.SyntaxHighlighting = CodeStyles.ForFile(doc.Path);
-        _editor.IsReadOnly = doc.IsReadOnly;
+        _editor.IsReadOnly = doc.IsReadOnly || !doc.IsLoaded; // typing waits for the server's copy
         _selections = new RemoteSelectionRenderer(doc);
         _carets = new RemoteCaretRenderer(doc);
         _editor.TextArea.TextView.BackgroundRenderers.Add(_selections);
@@ -126,12 +134,16 @@ public sealed class EditorPane : ContentControl
     {
         if (e.PropertyName == nameof(LiveDocument.Path) && Document != null)
             _editor.SyntaxHighlighting = CodeStyles.ForFile(Document.Path);
+        if (e.PropertyName == nameof(LiveDocument.IsLoaded) && Document != null)
+            _editor.IsReadOnly = Document.IsReadOnly || !Document.IsLoaded;
     }
 
     private void Redraw()
     {
         _editor.TextArea.TextView.InvalidateLayer(KnownLayer.Selection);
         _editor.TextArea.TextView.InvalidateLayer(KnownLayer.Caret);
+        _flagTimer.Stop();
+        _flagTimer.Start();
     }
 
     private void ReportSelection()

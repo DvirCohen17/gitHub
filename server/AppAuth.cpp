@@ -31,15 +31,35 @@ static bool validEmail(const std::string& email)
 		&& email.find(' ') == std::string::npos && email.back() != '.';
 }
 
+// "2.10.1" < "2.9" is false: compares numbers part by part.
+static bool versionOlder(const std::string& a, const std::string& b)
+{
+	size_t i = 0, j = 0;
+	while (i < a.size() || j < b.size())
+	{
+		long long x = 0, y = 0;
+		while (i < a.size() && isdigit((unsigned char)a[i])) x = x * 10 + (a[i++] - '0');
+		while (j < b.size() && isdigit((unsigned char)b[j])) y = y * 10 + (b[j++] - '0');
+		if (x != y) return x < y;
+		while (i < a.size() && !isdigit((unsigned char)a[i])) i++;
+		while (j < b.size() && !isdigit((unsigned char)b[j])) j++;
+	}
+	return false;
+}
+
 Json App::hHello(Session&, const Json& req)
 {
 	std::string theirs = optString(req, "clientVersion", 50);
 	std::string required = clientVersion();
+	std::string package = _cfg.installerPackage;
+	size_t slash = package.find_last_of("/\\");
+	if (slash != std::string::npos) package = package.substr(slash + 1);
 	return Json::object({
 		{ "serverVersion", SERVER_VERSION },
 		{ "protocol", 2 },
 		{ "clientVersion", required },
-		{ "updateRequired", !required.empty() && !theirs.empty() && theirs != required },
+		{ "updateRequired", !required.empty() && !theirs.empty() && versionOlder(theirs, required) },
+		{ "package", package },
 	});
 }
 

@@ -47,7 +47,7 @@ Clients send `ping` every 30 seconds; the server closes connections that stay si
 ### Connection and account
 | Type | Fields | Reply |
 |---|---|---|
-| `hello` | `clientVersion` | `serverVersion`, `updateRequired` |
+| `hello` | `clientVersion` | `serverVersion`, `clientVersion` (minimum the server wants, may be empty), `updateRequired` (yours is older), `package` (file name of the download) |
 | `ping` | | |
 | `auth.login` | `user` (name or email), `password` (SHA-256 hex) | `user`, `email`, `bio`, `isAdmin` |
 | `auth.signup` | `name`, `email`, `password` | same as login |

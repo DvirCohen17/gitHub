@@ -87,7 +87,7 @@
                         </Border>
 
                         <TextBlock Text="Or pick one" Style="{StaticResource FieldLabel}" Margin="0,22,0,10"/>
-                        <ItemsControl ItemsSource="{Binding Presets}" AutomationProperties.AutomationId="Presets">
+                        <ItemsControl ItemsSource="{Binding Presets}" Focusable="False" AutomationProperties.AutomationId="Presets">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <WrapPanel/>
@@ -126,8 +126,7 @@
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:ThemeChoice}">
                             <RadioButton GroupName="theme" Margin="0,0,14,16" IsChecked="{Binding IsSelected, Mode=OneTime}" Cursor="Hand" FocusVisualStyle="{x:Null}"
-                                         Command="{Binding DataContext.ChooseThemeCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
-                                         AutomationProperties.Name="{Binding Name}">
+                                         Checked="Theme_Checked" AutomationProperties.Name="{Binding Name}">
                                 <RadioButton.Template>
                                     <ControlTemplate TargetType="RadioButton">
                                         <StackPanel>
@@ -171,7 +170,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="20"/>
-                <ColumnDefinition Width="1.2*"/>
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <StackPanel Grid.ColumnSpan="3">
                 <TextBlock Text="Editor" Style="{StaticResource H1}"/>
@@ -185,7 +184,7 @@
                 </WrapPanel>
                 <Border Style="{StaticResource Divider}" Margin="0,4,0,16"/>
                 <DockPanel>
-                    <ComboBox DockPanel.Dock="Right" Width="170" ItemsSource="{Binding Languages}" SelectedItem="{Binding Language}" AutomationProperties.AutomationId="Language"/>
+                    <ComboBox DockPanel.Dock="Right" Width="170" ItemsSource="{Binding Languages}" SelectedItem="{Binding Language}" VerticalAlignment="Center" AutomationProperties.AutomationId="Language"/>
                     <StackPanel>
                         <TextBlock Text="Syntax colours" Style="{StaticResource H2}" FontSize="16"/>
                         <TextBlock Text="{Binding ColorsHint}" Style="{StaticResource Muted}" Margin="0,4,0,0"/>
@@ -205,7 +204,7 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="{x:Type vm:ColorEntry}">
                                     <DockPanel Margin="0,4">
-                                        <ComboBox DockPanel.Dock="Right" Width="190" ItemsSource="{Binding Choices}" SelectedItem="{Binding ColorName, Mode=TwoWay}"
+                                        <ComboBox DockPanel.Dock="Right" Width="160" ItemsSource="{Binding Choices}" SelectedItem="{Binding ColorName, Mode=TwoWay}"
                                                   MaxDropDownHeight="320" AutomationProperties.Name="{Binding Name}">
                                             <ComboBox.ItemsPanel>
                                                 <ItemsPanelTemplate>
@@ -223,7 +222,7 @@
                                             </ComboBox.ItemTemplate>
                                         </ComboBox>
                                         <Border Width="4" Height="18" CornerRadius="2" Background="{Binding Brush}" Margin="0,0,10,0"/>
-                                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" Margin="0,0,8,0"/>
                                     </DockPanel>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>

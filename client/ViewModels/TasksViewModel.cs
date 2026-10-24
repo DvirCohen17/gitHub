@@ -63,6 +63,8 @@ public sealed partial class TasksViewModel : PageViewModel
 
     public long ProjectId { get; }
     public string ProjectName { get; }
+    // Wrapped in a direction isolate so a Hebrew/Arabic name doesn't reorder the text after it.
+    public string ProjectNameIsolated => "⁨" + ProjectName + "⁩";
     public bool CanEdit { get; }
     public override string Title => $"Tasks · {ProjectName}";
     public override string NavKey => "projects";

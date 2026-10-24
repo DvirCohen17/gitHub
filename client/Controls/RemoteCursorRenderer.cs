@@ -44,6 +44,8 @@ public sealed class RemoteCaretRenderer : IBackgroundRenderer
 
     public KnownLayer Layer => KnownLayer.Caret;
 
+    public const double FlagSeconds = 3;
+
     public void Draw(TextView textView, DrawingContext dc)
     {
         if (textView.Document == null) return;
@@ -61,6 +63,8 @@ public sealed class RemoteCaretRenderer : IBackgroundRenderer
             var brush = new SolidColorBrush(cursor.Color);
             brush.Freeze();
             dc.DrawRectangle(brush, null, new Rect(top.X - 1, top.Y, 2, bottom.Y - top.Y));
+            // The name flag would hide the line above: show it only just after they move.
+            if ((DateTime.Now - cursor.MovedAt).TotalSeconds > FlagSeconds) continue;
 
             var label = new FormattedText(cursor.User.Name, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
                 new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal), 10.5, Brushes.White, pixels);

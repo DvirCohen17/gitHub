@@ -14,6 +14,12 @@ public partial class TasksView : UserControl
         InitializeComponent();
     }
 
+    private void Filter_Checked(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is TasksViewModel vm && (sender as FrameworkElement)?.DataContext is TasksViewModel.FilterOption option)
+            vm.SetFilterCommand.Execute(option.Key);
+    }
+
     // Clicking a task card (not its checkbox) opens it in the editor panel.
     private void Task_Click(object sender, MouseButtonEventArgs e)
     {

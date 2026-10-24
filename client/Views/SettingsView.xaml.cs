@@ -35,6 +35,12 @@ public partial class SettingsView : UserControl
         preview.SyntaxHighlighting = _vm.PreviewHighlighting;
     }
 
+    // Mouse, keyboard (arrow keys) or accessibility tools: any way a theme gets checked applies it.
+    private void Theme_Checked(object sender, RoutedEventArgs e)
+    {
+        if (IsLoaded && (sender as FrameworkElement)?.DataContext is ThemeChoice theme) _vm?.ChooseThemeCommand.Execute(theme);
+    }
+
     private async void SaveCrop_Click(object sender, RoutedEventArgs e)
     {
         if (_vm == null) return;

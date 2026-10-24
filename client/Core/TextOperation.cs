@@ -156,7 +156,7 @@ public sealed class TextOperation
         foreach (var item in array)
         {
             if (item is JsonValue v && v.TryGetValue(out string? s)) op.Insert(s ?? "");
-            else if (item is JsonValue n && n.TryGetValue(out long count))
+            else if (item is JsonValue n && (n.TryGetValue(out long count) || (n.TryGetValue(out int small) && (count = small) == small)))
             {
                 if (count > 0) op.Retain((int)count);
                 else if (count < 0) op.Delete((int)-count);

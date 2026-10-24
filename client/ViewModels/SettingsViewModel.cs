@@ -317,7 +317,9 @@ public sealed partial class SettingsViewModel : PageViewModel
         try
         {
             using XmlReader reader = _styleDocument.CreateReader();
-            PreviewHighlighting = HighlightingLoader.Load(reader, HighlightingManager.Instance);
+            var definition = HighlightingLoader.Load(reader, HighlightingManager.Instance);
+            if (ThemeManager.Current.IsDark) CodeStyles.AdaptToDarkBackground(definition); // as the editor shows it
+            PreviewHighlighting = definition;
         }
         catch (Exception ex)
         {

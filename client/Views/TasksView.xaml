@@ -25,7 +25,7 @@
                 <StackPanel>
                     <TextBlock Text="Tasks" Style="{StaticResource H1}"/>
                     <TextBlock Style="{StaticResource Muted}" Margin="0,3,0,0">
-                        <Run Text="{Binding ProjectName, Mode=OneWay}"/> <Run Text="·"/> <Run Text="{Binding OpenCount, Mode=OneWay}"/> <Run Text="open,"/>
+                        <Run Text="{Binding ProjectNameIsolated, Mode=OneWay}"/> <Run Text="·"/> <Run Text="{Binding OpenCount, Mode=OneWay}"/> <Run Text="open,"/>
                         <Run Text="{Binding MineCount, Mode=OneWay}"/> <Run Text="yours,"/>
                         <Run Text="{Binding OverdueCount, Mode=OneWay}" Foreground="{DynamicResource Theme.Danger}"/> <Run Text="overdue"/>
                     </TextBlock>
@@ -44,8 +44,7 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <RadioButton Style="{StaticResource ChipRadio}" Content="{Binding Label}" GroupName="taskFilter" Margin="0,0,6,6"
-                                         Command="{Binding DataContext.SetFilterCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding Key}"
+                            <RadioButton Style="{StaticResource ChipRadio}" Content="{Binding Label}" GroupName="taskFilter" Margin="0,0,6,6" Checked="Filter_Checked"
                                          AutomationProperties.Name="{Binding Label}">
                                 <RadioButton.IsChecked>
                                     <MultiBinding Mode="OneWay">
