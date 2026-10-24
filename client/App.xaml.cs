@@ -1,110 +1,110 @@
-﻿using System;
+using System.IO;
+using System.IO.Pipes;
 using System.Windows;
+using System.Windows.Threading;
+using GitHubDemo.Core;
+using GitHubDemo.ViewModels;
 
-namespace client_side
+namespace GitHubDemo;
+
+public partial class App : Application
 {
-    public partial class App : Application
+    // One running copy per Windows user (and data folder); a second start (e.g.
+    // clicking a githubdemo:// link) hands its link to the first and exits.
+    private static readonly string InstanceName = "gitHubDemo-" + Environment.UserName + "-" +
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(AppSettings.DataDir.ToLowerInvariant())))[..10];
+    private Mutex? _instanceMutex;
+
+    protected override async void OnStartup(StartupEventArgs e)
     {
-        protected override void OnStartup(StartupEventArgs e)
+        base.OnStartup(e);
+        string? link = e.Args.FirstOrDefault(a => a.StartsWith("githubdemo:", StringComparison.OrdinalIgnoreCase));
+
+        _instanceMutex = new Mutex(true, InstanceName, out bool first);
+        if (!first)
         {
-            EventManager.RegisterClassHandler(typeof(Window), FrameworkElement.LoadedEvent, new RoutedEventHandler(OnWindowLoaded));
-            base.OnStartup(e);
+            ForwardToRunningCopy(link ?? "activate");
+            Shutdown();
+            return;
         }
 
-        private static void OnWindowLoaded(object sender, RoutedEventArgs e)
-        {
-            if (sender is not Window window)
-            {
-                return;
-            }
-            if (!MainFrame.IsMainScreen(window))
-            {
-                FitToWorkArea(window); // main screens are placed by MainFrame before they're shown
-            }
-        }
+        DispatcherUnhandledException += OnUnhandledException;
 
-        // Dialogs: never larger than the work area (at 150% scaling a large dialog
-        // can be taller than a 1080p screen); centred again if it had to shrink.
-        private static void FitToWorkArea(Window window)
+        Services.Settings = AppSettings.Load();
+        ThemeManager.Apply(Services.Settings.Theme);
+        Services.Connection = new Connection(Dispatcher);
+        Services.Session = new Session(Services.Connection);
+        Services.Dialogs = new Dialogs();
+        Services.Notifier = new Notifier();
+        Services.Main = new MainViewModel();
+
+        var window = new MainWindow { DataContext = Services.Main };
+        MainWindow = window;
+        window.Show();
+        ListenForOtherCopies();
+        await Services.Main.StartAsync(link);
+    }
+
+    private static void ForwardToRunningCopy(string message)
+    {
+        try
         {
-            if (window.WindowState != WindowState.Normal)
-            {
-                return;
-            }
-            Rect area = SystemParameters.WorkArea;
-            bool resized = false;
-            if (window.ActualWidth > area.Width * 0.95)
-            {
-                window.Width = area.Width * 0.95;
-                resized = true;
-            }
-            if (window.ActualHeight > area.Height * 0.95)
-            {
-                window.SizeToContent = SizeToContent.Manual;
-                window.Height = area.Height * 0.95;
-                resized = true;
-            }
-            if (resized)
-            {
-                window.Left = area.Left + (area.Width - window.Width) / 2;
-                window.Top = area.Top + (area.Height - window.Height) / 2;
-            }
+            using var pipe = new NamedPipeClientStream(".", InstanceName, PipeDirection.Out);
+            pipe.Connect(2000);
+            using var writer = new StreamWriter(pipe);
+            writer.WriteLine(message);
+        }
+        catch (Exception)
+        {
+            // the other copy is closing; nothing to do
         }
     }
 
-    // The app's main screens (sign-in, home, project, to-do...) are separate
-    // windows, but they all share one size and position: each new screen opens
-    // exactly where the previous one was (maximised too), so moving between them
-    // looks like one window changing pages instead of windows closing and opening.
-    public static class MainFrame
+    private void ListenForOtherCopies()
     {
-        private static Rect? bounds;
-        private static WindowState state = WindowState.Normal;
-
-        public static bool IsMainScreen(Window window) =>
-            window is LoginWindow or SignupWindow or ForgotPasswordWindow or ServerConnectWindow
-                   or HomePage or ProjectDirectory or ToDoListWindow or MessagesWindow or settingsWindow;
-
-        // Call from a main screen's constructor (before Show) so it appears in place.
-        public static void Attach(Window window)
+        var thread = new Thread(() =>
         {
-            window.SizeToContent = SizeToContent.Manual;
-            window.WindowStartupLocation = WindowStartupLocation.Manual;
-            window.ResizeMode = ResizeMode.CanResize;
-            window.MinWidth = 820;
-            window.MinHeight = 520;
-
-            if (bounds == null)
+            while (true)
             {
-                Rect area = SystemParameters.WorkArea;
-                double width = Math.Min(1240, area.Width * 0.92);
-                double height = Math.Min(780, area.Height * 0.92);
-                bounds = new Rect(area.Left + (area.Width - width) / 2, area.Top + (area.Height - height) / 2, width, height);
-            }
-            Rect b = bounds.Value;
-            window.Left = b.Left;
-            window.Top = b.Top;
-            window.Width = b.Width;
-            window.Height = b.Height;
-            window.WindowState = state;
-
-            window.LocationChanged += (_, _) => Remember(window);
-            window.SizeChanged += (_, _) => Remember(window);
-            window.StateChanged += (_, _) =>
-            {
-                if (window.WindowState != WindowState.Minimized)
+                try
                 {
-                    state = window.WindowState;
+                    using var pipe = new NamedPipeServerStream(InstanceName, PipeDirection.In);
+                    pipe.WaitForConnection();
+                    using var reader = new StreamReader(pipe);
+                    string? message = reader.ReadLine();
+                    Dispatcher.BeginInvoke(async () =>
+                    {
+                        if (message != null && message.StartsWith("githubdemo:", StringComparison.OrdinalIgnoreCase))
+                            await Services.Main.HandleLinkAsync(message);
+                        else
+                            Notifier.BringToFront();
+                    });
                 }
-            };
-        }
-
-        private static void Remember(Window window)
-        {
-            if (window.WindowState == WindowState.Normal && window.IsLoaded && window.ActualWidth > 0)
-            {
-                bounds = new Rect(window.Left, window.Top, window.ActualWidth, window.ActualHeight);
+                catch (Exception)
+                {
+                    Thread.Sleep(500);
+                }
             }
+        }) { IsBackground = true, Name = "single instance" };
+        thread.Start();
+    }
+
+    private void OnUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        // Keep running: report it instead of crashing the whole app.
+        e.Handled = true;
+        try
+        {
+            File.AppendAllText(Path.Combine(AppSettings.DataDir, "errors.log"), $"{DateTime.Now:u} {e.Exception}\n\n");
         }
+        catch (Exception) { }
+        Services.Notifier?.Error("Something went wrong: " + e.Exception.Message);
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        Services.Connection?.Close();
+        _instanceMutex?.Dispose();
+        base.OnExit(e);
     }
 }

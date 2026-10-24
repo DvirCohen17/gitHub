@@ -1,0 +1,261 @@
+<UserControl x:Class="GitHubDemo.Views.HomeView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:GitHubDemo.Controls"
+             xmlns:vm="clr-namespace:GitHubDemo.ViewModels"
+             xmlns:core="clr-namespace:GitHubDemo.Core">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="330"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- ===== Main column: greeting, invites, projects, activity ===== -->
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="36,30,28,30">
+                <!-- header -->
+                <DockPanel>
+                    <c:Avatar DockPanel.Dock="Left" User="{Binding Session.Me}" Size="56" Margin="0,0,16,0"/>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBox Text="{Binding JoinCode, UpdateSourceTrigger=PropertyChanged}" Width="190" c:Hint.Text="Invite code or link"
+                                 AutomationProperties.AutomationId="JoinCode">
+                            <TextBox.InputBindings>
+                                <KeyBinding Key="Return" Command="{Binding JoinCommand}"/>
+                            </TextBox.InputBindings>
+                        </TextBox>
+                        <Button Content="Join" Margin="6,0,12,0" Command="{Binding JoinCommand}" AutomationProperties.AutomationId="Join"/>
+                        <Button Style="{StaticResource PrimaryButton}" Command="{Binding NewProjectCommand}" AutomationProperties.AutomationId="NewProject">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE710;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" Foreground="{DynamicResource Theme.AccentForeground}"/>
+                                <TextBlock Text="New project"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Greeting}" Style="{StaticResource H1}" FontSize="24"/>
+                        <!-- bio -->
+                        <StackPanel Visibility="{Binding IsEditingBio, Converter={StaticResource BoolToVis}, ConverterParameter=invert}" Orientation="Horizontal" Margin="0,3,0,0">
+                            <TextBlock Text="{Binding Session.Bio}" Style="{StaticResource Muted}" MaxWidth="520" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                                       Visibility="{Binding Session.Bio, Converter={StaticResource HasValue}}"/>
+                            <Button Content="Add a bio" Style="{StaticResource LinkButton}" Command="{Binding EditBioCommand}"
+                                    Visibility="{Binding Session.Bio, Converter={StaticResource HasValue}, ConverterParameter=invert}"/>
+                            <Button Content="&#xE70F;" Style="{StaticResource IconButton}" Width="24" Height="24" FontSize="11" Margin="4,0,0,0"
+                                    Command="{Binding EditBioCommand}" ToolTip="Edit bio"
+                                    Visibility="{Binding Session.Bio, Converter={StaticResource HasValue}}"/>
+                        </StackPanel>
+                        <StackPanel Visibility="{Binding IsEditingBio, Converter={StaticResource BoolToVis}}" Orientation="Horizontal" Margin="0,6,0,0">
+                            <TextBox Text="{Binding BioDraft, UpdateSourceTrigger=PropertyChanged}" Width="380" MaxLength="500" c:Hint.Text="A line about you"
+                                     c:FocusOnShow.Enabled="True">
+                                <TextBox.InputBindings>
+                                    <KeyBinding Key="Return" Command="{Binding SaveBioCommand}"/>
+                                    <KeyBinding Key="Escape" Command="{Binding CancelBioCommand}"/>
+                                </TextBox.InputBindings>
+                            </TextBox>
+                            <Button Content="Save" Style="{StaticResource PrimaryButton}" Margin="6,0,0,0" Command="{Binding SaveBioCommand}"/>
+                            <Button Content="Cancel" Style="{StaticResource GhostButton}" Margin="4,0,0,0" Command="{Binding CancelBioCommand}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </DockPanel>
+
+                <TextBlock Text="{Binding Error}" Style="{StaticResource ErrorText}" Margin="0,12,0,0" Visibility="{Binding Error, Converter={StaticResource HasValue}}"/>
+
+                <!-- invites -->
+                <StackPanel Visibility="{Binding HasInvites, Converter={StaticResource BoolToVis}}" Margin="0,28,0,0">
+                    <TextBlock Text="INVITATIONS" Style="{StaticResource H3}" Margin="0,0,0,10"/>
+                    <ItemsControl ItemsSource="{Binding Invites}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:InviteItem}">
+                                <Border Style="{StaticResource Card}" Padding="14,10" Margin="0,0,0,8" BorderBrush="{DynamicResource Theme.Accent}">
+                                    <DockPanel>
+                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Button Content="Decline" Style="{StaticResource GhostButton}" Command="{Binding DeclineCommand}" Margin="0,0,6,0"/>
+                                            <Button Content="Join" Style="{StaticResource PrimaryButton}" Command="{Binding AcceptCommand}" AutomationProperties.Name="Accept invite"/>
+                                        </StackPanel>
+                                        <c:Avatar User="{Binding From}" Size="34" Margin="0,0,12,0"/>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock>
+                                                <Run Text="{Binding From.Name, Mode=OneWay}" FontWeight="SemiBold"/>
+                                                <Run Text="invited you to" Foreground="{DynamicResource Theme.Muted}"/>
+                                                <Run Text="{Binding ProjectName, Mode=OneWay}" FontWeight="SemiBold"/>
+                                            </TextBlock>
+                                            <TextBlock Style="{StaticResource Caption}">
+                                                <Run Text="You'll join as"/> <Run Text="{Binding Role, Mode=OneWay}"/>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- projects -->
+                <DockPanel Margin="0,28,0,12">
+                    <TextBox DockPanel.Dock="Right" Style="{StaticResource SearchBox}" Width="220" c:Hint.Text="Filter projects"
+                             Text="{Binding ProjectFilter, UpdateSourceTrigger=PropertyChanged}"/>
+                    <TextBlock Text="YOUR PROJECTS" Style="{StaticResource H3}" VerticalAlignment="Center"/>
+                </DockPanel>
+                <ItemsControl ItemsSource="{Binding Projects}" AutomationProperties.AutomationId="Projects">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <UniformGrid Columns="2"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:ProjectCard}">
+                            <Button Style="{StaticResource CardButton}" Margin="0,0,12,12" Height="122"
+                                    Command="{Binding DataContext.OpenProjectCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                    CommandParameter="{Binding}" AutomationProperties.Name="{Binding Name}">
+                                <DockPanel>
+                                    <DockPanel DockPanel.Dock="Top">
+                                        <Border DockPanel.Dock="Right" Style="{StaticResource Pill}" Visibility="{Binding IsPublic, Converter={StaticResource BoolToVis}}">
+                                            <TextBlock Text="Public" FontSize="11" Foreground="{DynamicResource Theme.Muted}"/>
+                                        </Border>
+                                        <TextBlock Text="{Binding Name}" Style="{StaticResource H2}" FontSize="15.5"/>
+                                    </DockPanel>
+                                    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal">
+                                        <Border Style="{StaticResource AccentPill}" Margin="0,0,8,0">
+                                            <TextBlock Text="{Binding Language}" FontSize="11.5" Foreground="{DynamicResource Theme.AccentText}"/>
+                                        </Border>
+                                        <TextBlock Text="{Binding RoleLabel}" Style="{StaticResource Caption}" VerticalAlignment="Center"/>
+                                        <TextBlock Text=" · " Style="{StaticResource Caption}" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding MembersText}" Style="{StaticResource Caption}" VerticalAlignment="Center"/>
+                                        <TextBlock Text=" · " Style="{StaticResource Caption}" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding Updated}" Style="{StaticResource Caption}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding Description}" Style="{StaticResource Muted}" Margin="0,6,0,8" TextTrimming="CharacterEllipsis" MaxHeight="40"/>
+                                </DockPanel>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Border Style="{StaticResource Card}" Padding="28,26" Visibility="{Binding HasProjects, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
+                    <StackPanel HorizontalAlignment="Center">
+                        <TextBlock Text="&#xE8B7;" Style="{StaticResource Icon}" FontSize="30" Foreground="{DynamicResource Theme.Muted}"/>
+                        <TextBlock Text="No projects yet" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,10,0,4"/>
+                        <TextBlock Text="Create one, accept an invite, or join with a code from a friend." Style="{StaticResource Muted}" HorizontalAlignment="Center"/>
+                        <Button Content="Create your first project" Style="{StaticResource PrimaryButton}" Margin="0,14,0,0" Command="{Binding NewProjectCommand}" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- activity -->
+                <TextBlock Text="RECENT ACTIVITY" Style="{StaticResource H3}" Margin="0,22,0,10"/>
+                <Border Style="{StaticResource Card}" Padding="6">
+                    <StackPanel>
+                        <ItemsControl ItemsSource="{Binding Activity}" AutomationProperties.AutomationId="Activity">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:ActivityItem}">
+                                    <Button Style="{StaticResource RowButton}" Padding="10,8"
+                                            Command="{Binding DataContext.OpenActivityCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
+                                        <DockPanel>
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding When}" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                                            <Grid DockPanel.Dock="Left" Margin="0,0,12,0">
+                                                <c:Avatar User="{Binding User}" Size="28"/>
+                                                <Border Width="16" Height="16" CornerRadius="8" Background="{DynamicResource Theme.Surface}" HorizontalAlignment="Right"
+                                                        VerticalAlignment="Bottom" Margin="0,0,-5,-4">
+                                                    <TextBlock Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="9" Foreground="{DynamicResource Theme.AccentText}"/>
+                                                </Border>
+                                            </Grid>
+                                            <TextBlock TextWrapping="Wrap" VerticalAlignment="Center">
+                                                <Run Text="{Binding User.Name, Mode=OneWay}" FontWeight="SemiBold"/>
+                                                <Run Text="{Binding Text, Mode=OneWay}"/>
+                                                <Run Text="in" Foreground="{DynamicResource Theme.Muted}"/>
+                                                <Run Text="{Binding ProjectName, Mode=OneWay}" Foreground="{DynamicResource Theme.AccentText}"/>
+                                            </TextBlock>
+                                        </DockPanel>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="Nothing has happened in your projects yet." Style="{StaticResource Muted}" Margin="12,10"
+                                   Visibility="{Binding HasActivity, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                        <Button Content="Show older" Style="{StaticResource GhostButton}" HorizontalAlignment="Center" Margin="0,4"
+                                Command="{Binding MoreActivityCommand}" Visibility="{Binding HasMoreActivity, Converter={StaticResource BoolToVis}}"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- ===== People column ===== -->
+        <Border Grid.Column="1" Background="{DynamicResource Theme.SurfaceAlt}" BorderBrush="{DynamicResource Theme.Border}" BorderThickness="1,0,0,0">
+            <DockPanel Margin="18,24,18,18">
+                <TextBlock DockPanel.Dock="Top" Text="People" Style="{StaticResource H2}" FontSize="17"/>
+                <TextBox DockPanel.Dock="Top" Style="{StaticResource SearchBox}" Margin="0,12,0,8" c:Hint.Text="Find people by name or email"
+                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.AutomationId="PeopleSearch"/>
+
+                <Grid>
+                    <!-- search results -->
+                    <ListBox ItemsSource="{Binding SearchResults}" ItemContainerStyle="{StaticResource PlainItem}"
+                             Visibility="{Binding IsSearching, Converter={StaticResource BoolToVis}}" AutomationProperties.AutomationId="SearchResults">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:PersonItem}">
+                                <Button Style="{StaticResource RowButton}" Command="{Binding OpenCommand}" AutomationProperties.Name="{Binding User.Name}">
+                                    <DockPanel>
+                                        <Button DockPanel.Dock="Right" Content="{Binding ActionText}" Command="{Binding ActionCommand}" MinHeight="28" Padding="10,0"
+                                                IsEnabled="{Binding HasAction}" AutomationProperties.Name="{Binding ActionText}"/>
+                                        <c:Avatar User="{Binding User}" Size="32" ShowPresence="True" Margin="0,0,10,0"/>
+                                        <TextBlock Text="{Binding User.Name}" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    </DockPanel>
+                                </Button>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <!-- friends -->
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding IsSearching, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
+                        <StackPanel>
+                            <StackPanel Visibility="{Binding HasFriendRequests, Converter={StaticResource BoolToVis}}" Margin="0,6,0,10">
+                                <TextBlock Text="FRIEND REQUESTS" Style="{StaticResource H3}" Margin="4,0,0,6"/>
+                                <ItemsControl ItemsSource="{Binding FriendRequests}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:PersonItem}">
+                                            <Border Style="{StaticResource Card}" Padding="10,8" Margin="0,0,0,6">
+                                                <DockPanel>
+                                                    <c:Avatar User="{Binding User}" Size="32" Margin="0,0,10,0"/>
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding User.Name}" FontWeight="SemiBold"/>
+                                                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                                            <Button Content="Accept" Style="{StaticResource PrimaryButton}" MinHeight="26" Padding="10,0"
+                                                                    Command="{Binding ActionCommand}" Margin="0,0,6,0"/>
+                                                            <Button Content="Decline" Style="{StaticResource GhostButton}" MinHeight="26"
+                                                                    Command="{Binding DataContext.DeclineRequestCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                    CommandParameter="{Binding}"/>
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                </DockPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+
+                            <TextBlock Style="{StaticResource H3}" Margin="4,6,0,6">
+                                <Run Text="FRIENDS"/> <Run Text="·" /> <Run Text="{Binding OnlineFriends, Mode=OneWay}"/> <Run Text="ONLINE"/>
+                            </TextBlock>
+                            <ItemsControl ItemsSource="{Binding Friends}" AutomationProperties.AutomationId="Friends">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type core:UserRef}">
+                                        <Button Style="{StaticResource RowButton}" AutomationProperties.Name="{Binding Name}"
+                                                Command="{Binding DataContext.OpenFriendCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}">
+                                            <DockPanel>
+                                                <c:Avatar User="{Binding}" Size="34" ShowPresence="True" Margin="0,0,10,0"/>
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Text="{Binding PresenceText}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"/>
+                                                </StackPanel>
+                                            </DockPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Text="Search for people above to add friends. Friends can see when you're online and invite you to projects."
+                                       Style="{StaticResource Caption}" Margin="4,6"
+                                       Visibility="{Binding HasFriends, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </DockPanel>
+        </Border>
+    </Grid>
+</UserControl>

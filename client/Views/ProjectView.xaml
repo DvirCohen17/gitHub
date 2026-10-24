@@ -1,0 +1,500 @@
+<UserControl x:Class="GitHubDemo.Views.ProjectView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:GitHubDemo.Controls"
+             xmlns:vm="clr-namespace:GitHubDemo.ViewModels"
+             xmlns:core="clr-namespace:GitHubDemo.Core">
+    <UserControl.InputBindings>
+        <KeyBinding Key="F5" Command="{Binding RunCodeCommand}"/>
+        <KeyBinding Key="N" Modifiers="Ctrl" Command="{Binding NewFileCommand}"/>
+        <KeyBinding Key="OemBackslash" Modifiers="Ctrl" Command="{Binding ToggleSplitCommand}"/>
+        <KeyBinding Key="W" Modifiers="Ctrl" Command="{Binding CloseTabCommand}" CommandParameter="{Binding ActiveTab}"/>
+    </UserControl.InputBindings>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- ===== Header ===== -->
+        <Border BorderBrush="{DynamicResource Theme.Border}" BorderThickness="0,0,0,1" Padding="14,10,16,10">
+            <DockPanel>
+                <Button DockPanel.Dock="Left" Style="{StaticResource IconButton}" Content="&#xE72B;" ToolTip="Back to Home" Command="{Binding BackCommand}"
+                        Margin="0,0,10,0" AutomationProperties.Name="Back"/>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- members -->
+                    <ItemsControl ItemsSource="{Binding Members}" Margin="0,0,14,0" VerticalAlignment="Center" ToolTip="Members (online first)">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:MemberItem}">
+                                <c:Avatar User="{Binding User}" Size="28" ShowPresence="True" Margin="-4,0,0,0"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Button Style="{StaticResource PrimaryButton}" Command="{Binding RunCodeCommand}" Margin="0,0,8,0" ToolTip="Run the open file (F5)"
+                            Visibility="{Binding CanEdit, Converter={StaticResource BoolToVis}}" AutomationProperties.AutomationId="Run">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE768;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,7,0" Foreground="{DynamicResource Theme.AccentForeground}"/>
+                            <TextBlock Text="Run"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding OpenTasksCommand}" Margin="0,0,8,0" AutomationProperties.AutomationId="Tasks">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE9D5;" Style="{StaticResource Icon}" FontSize="13" Margin="0,0,7,0"/>
+                            <TextBlock Text="Tasks"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding ShareCommand}" Margin="0,0,8,0" AutomationProperties.AutomationId="Share"
+                            Visibility="{Binding IsAdmin, Converter={StaticResource BoolToVis}}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE72D;" Style="{StaticResource Icon}" FontSize="13" Margin="0,0,7,0"/>
+                            <TextBlock Text="Share"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="moreButton" Style="{StaticResource IconButton}" Content="&#xE712;" ToolTip="More" Click="More_Click" AutomationProperties.Name="More">
+                        <Button.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Project settings..." Icon="&#xE713;" Command="{Binding EditProjectCommand}"/>
+                                <MenuItem Header="Copy public link" Icon="&#xE71B;" Command="{Binding ShareCommand}" Visibility="{Binding IsPublic, Converter={StaticResource BoolToVis}}"/>
+                                <Separator/>
+                                <MenuItem Header="Import files from zip..." Icon="&#xE8B5;" Command="{Binding ImportCommand}" Visibility="{Binding CanEdit, Converter={StaticResource BoolToVis}}"/>
+                                <MenuItem Header="Export project as zip..." Icon="&#xEDE1;" Command="{Binding ExportCommand}"/>
+                                <Separator/>
+                                <MenuItem Header="Toggle split view" Icon="&#xE89F;" InputGestureText="Ctrl+\" Command="{Binding ToggleSplitCommand}"/>
+                                <MenuItem Header="Show output panel" Icon="&#xE756;" Command="{Binding ToggleRunPanelCommand}"/>
+                                <Separator/>
+                                <MenuItem Header="Leave project" Icon="&#xE89B;" Command="{Binding LeaveCommand}" Visibility="{Binding CanEdit, Converter={StaticResource BoolToVis}}"/>
+                                <MenuItem Header="Delete project..." Icon="&#xE74D;" Style="{StaticResource DangerMenuItem}" Command="{Binding DeleteProjectCommand}"
+                                          Visibility="{Binding IsOwner, Converter={StaticResource BoolToVis}}"/>
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Name}" Style="{StaticResource H1}" FontSize="19" MaxWidth="420" AutomationProperties.AutomationId="ProjectName"/>
+                    <Border Style="{StaticResource AccentPill}" Margin="12,0,0,0">
+                        <TextBlock Text="{Binding Language}" FontSize="11.5" Foreground="{DynamicResource Theme.AccentText}"/>
+                    </Border>
+                    <Border Style="{StaticResource Pill}" Margin="6,0,0,0" Visibility="{Binding IsPublic, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="Public" FontSize="11.5" Foreground="{DynamicResource Theme.Muted}"/>
+                    </Border>
+                    <Border Style="{StaticResource Pill}" Margin="6,0,0,0">
+                        <TextBlock Text="{Binding RoleLabel}" FontSize="11.5" Foreground="{DynamicResource Theme.Muted}"/>
+                    </Border>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- watching banner -->
+        <Grid Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <Border Background="{DynamicResource Theme.AccentSoft}" Padding="16,7" Visibility="{Binding IsViewer, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="You're watching this public project. You see everyone's edits live, but can't change files or chat. Ask a member for an invite code to join."
+                           TextWrapping="Wrap"/>
+            </Border>
+
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="240" MinWidth="160"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*" MinWidth="300"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="340" MinWidth="260"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- ===== Files ===== -->
+                <DockPanel Background="{DynamicResource Theme.SurfaceAlt}">
+                    <DockPanel DockPanel.Dock="Top" Margin="14,10,8,4">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Visibility="{Binding CanEdit, Converter={StaticResource BoolToVis}}">
+                            <Button Style="{StaticResource IconButton}" Content="&#xE8A5;" ToolTip="New file (Ctrl+N)" Width="28" Height="28"
+                                    Command="{Binding NewFileCommand}" AutomationProperties.AutomationId="NewFile"/>
+                            <Button Style="{StaticResource IconButton}" Content="&#xE8F4;" ToolTip="New folder" Width="28" Height="28"
+                                    Command="{Binding NewFolderCommand}" AutomationProperties.AutomationId="NewFolder"/>
+                        </StackPanel>
+                        <TextBlock Text="FILES" Style="{StaticResource H3}" VerticalAlignment="Center"/>
+                    </DockPanel>
+                    <Grid>
+                        <TreeView x:Name="tree" ItemsSource="{Binding Tree}" Padding="6,0,6,6" AutomationProperties.AutomationId="FileTree"
+                                  SelectedItemChanged="Tree_SelectedItemChanged" PreviewMouseRightButtonDown="Tree_RightButtonDown">
+                            <TreeView.ItemContainerStyle>
+                                <Style TargetType="TreeViewItem" BasedOn="{StaticResource {x:Type TreeViewItem}}">
+                                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                                    <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
+                                    <Setter Property="AutomationProperties.Name" Value="{Binding Name}"/>
+                                </Style>
+                            </TreeView.ItemContainerStyle>
+                            <TreeView.ItemTemplate>
+                                <HierarchicalDataTemplate DataType="{x:Type vm:TreeNode}" ItemsSource="{Binding Children}">
+                                    <DockPanel Background="Transparent">
+                                        <DockPanel.ContextMenu>
+                                            <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                                <MenuItem Header="Open in split view" Icon="&#xE89F;" Click="OpenInSplit_Click"
+                                                          Visibility="{Binding IsFolder, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                                                <MenuItem Header="New file here" Icon="&#xE8A5;" Click="NewFileHere_Click"/>
+                                                <MenuItem Header="New folder here" Icon="&#xE8F4;" Click="NewFolderHere_Click"/>
+                                                <Separator/>
+                                                <MenuItem Header="Rename / move..." Icon="&#xE8AC;" InputGestureText="F2" Click="Rename_Click"/>
+                                                <MenuItem Header="Delete" Icon="&#xE74D;" InputGestureText="Del" Style="{StaticResource DangerMenuItem}" Click="Delete_Click"/>
+                                            </ContextMenu>
+                                        </DockPanel.ContextMenu>
+                                        <TextBlock DockPanel.Dock="Left" Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="13" Margin="0,0,7,0"
+                                                   Foreground="{DynamicResource Theme.Muted}"/>
+                                        <Border DockPanel.Dock="Right" Style="{StaticResource Pill}" Padding="5,0" Margin="6,0,2,0" ToolTip="{Binding Editors}"
+                                                Visibility="{Binding Editors, Converter={StaticResource HasValue}}">
+                                            <TextBlock Text="&#xE70F;" Style="{StaticResource Icon}" FontSize="9" Foreground="{DynamicResource Theme.AccentText}"/>
+                                        </Border>
+                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                </HierarchicalDataTemplate>
+                            </TreeView.ItemTemplate>
+                        </TreeView>
+                        <StackPanel VerticalAlignment="Center" Margin="18" Visibility="{Binding HasFiles, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
+                            <TextBlock Text="No files yet." Style="{StaticResource Muted}" HorizontalAlignment="Center"/>
+                            <Button Content="Create a file" Style="{StaticResource LinkButton}" HorizontalAlignment="Center" Margin="0,6,0,0"
+                                    Command="{Binding NewFileCommand}" Visibility="{Binding CanEdit, Converter={StaticResource BoolToVis}}"/>
+                        </StackPanel>
+                    </Grid>
+                </DockPanel>
+                <GridSplitter Grid.Column="1" Width="1" Background="{DynamicResource Theme.Border}" HorizontalAlignment="Stretch" ResizeBehavior="PreviousAndNext"/>
+
+                <!-- ===== Editor area ===== -->
+                <Grid Grid.Column="2">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*" MinHeight="120"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition x:Name="runRow" Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- tabs -->
+                    <Border BorderBrush="{DynamicResource Theme.Border}" BorderThickness="0,0,0,1" Background="{DynamicResource Theme.SurfaceAlt}">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                <TextBlock Text="&#xE895;" Style="{StaticResource Icon}" FontSize="12" Foreground="{DynamicResource Theme.Muted}" Margin="0,0,10,0"
+                                           ToolTip="Sending your latest changes..." Visibility="{Binding ActiveDocument.HasUnsyncedChanges, Converter={StaticResource BoolToVis}}"/>
+                                <Button Style="{StaticResource IconButton}" Content="&#xE89F;" ToolTip="Split view (Ctrl+\)" Command="{Binding ToggleSplitCommand}"
+                                        AutomationProperties.AutomationId="SplitView"/>
+                            </StackPanel>
+                            <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled">
+                                <ItemsControl ItemsSource="{Binding Tabs}" AutomationProperties.AutomationId="Tabs">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:EditorTab}">
+                                            <Border x:Name="tab" BorderThickness="0,0,1,0" BorderBrush="{DynamicResource Theme.Border}" Background="Transparent" Cursor="Hand"
+                                                    MouseLeftButtonUp="Tab_Click" ToolTip="{Binding Path}" AutomationProperties.Name="{Binding Title}">
+                                                <Border.ContextMenu>
+                                                    <ContextMenu>
+                                                        <MenuItem Header="Show in split view" Icon="&#xE89F;" Click="TabSplit_Click"/>
+                                                        <MenuItem Header="Close" Icon="&#xE711;" Click="TabClose_Click"/>
+                                                    </ContextMenu>
+                                                </Border.ContextMenu>
+                                                <Grid>
+                                                    <Border x:Name="line" Height="2" VerticalAlignment="Top" Background="{DynamicResource Theme.Accent}" Visibility="Hidden"/>
+                                                    <StackPanel Orientation="Horizontal" Margin="12,8,6,8">
+                                                        <TextBlock Text="{Binding Title}" VerticalAlignment="Center" x:Name="title" Foreground="{DynamicResource Theme.Muted}"/>
+                                                        <Button Style="{StaticResource IconButton}" Content="&#xE711;" Width="20" Height="20" FontSize="9" Margin="8,0,0,0"
+                                                                ToolTip="Close (Ctrl+W)" Click="TabClose_Click" AutomationProperties.Name="Close tab"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                    <Setter TargetName="tab" Property="Background" Value="{DynamicResource Theme.EditorBackground}"/>
+                                                    <Setter TargetName="line" Property="Visibility" Value="Visible"/>
+                                                    <Setter TargetName="title" Property="Foreground" Value="{DynamicResource Theme.Foreground}"/>
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- editors -->
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition x:Name="splitterColumn" Width="0"/>
+                            <ColumnDefinition x:Name="splitColumn" Width="0"/>
+                        </Grid.ColumnDefinitions>
+                        <c:EditorPane x:Name="mainEditor" Document="{Binding ActiveDocument}"/>
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding HasActiveTab, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
+                            <TextBlock Text="&#xE943;" Style="{StaticResource Icon}" FontSize="36" Foreground="{DynamicResource Theme.Faint}"/>
+                            <TextBlock Text="Open a file to start editing" Style="{StaticResource H2}" HorizontalAlignment="Center" Margin="0,12,0,4"/>
+                            <TextBlock Text="Everyone in the file sees each other's changes and cursors as they type." Style="{StaticResource Muted}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                        <GridSplitter Grid.Column="1" Width="1" HorizontalAlignment="Stretch" Background="{DynamicResource Theme.Border}"/>
+                        <DockPanel Grid.Column="2">
+                            <Border DockPanel.Dock="Top" Background="{DynamicResource Theme.SurfaceAlt}" BorderBrush="{DynamicResource Theme.Border}" BorderThickness="0,0,0,1" Padding="12,5">
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Content="&#xE711;" Width="22" Height="22" FontSize="9"
+                                            ToolTip="Close split view" Command="{Binding ToggleSplitCommand}"/>
+                                    <ComboBox ItemsSource="{Binding Tabs}" SelectedItem="{Binding SplitTab}" MinHeight="26" Width="220" HorizontalAlignment="Left">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type vm:EditorTab}">
+                                                <TextBlock Text="{Binding Path}"/>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </DockPanel>
+                            </Border>
+                            <c:EditorPane x:Name="splitEditor" Document="{Binding SplitTab.Document}"/>
+                        </DockPanel>
+                    </Grid>
+
+                    <!-- run output -->
+                    <GridSplitter Grid.Row="2" Height="1" HorizontalAlignment="Stretch" Background="{DynamicResource Theme.Border}" ResizeDirection="Rows"
+                                  Visibility="{Binding IsRunPanelOpen, Converter={StaticResource BoolToVis}}"/>
+                    <DockPanel Grid.Row="3" Background="{DynamicResource Theme.EditorBackground}" Visibility="{Binding IsRunPanelOpen, Converter={StaticResource BoolToVis}}">
+                        <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource Theme.Border}" BorderThickness="0,0,0,1" Padding="12,5" Background="{DynamicResource Theme.SurfaceAlt}">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                    <Button Content="Stop" Style="{StaticResource DangerButton}" MinHeight="26" Command="{Binding StopRunCommand}" Margin="0,0,6,0"
+                                            Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}"/>
+                                    <Button Style="{StaticResource IconButton}" Content="&#xE711;" Width="24" Height="24" FontSize="9" ToolTip="Hide output"
+                                            Command="{Binding ToggleRunPanelCommand}"/>
+                                </StackPanel>
+                                <TextBlock Text="OUTPUT" Style="{StaticResource H3}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                <ProgressBar Width="60" IsIndeterminate="True" VerticalAlignment="Center" Margin="0,0,10,0"
+                                             Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}"/>
+                                <TextBlock Text="{Binding RunStatus}" Style="{StaticResource Caption}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                           AutomationProperties.AutomationId="RunStatus"/>
+                            </DockPanel>
+                        </Border>
+                        <DockPanel DockPanel.Dock="Bottom" Margin="10,4,10,8">
+                            <TextBlock Text="Input" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBox Text="{Binding Stdin, UpdateSourceTrigger=PropertyChanged}" MinHeight="28" FontFamily="{StaticResource Font.Mono}"
+                                     c:Hint.Text="Text your program reads from standard input (used on the next run)" AutomationProperties.AutomationId="Stdin"/>
+                        </DockPanel>
+                        <c:RunConsole x:Name="console" Height="170"/>
+                    </DockPanel>
+                </Grid>
+                <GridSplitter Grid.Column="3" Width="1" Background="{DynamicResource Theme.Border}" HorizontalAlignment="Stretch" ResizeBehavior="PreviousAndNext"/>
+
+                <!-- ===== Side panel: chat / people / history ===== -->
+                <DockPanel Grid.Column="4" Background="{DynamicResource Theme.SurfaceAlt}">
+                    <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource Theme.Border}" BorderThickness="0,0,0,1" Padding="8,0">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton Style="{StaticResource TabRadio}" IsChecked="{Binding SidePanel, Converter={StaticResource Eq}, ConverterParameter=chat}"
+                                         AutomationProperties.Name="Chat tab">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Chat"/>
+                                    <Border Style="{StaticResource CountBadge}" Margin="6,0,0,0" Visibility="{Binding UnreadChat, Converter={StaticResource HasValue}}">
+                                        <TextBlock Text="{Binding UnreadChat, Converter={StaticResource Badge}}" Foreground="White" FontSize="10.5" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </StackPanel>
+                            </RadioButton>
+                            <RadioButton Style="{StaticResource TabRadio}" IsChecked="{Binding SidePanel, Converter={StaticResource Eq}, ConverterParameter=people}"
+                                         AutomationProperties.Name="People tab">
+                                <TextBlock>
+                                    <Run Text="People"/> <Run Text="{Binding OnlineCount, Mode=OneWay}" Foreground="{DynamicResource Theme.Success}"/>
+                                </TextBlock>
+                            </RadioButton>
+                            <RadioButton Style="{StaticResource TabRadio}" Content="History" IsChecked="{Binding SidePanel, Converter={StaticResource Eq}, ConverterParameter=history}"
+                                         AutomationProperties.Name="History tab"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Grid>
+                        <!-- chat -->
+                        <DockPanel Visibility="{Binding SidePanel, Converter={StaticResource Eq}, ConverterParameter=chat}">
+                            <StackPanel DockPanel.Dock="Bottom" Margin="10,4,10,10" Visibility="{Binding CanEdit, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="{Binding TypingText}" Style="{StaticResource Caption}" FontStyle="Italic" Margin="4,0,0,4" Height="16"/>
+                                <Border Style="{StaticResource Card}" Margin="0,0,0,6" Padding="4" Visibility="{Binding ShowMentions, Converter={StaticResource BoolToVis}}">
+                                    <ItemsControl ItemsSource="{Binding MentionSuggestions}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type core:UserRef}">
+                                                <Button Style="{StaticResource RowButton}" Padding="6,4"
+                                                        Command="{Binding DataContext.InsertMentionCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <c:Avatar User="{Binding}" Size="22" Margin="0,0,8,0"/>
+                                                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Border>
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Content="&#xE724;" FontFamily="{StaticResource Font.Icons}"
+                                            Width="38" Padding="0" Margin="6,0,0,0" VerticalAlignment="Bottom" Height="36" ToolTip="Send (Enter)"
+                                            Command="{Binding SendChatCommand}" AutomationProperties.Name="Send"/>
+                                    <TextBox x:Name="chatInput" Style="{StaticResource TextArea}" MinHeight="36" MaxHeight="140" c:Hint.Text="Message - @ to mention, ``` for code"
+                                             Text="{Binding ChatInput, UpdateSourceTrigger=PropertyChanged}" PreviewKeyDown="ChatInput_KeyDown"
+                                             AutomationProperties.AutomationId="ChatInput"/>
+                                </DockPanel>
+                            </StackPanel>
+                            <ScrollViewer x:Name="chatScroll" VerticalScrollBarVisibility="Auto" Padding="12,8,12,4">
+                                <StackPanel>
+                                    <Button Content="Show older messages" Style="{StaticResource LinkButton}" HorizontalAlignment="Center" Margin="0,4,0,10"
+                                            Command="{Binding LoadOlderCommand}" Visibility="{Binding HasOlderMessages, Converter={StaticResource BoolToVis}}"/>
+                                    <ItemsControl ItemsSource="{Binding Messages}" AutomationProperties.AutomationId="ChatMessages">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type vm:ChatMessageItem}">
+                                                <Grid x:Name="row" Margin="0,2,0,2" Background="Transparent" AutomationProperties.Name="{Binding Text}">
+                                                    <Grid.ContextMenu>
+                                                        <ContextMenu>
+                                                            <MenuItem Header="Copy text" Icon="&#xE8C8;" Click="CopyMessage_Click"/>
+                                                            <MenuItem Header="Edit" Icon="&#xE70F;" Click="EditMessage_Click" Visibility="{Binding IsMine, Converter={StaticResource BoolToVis}}"/>
+                                                            <MenuItem Header="Delete" Icon="&#xE74D;" Style="{StaticResource DangerMenuItem}" Click="DeleteMessage_Click"/>
+                                                        </ContextMenu>
+                                                    </Grid.ContextMenu>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="40"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <c:Avatar User="{Binding User}" Size="30" VerticalAlignment="Top" Margin="0,2,0,0"
+                                                              Visibility="{Binding ShowHeader, Converter={StaticResource BoolToVis}}"/>
+                                                    <StackPanel Grid.Column="1">
+                                                        <StackPanel Orientation="Horizontal" Visibility="{Binding ShowHeader, Converter={StaticResource BoolToVis}}" Margin="0,0,0,2">
+                                                            <TextBlock Text="{Binding User.Name}" FontWeight="SemiBold"/>
+                                                            <TextBlock Text="{Binding TimeText}" Style="{StaticResource Caption}" Margin="8,0,0,0" VerticalAlignment="Bottom"/>
+                                                        </StackPanel>
+                                                        <Border x:Name="bubble" CornerRadius="6" Padding="0">
+                                                            <c:ChatText Text="{Binding Text}" Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                                                        </Border>
+                                                        <TextBlock Text="Message deleted" Style="{StaticResource Caption}" FontStyle="Italic"
+                                                                   Visibility="{Binding Deleted, Converter={StaticResource BoolToVis}}"/>
+                                                        <TextBlock Text="(edited)" Style="{StaticResource Caption}" FontSize="11"
+                                                                   Visibility="{Binding Edited, Converter={StaticResource BoolToVis}}"/>
+                                                        <StackPanel Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}">
+                                                            <TextBox Style="{StaticResource TextArea}" Text="{Binding EditDraft, UpdateSourceTrigger=PropertyChanged}" MinHeight="34"
+                                                                     c:FocusOnShow.Enabled="True"/>
+                                                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                                                <Button Content="Save" Style="{StaticResource PrimaryButton}" MinHeight="26" Padding="10,0" Margin="0,0,6,0"
+                                                                        Command="{Binding DataContext.SaveEditCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"/>
+                                                                <Button Content="Cancel" Style="{StaticResource GhostButton}" MinHeight="26"
+                                                                        Command="{Binding DataContext.CancelEditCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"/>
+                                                            </StackPanel>
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                </Grid>
+                                                <DataTemplate.Triggers>
+                                                    <DataTrigger Binding="{Binding MentionsMe}" Value="True">
+                                                        <Setter TargetName="bubble" Property="Background" Value="{DynamicResource Theme.AccentSoft}"/>
+                                                        <Setter TargetName="bubble" Property="Padding" Value="6,3"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding ShowHeader}" Value="True">
+                                                        <Setter TargetName="row" Property="Margin" Value="0,10,0,2"/>
+                                                    </DataTrigger>
+                                                </DataTemplate.Triggers>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock Text="No messages yet. Say hi!" Style="{StaticResource Muted}" HorizontalAlignment="Center" Margin="0,30,0,0"
+                                               Visibility="{Binding Messages.Count, Converter={StaticResource HasValue}, ConverterParameter=invert}"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </DockPanel>
+
+                        <!-- people -->
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding SidePanel, Converter={StaticResource Eq}, ConverterParameter=people}">
+                            <StackPanel Margin="10,10">
+                                <ItemsControl ItemsSource="{Binding Members}" AutomationProperties.AutomationId="Members">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:MemberItem}">
+                                            <Button Style="{StaticResource RowButton}" AutomationProperties.Name="{Binding User.Name}"
+                                                    Command="{Binding DataContext.OpenMemberCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
+                                                <DockPanel>
+                                                    <Border DockPanel.Dock="Right" Style="{StaticResource Pill}" Margin="8,0,0,0">
+                                                        <TextBlock Text="{Binding RoleLabel}" FontSize="11" Foreground="{DynamicResource Theme.Muted}"/>
+                                                    </Border>
+                                                    <c:Avatar User="{Binding User}" Size="34" ShowPresence="True" Margin="0,0,10,0"/>
+                                                    <StackPanel VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding User.Name}" FontWeight="SemiBold"/>
+                                                        <TextBlock Text="{Binding User.PresenceText}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"/>
+                                                    </StackPanel>
+                                                </DockPanel>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Text="IN THIS FILE" Style="{StaticResource H3}" Margin="8,18,0,6" Visibility="{Binding HasActiveTab, Converter={StaticResource BoolToVis}}"/>
+                                <ItemsControl ItemsSource="{Binding ActiveDocument.Viewers}" Margin="8,0">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type core:UserRef}">
+                                            <Border Style="{StaticResource Pill}" Margin="0,0,6,6" Padding="3,3,10,3">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <c:Avatar User="{Binding}" Size="20" Margin="0,0,6,0"/>
+                                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontSize="12.5"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- history -->
+                        <DockPanel Visibility="{Binding SidePanel, Converter={StaticResource Eq}, ConverterParameter=history}" Margin="10">
+                            <TextBlock DockPanel.Dock="Top" Text="Open a file to see its history." Style="{StaticResource Muted}" Margin="4,6"
+                                       Visibility="{Binding HasActiveTab, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8" Visibility="{Binding HasActiveTab, Converter={StaticResource BoolToVis}}">
+                                <Button Content="Save version..." Command="{Binding SaveCheckpointCommand}" Margin="0,0,6,0"
+                                        Visibility="{Binding CanEdit, Converter={StaticResource BoolToVis}}" AutomationProperties.AutomationId="SaveVersion"/>
+                                <Button Style="{StaticResource IconButton}" Content="&#xE72C;" ToolTip="Refresh" Command="{Binding RefreshVersionsCommand}"/>
+                            </StackPanel>
+                            <Border DockPanel.Dock="Bottom" Style="{StaticResource Card}" Margin="0,8,0,0" Height="220"
+                                    Visibility="{Binding SelectedVersion, Converter={StaticResource HasValue}}">
+                                <DockPanel>
+                                    <DockPanel DockPanel.Dock="Top" Margin="10,6,6,0">
+                                        <Button DockPanel.Dock="Right" Content="Restore" Style="{StaticResource PrimaryButton}" MinHeight="26" Padding="10,0"
+                                                Command="{Binding RestoreVersionCommand}" Visibility="{Binding CanEdit, Converter={StaticResource BoolToVis}}"
+                                                AutomationProperties.AutomationId="RestoreVersion"/>
+                                        <TextBlock Text="PREVIEW" Style="{StaticResource H3}" VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                    <TextBox Text="{Binding VersionPreview, Mode=OneWay}" IsReadOnly="True" FontFamily="{StaticResource Font.Mono}" FontSize="12"
+                                             BorderThickness="0" Background="Transparent" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                                             VerticalContentAlignment="Top" Margin="2,4,2,2"/>
+                                </DockPanel>
+                            </Border>
+                            <ListBox ItemsSource="{Binding Versions}" SelectedItem="{Binding SelectedVersion}" AutomationProperties.AutomationId="Versions">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:VersionItem}">
+                                        <DockPanel>
+                                            <TextBlock DockPanel.Dock="Left" FontSize="12" Margin="0,2,10,0" VerticalAlignment="Top">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Icon}">
+                                                        <Setter Property="Text" Value="&#xE81C;"/>
+                                                        <Setter Property="Foreground" Value="{DynamicResource Theme.Muted}"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsNamed}" Value="True">
+                                                                <Setter Property="Text" Value="&#xE734;"/>
+                                                                <Setter Property="Foreground" Value="{DynamicResource Theme.Warning}"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Heading}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding Details}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"/>
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </DockPanel>
+                    </Grid>
+                </DockPanel>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

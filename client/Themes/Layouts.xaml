@@ -1,0 +1,63 @@
+<!-- Shared page layouts. -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- The sign-in screens: brand panel on the left, the form (Content) on the right. -->
+    <Style x:Key="AuthLayout" TargetType="ContentControl">
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ContentControl">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="5*" MaxWidth="560"/>
+                    <ColumnDefinition Width="6*"/>
+                </Grid.ColumnDefinitions>
+                <!-- brand -->
+                <Border>
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Color="{DynamicResource Theme.AccentColor}" Offset="0"/>
+                            <GradientStop Color="#1E1B4B" Offset="1"/>
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <Grid Margin="48,44">
+                        <StackPanel VerticalAlignment="Top" Orientation="Horizontal">
+                            <Border Width="40" Height="40" CornerRadius="10">
+                                <Border.Background>
+                                    <ImageBrush ImageSource="{StaticResource AppLogo}" Stretch="UniformToFill"/>
+                                </Border.Background>
+                            </Border>
+                            <TextBlock Text="gitHub Demo" Foreground="White" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                        </StackPanel>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Code together," Foreground="White" FontSize="34" FontWeight="SemiBold"/>
+                            <TextBlock Text="in real time." Foreground="White" FontSize="34" FontWeight="SemiBold" Opacity="0.85"/>
+                            <TextBlock Foreground="White" Opacity="0.82" FontSize="15" TextWrapping="Wrap" Margin="0,18,0,0" MaxWidth="380" HorizontalAlignment="Left"
+                                       Text="Shared projects with live editing, chat, tasks and version history: see who's typing, where, as it happens."/>
+                            <StackPanel Margin="0,30,0,0">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                    <TextBlock Text="&#xE8F4;" Style="{StaticResource Icon}" Foreground="White" FontSize="16" Margin="0,0,12,0"/>
+                                    <TextBlock Text="Live cursors, presence and version history" Foreground="White" Opacity="0.9"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                    <TextBlock Text="&#xE8BD;" Style="{StaticResource Icon}" Foreground="White" FontSize="16" Margin="0,0,12,0"/>
+                                    <TextBlock Text="Project chat with @mentions and code blocks" Foreground="White" Opacity="0.9"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE768;" Style="{StaticResource Icon}" Foreground="White" FontSize="16" Margin="0,0,12,0"/>
+                                    <TextBlock Text="Run your code safely on the server" Foreground="White" Opacity="0.9"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+                <!-- form -->
+                <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+                    <ContentPresenter Width="380" Margin="40" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </ScrollViewer>
+            </Grid>
+        </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+</ResourceDictionary>

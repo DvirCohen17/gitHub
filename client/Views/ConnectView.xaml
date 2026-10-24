@@ -1,0 +1,45 @@
+<UserControl x:Class="GitHubDemo.Views.ConnectView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:GitHubDemo.Controls">
+    <ContentControl Style="{StaticResource AuthLayout}">
+        <StackPanel>
+            <!-- connecting automatically -->
+            <StackPanel Visibility="{Binding ShowForm, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
+                <StackPanel Visibility="{Binding UpdateRequired, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
+                    <TextBlock Text="Connecting..." Style="{StaticResource H1}"/>
+                    <TextBlock Style="{StaticResource Muted}" Margin="0,6,0,18">
+                        <Run Text="Reaching"/> <Run Text="{Binding Host, Mode=OneWay}"/><Run Text=":"/><Run Text="{Binding Port, Mode=OneWay}"/>
+                    </TextBlock>
+                    <ProgressBar IsIndeterminate="True"/>
+                </StackPanel>
+                <!-- update needed -->
+                <StackPanel Visibility="{Binding UpdateRequired, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="&#xE896;" Style="{StaticResource Icon}" FontSize="32" HorizontalAlignment="Left" Foreground="{DynamicResource Theme.AccentText}"/>
+                    <TextBlock Text="Update required" Style="{StaticResource H1}" Margin="0,12,0,0"/>
+                    <TextBlock Text="{Binding UpdateMessage}" Style="{StaticResource Muted}" Margin="0,6,0,20"/>
+                    <Button Content="Download and install" Style="{StaticResource PrimaryButton}" Height="38" HorizontalAlignment="Stretch"
+                            Command="{Binding DownloadUpdateCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource Not}}"/>
+                    <TextBlock Text="{Binding Error}" Style="{StaticResource ErrorText}" Margin="0,10,0,0"/>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- server address -->
+            <StackPanel Visibility="{Binding ShowForm, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="Connect to a server" Style="{StaticResource H1}"/>
+                <TextBlock Text="Enter the address of the gitHub Demo server you use. You only need to do this once." Style="{StaticResource Muted}" Margin="0,6,0,8"/>
+                <TextBlock Text="Server address" Style="{StaticResource FieldLabel}"/>
+                <TextBox Text="{Binding Host, UpdateSourceTrigger=PropertyChanged}" c:Hint.Text="e.g. 192.168.1.20 or myserver.local"
+                         AutomationProperties.AutomationId="Host" c:FocusOnShow.Enabled="True"/>
+                <TextBlock Text="Port" Style="{StaticResource FieldLabel}"/>
+                <TextBox Text="{Binding Port, UpdateSourceTrigger=PropertyChanged}" Width="120" HorizontalAlignment="Left" AutomationProperties.AutomationId="Port"/>
+                <TextBlock Text="{Binding Error}" Style="{StaticResource ErrorText}" Margin="0,12,0,0" AutomationProperties.AutomationId="Error"
+                           Visibility="{Binding Error, Converter={StaticResource HasValue}}"/>
+                <Button Content="Connect" Style="{StaticResource PrimaryButton}" Height="38" Margin="0,20,0,0" HorizontalAlignment="Stretch"
+                        Command="{Binding ConnectCommand}" IsDefault="True" IsEnabled="{Binding IsConnecting, Converter={StaticResource Not}}"
+                        AutomationProperties.AutomationId="Connect"/>
+                <ProgressBar IsIndeterminate="True" Margin="0,8,0,0" Visibility="{Binding IsConnecting, Converter={StaticResource BoolToVis}}"/>
+            </StackPanel>
+        </StackPanel>
+    </ContentControl>
+</UserControl>

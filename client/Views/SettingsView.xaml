@@ -1,0 +1,303 @@
+<UserControl x:Class="GitHubDemo.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:GitHubDemo.Controls"
+             xmlns:vm="clr-namespace:GitHubDemo.ViewModels"
+             xmlns:avalonedit="http://icsharpcode.net/sharpdevelop/avalonedit">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="220"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- sections -->
+        <Border Background="{DynamicResource Theme.SurfaceAlt}" BorderBrush="{DynamicResource Theme.Border}" BorderThickness="0,0,1,0">
+            <StackPanel Margin="14,26,14,14">
+                <TextBlock Text="Settings" Style="{StaticResource H1}" Margin="10,0,0,16"/>
+                <RadioButton Style="{StaticResource SectionItem}" IsChecked="{Binding Section, Converter={StaticResource Eq}, ConverterParameter=profile}" AutomationProperties.Name="Profile">
+                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE77B;" Style="{StaticResource Icon}" FontSize="14" Margin="0,0,12,0"/><TextBlock Text="Profile"/></StackPanel>
+                </RadioButton>
+                <RadioButton Style="{StaticResource SectionItem}" IsChecked="{Binding Section, Converter={StaticResource Eq}, ConverterParameter=appearance}" AutomationProperties.Name="Appearance">
+                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE790;" Style="{StaticResource Icon}" FontSize="14" Margin="0,0,12,0"/><TextBlock Text="Appearance"/></StackPanel>
+                </RadioButton>
+                <RadioButton Style="{StaticResource SectionItem}" IsChecked="{Binding Section, Converter={StaticResource Eq}, ConverterParameter=editor}" AutomationProperties.Name="Editor">
+                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE943;" Style="{StaticResource Icon}" FontSize="14" Margin="0,0,12,0"/><TextBlock Text="Editor"/></StackPanel>
+                </RadioButton>
+                <RadioButton Style="{StaticResource SectionItem}" IsChecked="{Binding Section, Converter={StaticResource Eq}, ConverterParameter=notifications}" AutomationProperties.Name="Notifications">
+                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xEA8F;" Style="{StaticResource Icon}" FontSize="14" Margin="0,0,12,0"/><TextBlock Text="Notifications"/></StackPanel>
+                </RadioButton>
+                <RadioButton Style="{StaticResource SectionItem}" IsChecked="{Binding Section, Converter={StaticResource Eq}, ConverterParameter=about}" AutomationProperties.Name="About">
+                    <StackPanel Orientation="Horizontal"><TextBlock Text="&#xE946;" Style="{StaticResource Icon}" FontSize="14" Margin="0,0,12,0"/><TextBlock Text="About"/></StackPanel>
+                </RadioButton>
+            </StackPanel>
+        </Border>
+
+        <!-- ===== Profile ===== -->
+        <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Visibility="{Binding Section, Converter={StaticResource Eq}, ConverterParameter=profile}">
+            <StackPanel Margin="36,30" MaxWidth="760" HorizontalAlignment="Left">
+                <TextBlock Text="Profile" Style="{StaticResource H1}"/>
+                <TextBlock Text="How others see you." Style="{StaticResource Muted}" Margin="0,4,0,20"/>
+
+                <Border Style="{StaticResource Card}" Padding="22">
+                    <StackPanel>
+                        <DockPanel>
+                            <c:Avatar User="{Binding Session.Me}" Size="88" Margin="0,0,22,0"/>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Session.Me.Name}" Style="{StaticResource H1}"/>
+                                <TextBlock Text="{Binding Session.Email}" Style="{StaticResource Muted}" Margin="0,2,0,12"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="Upload a picture..." Style="{StaticResource PrimaryButton}" Command="{Binding UploadPictureCommand}" Margin="0,0,8,0"
+                                            AutomationProperties.AutomationId="UploadPicture"/>
+                                    <Button Content="Remove picture" Command="{Binding RemovePictureCommand}" Margin="0,0,8,0"/>
+                                    <Button Content="View profile" Style="{StaticResource GhostButton}" Command="{Binding ViewProfileCommand}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </DockPanel>
+
+                        <!-- cropper -->
+                        <Border Style="{StaticResource Card}" Background="{DynamicResource Theme.SurfaceAlt}" Margin="0,18,0,0" Padding="18"
+                                Visibility="{Binding IsCropping, Converter={StaticResource BoolToVis}}">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Right" Margin="22,0,0,0" Width="220">
+                                    <TextBlock Text="Position your picture" Style="{StaticResource H2}"/>
+                                    <TextBlock Text="Drag to move it, use the slider or mouse wheel to zoom. Everyone sees it in the circle." Style="{StaticResource Muted}" Margin="0,6,0,14"/>
+                                    <TextBlock Text="Zoom" Style="{StaticResource FieldLabel}"/>
+                                    <Slider Minimum="1" Maximum="4" Value="{Binding Zoom, ElementName=cropper}" SmallChange="0.05" LargeChange="0.25"/>
+                                    <TextBlock Text="Preview" Style="{StaticResource FieldLabel}" Margin="0,16,0,6"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Ellipse Width="64" Height="64" Margin="0,0,10,0">
+                                            <Ellipse.Fill>
+                                                <VisualBrush Visual="{Binding ElementName=cropper}" Stretch="UniformToFill"/>
+                                            </Ellipse.Fill>
+                                        </Ellipse>
+                                        <Ellipse Width="32" Height="32" VerticalAlignment="Bottom">
+                                            <Ellipse.Fill>
+                                                <VisualBrush Visual="{Binding ElementName=cropper}" Stretch="UniformToFill"/>
+                                            </Ellipse.Fill>
+                                        </Ellipse>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,20,0,0">
+                                        <Button Content="Save picture" Style="{StaticResource PrimaryButton}" Click="SaveCrop_Click" Margin="0,0,8,0"
+                                                AutomationProperties.AutomationId="SaveCrop"/>
+                                        <Button Content="Cancel" Style="{StaticResource GhostButton}" Command="{Binding CancelCropCommand}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <c:AvatarCropper x:Name="cropper" Source="{Binding CropSource}" HorizontalAlignment="Left"/>
+                            </DockPanel>
+                        </Border>
+
+                        <TextBlock Text="Or pick one" Style="{StaticResource FieldLabel}" Margin="0,22,0,10"/>
+                        <ItemsControl ItemsSource="{Binding Presets}" AutomationProperties.AutomationId="Presets">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:SettingsViewModel+PresetAvatar}">
+                                    <Button Style="{StaticResource RowButton}" Padding="5" Margin="0,0,6,6" ToolTip="{Binding Key}" AutomationProperties.Name="{Binding Key}"
+                                            Command="{Binding DataContext.ChoosePresetCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
+                                        <Image Source="{Binding Image}" Width="56" Height="56"/>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <TextBlock Text="Bio" Style="{StaticResource FieldLabel}" Margin="0,22,0,6"/>
+                        <TextBox Style="{StaticResource TextArea}" Height="80" MaxLength="500" Text="{Binding Bio, UpdateSourceTrigger=PropertyChanged}"
+                                 c:Hint.Text="A line about you, shown on your profile" AutomationProperties.AutomationId="Bio"/>
+                        <Button Content="Save bio" HorizontalAlignment="Left" Margin="0,8,0,0" Command="{Binding SaveBioCommand}"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- ===== Appearance ===== -->
+        <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Visibility="{Binding Section, Converter={StaticResource Eq}, ConverterParameter=appearance}">
+            <StackPanel Margin="36,30">
+                <TextBlock Text="Appearance" Style="{StaticResource H1}"/>
+                <TextBlock Text="Pick a theme. It applies right away and is remembered." Style="{StaticResource Muted}" Margin="0,4,0,20"/>
+                <ItemsControl ItemsSource="{Binding Themes}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:ThemeChoice}">
+                            <RadioButton GroupName="theme" Margin="0,0,14,16" IsChecked="{Binding IsSelected, Mode=OneTime}" Cursor="Hand" FocusVisualStyle="{x:Null}"
+                                         Command="{Binding DataContext.ChooseThemeCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                                         AutomationProperties.Name="{Binding Name}">
+                                <RadioButton.Template>
+                                    <ControlTemplate TargetType="RadioButton">
+                                        <StackPanel>
+                                            <Border x:Name="frame" Width="168" Height="104" CornerRadius="10" BorderThickness="2" BorderBrush="{DynamicResource Theme.Border}"
+                                                    Background="{Binding Background}" Padding="12">
+                                                <Grid>
+                                                    <StackPanel>
+                                                        <Border Height="8" Width="74" CornerRadius="4" HorizontalAlignment="Left" Background="{Binding Foreground}" Opacity="0.85"/>
+                                                        <Border Height="6" Width="116" CornerRadius="3" HorizontalAlignment="Left" Margin="0,9,0,0" Background="{Binding Foreground}" Opacity="0.3"/>
+                                                        <Border Height="6" Width="92" CornerRadius="3" HorizontalAlignment="Left" Margin="0,5,0,0" Background="{Binding Foreground}" Opacity="0.3"/>
+                                                    </StackPanel>
+                                                    <Border Height="18" Width="54" CornerRadius="4" HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="{Binding Accent}"/>
+                                                </Grid>
+                                            </Border>
+                                            <TextBlock Text="{Binding Name}" Margin="2,7,0,0" FontWeight="SemiBold" Foreground="{DynamicResource Theme.Foreground}"/>
+                                        </StackPanel>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="frame" Property="BorderBrush" Value="{DynamicResource Theme.Muted}"/>
+                                            </Trigger>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="frame" Property="BorderBrush" Value="{DynamicResource Theme.Accent}"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </RadioButton.Template>
+                            </RadioButton>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- ===== Editor ===== -->
+        <Grid Grid.Column="1" Margin="36,30,36,24" Visibility="{Binding Section, Converter={StaticResource Eq}, ConverterParameter=editor}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="20"/>
+                <ColumnDefinition Width="1.2*"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.ColumnSpan="3">
+                <TextBlock Text="Editor" Style="{StaticResource H1}"/>
+                <WrapPanel Margin="0,14,0,8">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,30,8">
+                        <TextBlock Text="Font size" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <Slider Minimum="9" Maximum="32" Width="160" Value="{Binding FontSize}" SmallChange="1" IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding FontSize}" Width="28" Margin="10,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource Theme.Muted}"/>
+                    </StackPanel>
+                    <CheckBox Content="Wrap long lines" IsChecked="{Binding WordWrap}" Margin="0,0,0,8" VerticalAlignment="Center"/>
+                </WrapPanel>
+                <Border Style="{StaticResource Divider}" Margin="0,4,0,16"/>
+                <DockPanel>
+                    <ComboBox DockPanel.Dock="Right" Width="170" ItemsSource="{Binding Languages}" SelectedItem="{Binding Language}" AutomationProperties.AutomationId="Language"/>
+                    <StackPanel>
+                        <TextBlock Text="Syntax colours" Style="{StaticResource H2}" FontSize="16"/>
+                        <TextBlock Text="{Binding ColorsHint}" Style="{StaticResource Muted}" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </DockPanel>
+            </StackPanel>
+
+            <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,14,0,0" Padding="4">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="10,8">
+                        <Button Content="Save colours" Style="{StaticResource PrimaryButton}" Command="{Binding SaveColorsCommand}" Margin="0,0,8,0"
+                                IsEnabled="{Binding UnsavedColors}" AutomationProperties.AutomationId="SaveColors"/>
+                        <Button Content="Reset to defaults" Style="{StaticResource GhostButton}" Command="{Binding ResetColorsCommand}"/>
+                    </StackPanel>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding ColorEntries}" Margin="10,6" AutomationProperties.AutomationId="ColorList">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:ColorEntry}">
+                                    <DockPanel Margin="0,4">
+                                        <ComboBox DockPanel.Dock="Right" Width="190" ItemsSource="{Binding Choices}" SelectedItem="{Binding ColorName, Mode=TwoWay}"
+                                                  MaxDropDownHeight="320" AutomationProperties.Name="{Binding Name}">
+                                            <ComboBox.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <VirtualizingStackPanel/>
+                                                </ItemsPanelTemplate>
+                                            </ComboBox.ItemsPanel>
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Border Width="14" Height="14" CornerRadius="3" BorderThickness="1" BorderBrush="{DynamicResource Theme.Border}"
+                                                                Background="{Binding Converter={StaticResource ColorBrush}}" Margin="0,0,8,0"/>
+                                                        <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                        <Border Width="4" Height="18" CornerRadius="2" Background="{Binding Brush}" Margin="0,0,10,0"/>
+                                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
+            <Border Grid.Row="2" Grid.Column="2" Style="{StaticResource Card}" Margin="0,14,0,0">
+                <DockPanel>
+                    <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource Theme.Border}" BorderThickness="0,0,0,1" Padding="14,8">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Right" Text="LIVE PREVIEW" Style="{StaticResource H3}" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding PreviewFileName}" FontFamily="{StaticResource Font.Mono}" FontSize="12.5" VerticalAlignment="Center"/>
+                        </DockPanel>
+                    </Border>
+                    <avalonedit:TextEditor x:Name="preview" IsReadOnly="True" ShowLineNumbers="True" FontFamily="{StaticResource Font.Mono}" FontSize="13.5"
+                                           Padding="10,8" Background="{DynamicResource Theme.EditorBackground}" Foreground="{DynamicResource Theme.Foreground}"
+                                           LineNumbersForeground="{DynamicResource Theme.Faint}"
+                                           HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" AutomationProperties.AutomationId="Preview"/>
+                </DockPanel>
+            </Border>
+        </Grid>
+
+        <!-- ===== Notifications ===== -->
+        <StackPanel Grid.Column="1" Margin="36,30" MaxWidth="640" HorizontalAlignment="Left"
+                    Visibility="{Binding Section, Converter={StaticResource Eq}, ConverterParameter=notifications}">
+            <TextBlock Text="Notifications" Style="{StaticResource H1}"/>
+            <TextBlock Text="Invites, friend requests, @mentions and new tasks for you." Style="{StaticResource Muted}" Margin="0,4,0,20"/>
+            <Border Style="{StaticResource Card}" Padding="20,16">
+                <StackPanel>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding Notifications}" AutomationProperties.Name="Show notifications">
+                        <StackPanel>
+                            <TextBlock Text="Show notifications" FontWeight="SemiBold"/>
+                            <TextBlock Text="In the corner of the window, and as Windows notifications when gitHub Demo isn't in front." Style="{StaticResource Caption}"/>
+                        </StackPanel>
+                    </CheckBox>
+                    <Border Style="{StaticResource Divider}" Margin="0,14"/>
+                    <CheckBox Style="{StaticResource Switch}" IsChecked="{Binding NotifyChat}" IsEnabled="{Binding Notifications}" AutomationProperties.Name="Chat messages">
+                        <StackPanel>
+                            <TextBlock Text="Chat messages" FontWeight="SemiBold"/>
+                            <TextBlock Text="New messages in the project you have open, while you're in another app." Style="{StaticResource Caption}"/>
+                        </StackPanel>
+                    </CheckBox>
+                </StackPanel>
+            </Border>
+            <Button Content="Show a test notification" HorizontalAlignment="Left" Margin="0,14,0,0" Command="{Binding TestNotificationCommand}"/>
+        </StackPanel>
+
+        <!-- ===== About ===== -->
+        <StackPanel Grid.Column="1" Margin="36,30" MaxWidth="640" HorizontalAlignment="Left"
+                    Visibility="{Binding Section, Converter={StaticResource Eq}, ConverterParameter=about}">
+            <StackPanel Orientation="Horizontal">
+                <Border Width="56" Height="56" CornerRadius="12" Margin="0,0,16,0">
+                    <Border.Background>
+                        <ImageBrush ImageSource="{StaticResource AppLogo}" Stretch="UniformToFill"/>
+                    </Border.Background>
+                </Border>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="gitHub Demo" Style="{StaticResource H1}"/>
+                    <TextBlock Style="{StaticResource Muted}"><Run Text="Version"/> <Run Text="{Binding ClientVersion, Mode=OneWay}"/></TextBlock>
+                </StackPanel>
+            </StackPanel>
+            <Border Style="{StaticResource Card}" Padding="20,14" Margin="0,22,0,0">
+                <StackPanel>
+                    <TextBlock Text="Server" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+                    <TextBlock Text="{Binding ServerText}"/>
+                    <TextBlock Text="Your settings and cached pictures" Style="{StaticResource FieldLabel}"/>
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Content="Open folder" Command="{Binding OpenDataFolderCommand}" Margin="10,0,0,0"/>
+                        <TextBlock Text="{Binding DataFolder}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                    </DockPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </Grid>
+</UserControl>

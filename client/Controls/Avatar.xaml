@@ -1,0 +1,21 @@
+<UserControl x:Class="GitHubDemo.Controls.Avatar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="root" Focusable="False">
+    <Grid Width="{Binding Size, ElementName=root}" Height="{Binding Size, ElementName=root}">
+        <!-- initials on the user's colour -->
+        <Ellipse Fill="{Binding User.Color, ElementName=root}"/>
+        <TextBlock x:Name="initials" Text="{Binding User.Initials, ElementName=root}" Foreground="White" FontWeight="SemiBold"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        <!-- picture (preset or uploaded) -->
+        <Ellipse x:Name="picture" Visibility="Collapsed">
+            <Ellipse.Fill>
+                <ImageBrush ImageSource="{Binding User.Picture, ElementName=root}" Stretch="UniformToFill"/>
+            </Ellipse.Fill>
+        </Ellipse>
+        <!-- presence -->
+        <Ellipse x:Name="dot" HorizontalAlignment="Right" VerticalAlignment="Bottom" StrokeThickness="2"
+                 Stroke="{DynamicResource Theme.WindowBackground}" Visibility="Collapsed"
+                 Fill="{Binding User.PresenceBrushKey, ElementName=root, Converter={StaticResource KeyBrush}}"/>
+    </Grid>
+</UserControl>
