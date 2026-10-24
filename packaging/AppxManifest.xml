@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- MSIX package of the gitHub Demo client. build-msix.ps1 fills in {Version} and {Publisher}. -->
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+         xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+         xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+         xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
+         xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+         IgnorableNamespaces="uap desktop com rescap">
+
+  <Identity Name="gitHubDemo.Client" Publisher="{Publisher}" Version="{Version}" ProcessorArchitecture="x64"/>
+
+  <Properties>
+    <DisplayName>gitHub Demo</DisplayName>
+    <PublisherDisplayName>gitHub Demo</PublisherDisplayName>
+    <Logo>Images\StoreLogo.png</Logo>
+    <Description>Code together in real time: shared projects, live editing, chat and tasks.</Description>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0"/>
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us"/>
+  </Resources>
+
+  <Applications>
+    <Application Id="App" Executable="client_side.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements DisplayName="gitHub Demo" Description="Code together in real time"
+                          BackgroundColor="transparent" Square150x150Logo="Images\Square150x150Logo.png" Square44x44Logo="Images\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Images\Wide310x150Logo.png"/>
+        <uap:SplashScreen Image="Images\SplashScreen.png"/>
+      </uap:VisualElements>
+      <Extensions>
+        <!-- githubdemo://join/CODE and githubdemo://project/ID open in the app -->
+        <uap:Extension Category="windows.protocol">
+          <uap:Protocol Name="githubdemo">
+            <uap:DisplayName>gitHub Demo link</uap:DisplayName>
+          </uap:Protocol>
+        </uap:Extension>
+        <!-- clicking a Windows notification brings the app to the front -->
+        <desktop:Extension Category="windows.toastNotificationActivation">
+          <desktop:ToastNotificationActivation ToastActivatorCLSID="7C4B0D3E-5B8E-4E2A-9C61-2F8D9A6B1E44"/>
+        </desktop:Extension>
+        <com:Extension Category="windows.comServer">
+          <com:ComServer>
+            <com:ExeServer Executable="client_side.exe" Arguments="-ToastActivated" DisplayName="gitHub Demo notifications">
+              <com:Class Id="7C4B0D3E-5B8E-4E2A-9C61-2F8D9A6B1E44" DisplayName="gitHub Demo notifications"/>
+            </com:ExeServer>
+          </com:ComServer>
+        </com:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <Capability Name="internetClient"/>
+    <Capability Name="privateNetworkClientServer"/>
+    <rescap:Capability Name="runFullTrust"/>
+  </Capabilities>
+</Package>
