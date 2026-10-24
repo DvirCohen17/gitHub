@@ -20,6 +20,7 @@ import zlib
 
 sys.path.insert(0, os.path.dirname(__file__))
 from client import Client, ServerError, password_hash  # noqa: E402
+import ot  # noqa: E402
 
 PASSED = []
 
@@ -360,6 +361,100 @@ def live_editing_converges(srv):
 
 
 @test
+def ot_clients_converge(srv):
+    """Four real OT clients type at random without waiting for each other."""
+    import threading
+    import queue as queue_module
+    e = srv.client("erez")
+    e.login("erez", "erezpw")
+    pid = globals()["PUBLIC_PROJECT"]
+    e.request("project.open", id=pid)
+    fid = e.request("file.create", projectId=pid, path="ot.txt")["file"]["id"]
+    e.request("file.open", fileId=fid)
+    e.request("file.op", fileId=fid, rev=0, op=["start" + chr(10)])
+    errors, finals = [], {}
+
+    def worker(n, name):
+        try:
+            rnd = random.Random(n)
+            c = srv.client(name)
+            c.login(name, name + "pw")
+            c.request("project.open", id=pid)
+            snap = c.request("file.open", fileId=fid)
+            doc = ot.OtDocument(snap["text"], snap["rev"])
+            rid = [1000]
+
+            def send(op):
+                rid[0] += 1
+                c.ordered_rids.add(rid[0])
+                c.send("file.op", rid=rid[0], fileId=fid, rev=doc.rev, op=op)
+
+            def handle(msg):
+                if msg.get("t") == "file.op":
+                    assert msg["ok"] and not msg.get("resync"), msg
+                    nxt = doc.ack(msg["rev"])
+                    if nxt is not None:
+                        send(nxt)
+                elif msg.get("t") == "ev.file.op" and msg["fileId"] == fid:
+                    doc.remote(msg["op"], msg["rev"])
+
+            for i in range(60):
+                n_units = ot.u16(doc.text)
+                pos = rnd.randint(0, n_units)
+                units = doc.text.encode("utf-16-le")
+                while 0 < pos < n_units and 0xDC00 <= int.from_bytes(units[2 * pos:2 * pos + 2], "little") <= 0xDFFF:
+                    pos -= 1
+                if rnd.random() < 0.65 or n_units < 3:
+                    op = ot.normalize([pos, rnd.choice(["a", "שלום", "😀", chr(10), "xyz"]), n_units - pos])
+                else:
+                    cut = 1
+                    if pos == n_units:
+                        pos -= 1
+                        if pos > 0 and 0xDC00 <= int.from_bytes(units[2 * pos:2 * pos + 2], "little") <= 0xDFFF:
+                            pos -= 1  # last character is an emoji: delete all of it
+                    first = int.from_bytes(units[2 * pos:2 * pos + 2], "little")
+                    if 0xD800 <= first <= 0xDBFF:
+                        cut = 2
+                    op = ot.normalize([pos, -cut, n_units - pos - cut])
+                out = doc.local_edit(op)
+                if out is not None:
+                    send(out)
+                time.sleep(rnd.random() * 0.01)
+                while True:
+                    try:
+                        handle(c.events.get_nowait())
+                    except queue_module.Empty:
+                        break
+            # wait until our edits are all acknowledged and things go quiet
+            deadline = time.time() + 20
+            quiet_since = time.time()
+            while time.time() < deadline:
+                try:
+                    handle(c.events.get(timeout=0.2))
+                    quiet_since = time.time()
+                except queue_module.Empty:
+                    if doc.in_flight is None and not doc.pending and time.time() - quiet_since > 1.5:
+                        break
+            finals[name] = doc.text
+            c.close()
+        except Exception as ex:  # noqa: BLE001
+            import traceback
+            errors.append(f"{name}: {ex!r} " + traceback.format_exc())
+
+    names = ["erez", "dana", "bob"]
+    threads = [threading.Thread(target=worker, args=(k, names[k % 3])) for k in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(60)
+    assert not errors, errors[0]
+    server_text = e.request("file.open", fileId=fid)["text"]
+    assert all(t == server_text for t in finals.values()), {k: len(v) for k, v in finals.items()}
+    print(f"    4 clients, 240 concurrent edits, {len(server_text)} characters: identical on every client")
+    e.close()
+
+
+@test
 def cursors_versions_autosave(srv):
     e = srv.client("erez")
     e.login("erez", "erezpw")
@@ -687,6 +782,7 @@ def main():
         projects_roles_invites(srv)
         files_and_folders(srv)
         live_editing_converges(srv)
+        ot_clients_converge(srv)
         cursors_versions_autosave(srv)
         chat(srv)
         tasks_and_activity(srv)

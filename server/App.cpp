@@ -161,9 +161,9 @@ void App::registerRoutes()
 	add("folder.create", &App::hFolderCreate);
 	add("folder.rename", &App::hFolderRename);
 	add("folder.delete", &App::hFolderDelete);
-	add("file.open", &App::hFileOpen);
+	add("file.open", &App::hFileOpen, SelfReply);
 	add("file.close", &App::hFileClose);
-	add("file.op", &App::hFileOp, 0, 0.5);
+	add("file.op", &App::hFileOp, SelfReply, 0.5);
 	add("file.cursor", &App::hFileCursor, NoReply, 0.25);
 	add("file.versions", &App::hFileVersions);
 	add("file.version", &App::hFileVersion);
@@ -343,7 +343,7 @@ void App::onMessage(const ConnectionPtr& conn, const std::string& payload)
 	try
 	{
 		result = dispatch(*s, type, req, route->second);
-		if (route->second.flags & NoReply) return;
+		if (route->second.flags & (NoReply | SelfReply)) return;
 		reply.set("ok", true);
 		for (const auto& m : result.members()) reply.set(m.first, m.second);
 	}
@@ -364,6 +364,15 @@ void App::onMessage(const ConnectionPtr& conn, const std::string& payload)
 		reply.set("ok", false).set("code", "bad_request").set("error", std::string("Invalid request: ") + e.what());
 	}
 	s->send(reply);
+}
+
+void App::sendReply(Session& s, const Json& req, const Json& fields)
+{
+	Json reply = Json::object({ { "t", req["t"] } });
+	if (req.has("rid")) reply.set("rid", req["rid"]);
+	reply.set("ok", true);
+	for (const auto& m : fields.members()) reply.set(m.first, m.second);
+	s.send(reply);
 }
 
 Json App::dispatch(Session& s, const std::string& type, const Json& req, const Route& route)

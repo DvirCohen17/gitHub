@@ -21,6 +21,9 @@ class ServerError(Exception):
 class Client:
     def __init__(self, host="127.0.0.1", port=12345, name="client"):
         self.name = name
+        # When set, replies whose rid is in this set go to the event queue too, in
+        # arrival order (what a real client sees), instead of to request().
+        self.ordered_rids = set()
         self.sock = socket.create_connection((host, port), timeout=10)
         self.sock.settimeout(None)
         self.rid = 0
@@ -54,7 +57,9 @@ class Client:
                     self.events.put({"t": "raw", "payload": payload})
                     continue
                 msg = json.loads(payload.decode("utf-8"))
-                if "rid" in msg:
+                if "rid" in msg and msg["rid"] in self.ordered_rids:
+                    self.events.put(msg)
+                elif "rid" in msg:
                     with self.cond:
                         self.replies[msg["rid"]] = msg
                         self.cond.notify_all()

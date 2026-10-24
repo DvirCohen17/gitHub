@@ -227,7 +227,6 @@ Json App::hFileOpen(Session& s, const Json& req)
 	}
 	SessionPtr self = sessionFor(s.conn);
 	RoomPtr r = room(f.projectId, true);
-	Json result;
 	{
 		std::lock_guard<std::mutex> lock(r->m);
 		LiveDoc& doc = loadDoc(*r, f.id);
@@ -239,10 +238,12 @@ Json App::hFileOpen(Session& s, const Json& req)
 			cursors.push(Json::object({ { "userId", c.second.userId }, { "anchor", (long long)c.second.anchor }, { "head", (long long)c.second.head } }));
 		}
 		Json users = fileUsersJson(doc);
-		result = Json::object({
+		// Reply before releasing the lock: edits made after this snapshot reach
+		// this client after it, never before.
+		sendReply(s, req, Json::object({
 			{ "fileId", f.id }, { "path", f.path }, { "rev", doc.rev }, { "text", wideToUtf8(doc.text) },
 			{ "cursors", cursors }, { "users", users },
-		});
+		}));
 		Json ev = Json::object({ { "t", "ev.file.users" }, { "fileId", f.id }, { "users", users } });
 		std::string payload = ev.dump();
 		for (auto& v : doc.viewers)
@@ -257,7 +258,7 @@ Json App::hFileOpen(Session& s, const Json& req)
 		userId = s.userId;
 	}
 	notifyPresence(userId);
-	return result;
+	return Json::object();
 }
 
 Json App::hFileClose(Session& s, const Json& req)
@@ -304,8 +305,11 @@ Json App::hFileOp(Session& s, const Json& req)
 	if (docIt == r->docs.end() || !docIt->second.viewers.count(s.id)) fail("bad_request", "That file isn't open.");
 	LiveDoc& doc = docIt->second;
 
+	// Replies are sent while the lock is held, so they're ordered with the
+	// ev.file.op messages other edits send to this client.
 	auto resync = [&]() {
-		return Json::object({ { "resync", true }, { "rev", doc.rev }, { "text", wideToUtf8(doc.text) } });
+		sendReply(s, req, Json::object({ { "resync", true }, { "rev", doc.rev }, { "text", wideToUtf8(doc.text) } }));
+		return Json::object();
 	};
 	TextOperation op;
 	try
@@ -343,9 +347,10 @@ Json App::hFileOp(Session& s, const Json& req)
 
 	Json update = Json::object({ { "t", "ev.file.op" }, { "fileId", fileId }, { "rev", doc.rev }, { "op", op.toJson() }, { "userId", userId } });
 	std::string payload = update.dump();
+	sendReply(s, req, Json::object({ { "rev", doc.rev } }));
 	for (auto& v : doc.viewers)
 		if (v.first != s.id) v.second->conn->send(payload);
-	return Json::object({ { "rev", doc.rev } });
+	return Json::object();
 }
 
 Json App::hFileCursor(Session& s, const Json& req)

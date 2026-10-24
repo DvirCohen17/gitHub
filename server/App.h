@@ -151,10 +151,13 @@ public:
 
 private:
 	using Handler = Json (App::*)(Session&, const Json&);
-	enum Flags { PreLogin = 1, NoReply = 2, AdminOnly = 4 };
+	// SelfReply: the handler sends its own success reply (with sendReply) while it still
+	// holds a project lock, so the reply can't be overtaken by events sent after it.
+	enum Flags { PreLogin = 1, NoReply = 2, AdminOnly = 4, SelfReply = 8 };
 	struct Route { Handler handler; int flags; double cost; };
 	void registerRoutes();
 	Json dispatch(Session& s, const std::string& type, const Json& req, const Route& route);
+	void sendReply(Session& s, const Json& req, const Json& fields);
 
 	// ---- sessions & sending ----
 	SessionPtr sessionFor(const ConnectionPtr& conn);
