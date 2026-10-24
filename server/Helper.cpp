@@ -1,5 +1,7 @@
 #include "Helper.h"
 
+static void sendAll(const SOCKET sc, const char* data, size_t length);
+
 bool Helper::isSocketConnected(const SOCKET sockfd)
 {
     if (sockfd == INVALID_SOCKET) {
@@ -51,12 +53,105 @@ bool Helper::isSocketConnected(const SOCKET sockfd)
 
 void Helper::sendData(const SOCKET sc, const BUFFER message)
 {
-	const char* data = message.data();
+	std::string framed = frame(std::string(message.begin(), message.end()));
+	sendAll(sc, framed.data(), framed.size());
+}
 
-	if (send(sc, data, message.size(), 0) == INVALID_SOCKET)
+// ---- Message framing -------------------------------------------------------
+// TCP is a byte stream, so every message is sent as
+//   '#' + 8 ASCII digits (payload length in bytes) + payload
+// which lets the receiver read exactly one whole message, however long it is
+// and however many messages arrive back to back.
+
+static const char FRAME_MARKER = '#';
+static const int FRAME_LENGTH_DIGITS = 8;
+
+static void sendAll(const SOCKET sc, const char* data, size_t length)
+{
+	while (length > 0)
 	{
-		throw std::exception("Error while sending message to client");
+		int sent = send(sc, data, (int)length, 0);
+		if (sent == SOCKET_ERROR)
+		{
+			throw std::exception("Error while sending message to client");
+		}
+		data += sent;
+		length -= sent;
 	}
+}
+
+static void recvAll(const SOCKET sc, char* data, size_t length)
+{
+	while (length > 0)
+	{
+		int got = recv(sc, data, (int)length, 0);
+		if (got == 0)
+		{
+			throw std::exception("Error while receiving from socket: connection closed");
+		}
+		if (got == SOCKET_ERROR)
+		{
+			throw std::exception("Error while receiving from socket");
+		}
+		data += got;
+		length -= got;
+	}
+}
+
+std::string Helper::frame(const std::string& payload)
+{
+	std::string length = std::to_string(payload.size());
+	return FRAME_MARKER + std::string(FRAME_LENGTH_DIGITS - length.size(), '0') + length + payload;
+}
+
+void Helper::sendRaw(const SOCKET sc, const std::string& data)
+{
+	sendAll(sc, data.data(), data.size());
+}
+
+BUFFER Helper::receiveMessage(const SOCKET sc, bool& legacyUnframed)
+{
+	char first = 0;
+	int got = recv(sc, &first, 1, 0);
+	if (got == 0)
+	{
+		return BUFFER(); // orderly disconnect
+	}
+	if (got == SOCKET_ERROR)
+	{
+		throw std::exception("Error while receiving from socket");
+	}
+
+	if (first != FRAME_MARKER)
+	{
+		// Clients/installers from before framing send bare requests. Only the
+		// version check and installer download are accepted that way (see
+		// handleNewClient), which lets old installs discover they need to update.
+		legacyUnframed = true;
+		BUFFER rest = getPartFromSocket(sc, 511);
+		rest.insert(rest.begin(), first);
+		return rest;
+	}
+
+	legacyUnframed = false;
+	char digits[FRAME_LENGTH_DIGITS + 1] = { 0 };
+	recvAll(sc, digits, FRAME_LENGTH_DIGITS);
+	for (int i = 0; i < FRAME_LENGTH_DIGITS; i++)
+	{
+		if (digits[i] < '0' || digits[i] > '9')
+		{
+			throw std::exception("Error while receiving from socket: malformed frame");
+		}
+	}
+	size_t length = std::stoul(digits);
+	if (length == 0 || length > MAX_MESSAGE_SIZE)
+	{
+		throw std::exception("Error while receiving from socket: bad frame length");
+	}
+
+	BUFFER payload(length);
+	recvAll(sc, payload.data(), length);
+	return payload;
 }
 
 BUFFER Helper::getPartFromSocket(const SOCKET sc, const int bytesNum)
@@ -73,9 +168,10 @@ BUFFER Helper::getPartFromSocket(const SOCKET sc, const int bytesNum, const int 
 
 	BUFFER recieved(bytesNum);
 	int bytes_recieved = recv(sc, &recieved[0], bytesNum, flags);
-	if (bytes_recieved == INVALID_SOCKET)
+	if (bytes_recieved == SOCKET_ERROR)
 	{
-		std::string s = "Error while recieving from socket: ";
+		// Must say "receiving": IsConnectionError() matches on this text.
+		std::string s = "Error while receiving from socket: ";
 		s += std::to_string(sc);
 		throw std::exception(s.c_str());
 	}

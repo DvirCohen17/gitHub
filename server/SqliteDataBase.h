@@ -119,6 +119,8 @@ public:
 	void createProject(std::string projectName, std::map<ProfileInfo, std::string> addedUsers, std::string codeLan, int creatorId, int projectId) override;
 	void modifyProjectInfo(int projectId, std::string newProjectName, std::map<ProfileInfo, std::string> addedUsers, std::string codeLan) override;
 	void deleteProject(const std::string projectName) override;
+	void setProjectCreator(int projectId, int userId) override;
+	std::list<ProjectJoinInvite> getProjectInvites(int projectId) override;
 	void leaveProject(const std::string projectName, int userId) override;
 
 	// ******* PROFILE *******
@@ -134,6 +136,8 @@ public:
 	void rejectFriendReq(int userId, int friendRequsetId) override;
 private:
 	sqlite3* _db;
+
+	std::list<ClientHandler> findUsers(const std::string& usernameOrEmail);
 
 	bool send(sqlite3* db, std::string msg);
 	bool send_users(sqlite3* db, std::string msg, std::list<ClientHandler>* users);

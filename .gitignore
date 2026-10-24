@@ -1,0 +1,31 @@
+# Build output
+bin/
+obj/
+x64/
+x86/
+Debug/
+Release/
+*.exe
+*.dll
+*.pdb
+*.obj
+*.ilk
+*.idb
+*.ipch
+*.tlog
+*.deps.json
+*.runtimeconfig.json
+
+# Visual Studio per-user state
+.vs/
+*.user
+*.suo
+
+# Runtime data: the server creates the database on first run.
+# Never commit it — it contains user accounts.
+*.sqlite
+*.sqlite-journal
+*.db
+
+# Client config (server address is machine-specific)
+config.txt

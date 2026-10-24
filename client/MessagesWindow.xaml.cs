@@ -1,311 +1,197 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Globalization;
+using System.Linq;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using static client_side.HomePage;
 
 namespace client_side
 {
-    public class MultiVisibilityConverter2 : IMultiValueConverter
+    // Inbox screen: notifications, project invites (mode 2) and friend requests (mode 1).
+    public partial class MessagesWindow : Window
     {
-        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
-        {
-            if (values.Length == 2 &&
-                values[0] is bool type &&
-                values[1] is bool isRead)
-            {
-                // Example logic: Button is visible if Type is true and IsRead is false
-                return (!type && !isRead) ? Visibility.Visible : Visibility.Collapsed;
-            }
-
-            return Visibility.Collapsed; // Default fallback
-        }
-
-        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
-        {
-            throw new NotImplementedException();
-        }
-    }
-
-    public class MultiVisibilityConverter1 : IMultiValueConverter
-    {
-        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
-        {
-            if (values.Length == 2 &&
-                values[0] is bool type &&
-                values[1] is bool isRead)
-            {
-                // Example logic: Button is visible if Type is true and IsRead is false
-                return (type && !isRead) ? Visibility.Visible : Visibility.Collapsed;
-            }
-
-            return Visibility.Collapsed; // Default fallback
-        }
-
-        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
-        {
-            throw new NotImplementedException();
-        }
-    }
-
-
-    public partial class MessagesWindow : Window, INotifyPropertyChanged
-    {
-        private Communicator communicator;
-
-        public ObservableCollection<Message> Messages { get; set; }
-        public event PropertyChangedEventHandler PropertyChanged;
+        private readonly Communicator communicator;
+        private volatile bool isListeningToServer = true;
+        private bool disconnect = true;
+        public ObservableCollection<Message> Messages { get; } = new ObservableCollection<Message>();
 
         public MessagesWindow(Communicator communicator)
         {
             InitializeComponent();
-            Style = (Style)FindResource(typeof(Window)); // Specified full namespace for Window
+            MainFrame.Attach(this); // same size and place as the previous screen
+            Style = (Style)FindResource(typeof(Window));
             this.communicator = communicator;
-            DataContext = this;
-
-            communicator.ApplyTheme(this);
-
-            Messages = new ObservableCollection<Message>();
             MessagesListView.ItemsSource = Messages;
-
-            HandleLoadMessagesList();
+            communicator.ApplyTheme(this);
+            Closing += (_, _) =>
+            {
+                isListeningToServer = false;
+                if (disconnect) Send(MessageCodes.MC_DISCONNECT, $"{communicator.UserId:D5}");
+            };
+            new Thread(ReceiveServerUpdates) { IsBackground = true }.Start();
+            Load();
         }
 
-        private void HandleLoadMessagesList()
+        private void Send(MessageCodes code, string body = "")
         {
-            string messageCode = ((int)MessageCodes.MC_GET_MESSAGES_REQUEST).ToString();
-            communicator.SendData($"{messageCode}{communicator.UserName.Length:D5}{communicator.UserName}");
-
-            string update = communicator.ReceiveData();
-            string messageRepCode = update.Substring(0, 3);
-
-            if (messageRepCode == ((int)MessageCodes.MC_HEARTBEAT_REQUEST).ToString())
+            try
             {
-                update = communicator.ReceiveData();
-                messageRepCode = update.Substring(0, 3);
+                communicator.SendData($"{(int)code}{body}");
             }
-            if (messageRepCode == ((int)MessageCodes.MC_GET_MESSAGES_RESP).ToString())
+            catch (Exception ex)
             {
-                int index = 3;
-                ObservableCollection<Message> updatedMessages = new ObservableCollection<Message>();
+                communicator.HandleListenerError(ex);
+            }
+        }
 
-                while (index < update.Length)
+        private void SetStatus(string text, bool isError = false)
+        {
+            txtStatus.Text = text;
+            txtStatus.SetResourceReference(TextBlock.ForegroundProperty, isError ? "Theme.Danger" : "Theme.Muted");
+        }
+
+        private void ReceiveServerUpdates()
+        {
+            try
+            {
+                while (isListeningToServer)
                 {
-                    int mode = int.Parse(update.Substring(index, 1));
-                    index++;
-
-                    int userNameLen = int.Parse(update.Substring(index, 5));
-                    index += 5;
-
-                    string userName = update.Substring(index, userNameLen);
-                    index += userNameLen;
-
-                    int msgDataLen = int.Parse(update.Substring(index, 5));
-                    index += 5;
-
-                    string msgData = update.Substring(index, msgDataLen);
-                    index += msgDataLen;
-
-                    int itemIdLen = int.Parse(update.Substring(index, 5));
-                    index += 5;
-
-                    int itemId;
-                    if (itemIdLen > 0)
-                    {
-                        itemId = int.Parse(update.Substring(index, itemIdLen));
-                        index += itemIdLen;
-                    }
-                    else
-                    {
-                        itemId = 0;
-                    }
-
-                    int idLen = int.Parse(update.Substring(index, 5));
-                    index += 5;
-
-                    int id = int.Parse(update.Substring(index, idLen));
-                    index += idLen;
-
-                    bool state = mode != 0;
-
-                    updatedMessages.Add(new Message
-                    {
-                        Text = $"{userName} - {msgData}",
-                        IsRead = false,
-                        Type = state,
-                        Mode = mode,
-                        ItemId = itemId,
-                        Id = id
-                    });
+                    string update = communicator.ReceiveData();
+                    Dispatcher.Invoke(() => HandleMessage(update));
                 }
+            }
+            catch (Exception ex)
+            {
+                if (isListeningToServer) communicator.HandleListenerError(ex);
+            }
+        }
 
-                Dispatcher.Invoke(() =>
+        private void HandleMessage(string update)
+        {
+            if (update.Length < 3) return;
+            try
+            {
+                switch (update.Substring(0, 3))
                 {
-                    Messages.Clear();
-                    foreach (var message in updatedMessages)
-                    {
-                        Messages.Add(message);
-                    }
+                    case "253": if (update.Length != 8) ShowMessages(update); break;
+                    case "236": SetStatus($"You're now friends with {new WireReader(update).Field()}."); Load(); break;
+                    case "237": SetStatus("Friend request declined."); Load(); break;
+                    case "240": GoHome(); break;                      // back-to-home acknowledged
+                    case "200": SetStatus(update.Substring(3), true); Load(); break;
+                    default: break;
+                }
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"Couldn't process a message from the server ({ex.Message}).", true);
+            }
+        }
 
-                    SortMessageList(Messages);
+        private void Load() => Send(MessageCodes.MC_GET_MESSAGES_REQUEST, Wire.Field(communicator.UserName));
+
+        // "253" then per message: <mode digit><sender><text><itemId><id>
+        private void ShowMessages(string update)
+        {
+            var reader = new WireReader(update);
+            var list = new List<Message>();
+            while (!reader.AtEnd)
+            {
+                int mode = reader.Take(1)[0] - '0';
+                string sender = reader.Field();
+                string text = reader.Field();
+                string itemId = reader.Field();
+                int id = int.Parse(reader.Field());
+                list.Add(new Message
+                {
+                    Mode = mode,
+                    Sender = sender,
+                    Text = text.Trim(),
+                    ItemId = int.TryParse(itemId, out int item) ? item : 0,
+                    Id = id,
                 });
             }
+            Messages.Clear();
+            foreach (var message in list.OrderByDescending(m => m.Id))
+            {
+                Messages.Add(message);
+            }
+            txtEmpty.Visibility = Messages.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            markAllBtn.IsEnabled = Messages.Any(m => !m.IsRequest);
         }
 
-        private void SortMessageList(ObservableCollection<Message> messages)
+        private static Message MessageOf(object sender) => (sender as FrameworkElement)?.Tag as Message;
+
+        private void approveRequest_Click(object sender, RoutedEventArgs e)
         {
-            var sortedMessages = new ObservableCollection<Message>(messages.OrderBy(u => u.Id));
-            MessagesListView.ItemsSource = sortedMessages;
+            if (MessageOf(sender) is not Message message) return;
+            if (message.Mode == 2)
+            {
+                Send(MessageCodes.MC_ACCEPT_PROJECT_INVITE_REQUEST, Wire.Field(message.ItemId.ToString()) + Wire.Field(communicator.UserName));
+                SetStatus("Joined the project. It's now in your project list.");
+            }
+            else
+            {
+                Send(MessageCodes.MC_APPROVE_FRIEND_REQ_REQUEST, Wire.Field(message.ItemId.ToString()));
+            }
+            Load();
         }
 
-        private void Refresh_Click(object sender, RoutedEventArgs e)
+        private void declineRequest_Click(object sender, RoutedEventArgs e)
         {
-            // Call the method to reload messages
-            HandleLoadMessagesList();
+            if (MessageOf(sender) is not Message message) return;
+            if (message.Mode == 2)
+            {
+                Send(MessageCodes.MC_DECLINE_PROJECT_INVITE_REQUEST, Wire.Field(message.ItemId.ToString()) + Wire.Field(communicator.UserName));
+                SetStatus("Invitation declined.");
+            }
+            else
+            {
+                Send(MessageCodes.MC_REJECT_FRIEND_REQ_REQUEST, Wire.Field(message.ItemId.ToString()));
+            }
+            Load();
         }
 
         private void MarkAsRead_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button button && button.CommandParameter is Message message)
+            if (MessageOf(sender) is Message message)
             {
-                message.IsRead = true;
-                string chatMessageCode = ((int)MessageCodes.MC_MARK_AS_READ_REQUEST).ToString();
-                string fullMessage = $"{chatMessageCode}{message.Id:D5}";
-                communicator.SendData(fullMessage);
-
+                Send(MessageCodes.MC_MARK_AS_READ_REQUEST, message.Id.ToString());
+                Messages.Remove(message);
+                txtEmpty.Visibility = Messages.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             }
         }
 
         private void MarkAllAsRead_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button button && button.CommandParameter is Message message)
-            {
-                message.IsRead = true;
-                string chatMessageCode = ((int)MessageCodes.MC_MARK_ALL_AS_READ_REQUEST).ToString();
-                string fullMessage = $"{chatMessageCode}";
-                HandleLoadMessagesList();
-            }
+            Send(MessageCodes.MC_MARK_ALL_AS_READ_REQUEST);
+            Load();
         }
 
-        private void approveRequest_Click(object sender, RoutedEventArgs e)
+        private void Refresh_Click(object sender, RoutedEventArgs e) => Load();
+
+        // The reply (240) ends this screen's listener before the home screen starts its own.
+        private void Back_Click(object sender, RoutedEventArgs e) => Send(MessageCodes.MC_BACK_TO_HOME_PAGE_REQUEST);
+
+        private void GoHome()
         {
-            if (sender is Button button && button.CommandParameter is Message message)
-            {
-                if (message.Mode == 2)
-                {
-                    string addFriendCode = ((int)MessageCodes.MC_ACCEPT_PROJECT_INVITE_REQUEST).ToString();
-                    communicator.SendData($"{addFriendCode}{message.ItemId.ToString().Length:D5}{message.ItemId}{communicator.UserName.Length:D5}{communicator.UserName}");
-                }
-                else if (message.Mode == 1)
-                {
-                    string addFriendCode = ((int)MessageCodes.MC_APPROVE_FRIEND_REQ_REQUEST).ToString();
-                    communicator.SendData($"{addFriendCode}{message.ItemId:D5}{message.ItemId}");
-                }
-                message.IsRead = true;
-            }
+            disconnect = false;
+            isListeningToServer = false;
+            new HomePage(communicator).Show();
+            Close();
         }
 
-        private void declineRequest_Click(object sender, RoutedEventArgs e)
+        public class Message
         {
-            if (sender is Button button && button.CommandParameter is Message message)
-            {
-                if (message.Mode == 2)
-                {
-                    string addFriendCode = ((int)MessageCodes.MC_DECLINE_PROJECT_INVITE_REQUEST).ToString();
-                    communicator.SendData($"{addFriendCode}{message.ItemId.ToString().Length:D5}{message.ItemId}{communicator.UserName.Length:D5}{communicator.UserName}");
-                }
-                else if (message.Mode == 1)
-                {
-                    string rejectFriendCode = ((int)MessageCodes.MC_REJECT_FRIEND_REQ_REQUEST).ToString();
-                    communicator.SendData($"{rejectFriendCode}{message.ItemId:D5}{message.ItemId}");
-                }
+            public int Mode { get; set; }        // 0 notification, 1 friend request, 2 project invite
+            public string Sender { get; set; }
+            public string Text { get; set; }
+            public int ItemId { get; set; }      // project id (invite) or sender id (friend request)
+            public int Id { get; set; }
 
-                // Hide all buttons in the same item
-                message.IsRead = true;
-            }
-        }
-
-        public class Message : INotifyPropertyChanged
-        {
-            private string text;
-            private bool isRead;
-            private bool type;
-            private int mode;
-            private int id;
-            private int itemId;
-
-
-            public string Text
-            {
-                get => text;
-                set
-                {
-                    text = value;
-                    OnPropertyChanged();
-                }
-            }
-
-            public bool IsRead
-            {
-                get => isRead;
-                set
-                {
-                    isRead = value;
-                    OnPropertyChanged();
-                }
-            }
-
-            public bool Type
-            {
-                get => type;
-                set
-                {
-                    type = value;
-                    OnPropertyChanged();
-                }
-            }
-
-            public int Mode
-            {
-                get => mode;
-                set
-                {
-                    mode = value;
-                    OnPropertyChanged();
-                }
-            }
-
-            public int Id
-            {
-                get => id;
-                set
-                {
-                    id = value;
-                    OnPropertyChanged();
-                }
-            }
-
-            public int ItemId
-            {
-                get => itemId;
-                set
-                {
-                    itemId = value;
-                    OnPropertyChanged();
-                }
-            }
-
-            public event PropertyChangedEventHandler PropertyChanged;
-
-            protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
-            {
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-            }
+            public bool IsRequest => Mode == 1 || Mode == 2;
+            public string Kind => Mode switch { 1 => "Friend request", 2 => "Project invitation", _ => "Notification" };
+            public string Icon => Mode switch { 1 => "", 2 => "", _ => "" };
         }
     }
 }

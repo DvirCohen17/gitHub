@@ -10,54 +10,54 @@
 
 struct Chat
 {
-	int projectId;
+	int projectId = 0;
 	std::string data;
 };
 
 struct Issues
 {
-	int id;
+	int id = 0;
 	std::string data;
-	int projectId;
-	int status;
+	int projectId = 0;
+	int status = 0;
 	std::string date;
 	std::string usersAssigment;
 };
 
 struct Message
 {
-	int senderId;
+	int senderId = 0;
 	std::string data;
-	int id;
-	int mode;
-	int itemId;
+	int id = 0;
+	int mode = 0;
+	int itemId = 0;
 };
 
 struct PermissionReq
 {
-	int fileId;
-	int userId;
-	int creatorId;
+	int fileId = 0;
+	int userId = 0;
+	int creatorId = 0;
 };
 
 struct Permission
 {
-	int fileId;
-	int projectId;
+	int fileId = 0;
+	int projectId = 0;
 };
 
 struct ProjectPermission
 {
 	std::string role;
-	int projectId;
-	int userId;
+	int projectId = 0;
+	int userId = 0;
 };
 
 struct FileDetail
 {
-	int creatorId;
-	int fileId;
-	int projectId;
+	int creatorId = 0;
+	int fileId = 0;
+	int projectId = 0;
 	std::string fileName;
 	std::string content;
 };
@@ -67,7 +67,7 @@ struct ProfileInfo
 	std::string name;
 	std::string email;
 	std::string bio;
-	int userId;
+	int userId = 0;
 
 	bool operator<(const ProfileInfo& other) const {
 		return name < other.name; // Compare based on unique id, adjust if necessary
@@ -78,27 +78,27 @@ struct Project
 {
 	std::string name;
 	std::string codeLan;
-	int userId;
-	int projectId;
+	int userId = 0;
+	int projectId = 0;
 };
 
 struct ProjectJoinInvite
 {
 	std::string role;
-	int userId;
-	int projectId;
+	int userId = 0;
+	int projectId = 0;
 };
 
 struct Friends
 {
 	std::string fiendsList;
-	int userId;
+	int userId = 0;
 };
 
 struct FriendReq
 {
-	int friendReqId;
-	int userId;
+	int friendReqId = 0;
+	int userId = 0;
 };
 
 class IDatabase
@@ -217,6 +217,8 @@ public:
 	virtual void createProject(std::string projectName, std::map<ProfileInfo, std::string> addedUsers, std::string codeLan, int creatorId, int projectId) = 0;
 	virtual void modifyProjectInfo(int projectId, std::string newProjectName, std::map<ProfileInfo, std::string> addedUsers, std::string codeLan) = 0;
 	virtual void deleteProject(const std::string projectName) = 0;
+	virtual void setProjectCreator(int projectId, int userId) = 0;
+	virtual std::list<ProjectJoinInvite> getProjectInvites(int projectId) = 0;
 	virtual void leaveProject(const std::string projectName, int userId) = 0;
 
 	// ******* PROFILE *******

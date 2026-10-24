@@ -1,330 +1,405 @@
-﻿using System.Windows;
-using System.Windows.Controls;
-using System.Xml.Linq;
-using System.Windows.Media;
-using System.Linq;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
+using System.ComponentModel;
+using System.IO;
+using System.Linq;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Xml;
+using System.Xml.Linq;
+using ICSharpCode.AvalonEdit.Highlighting;
+using ICSharpCode.AvalonEdit.Highlighting.Xshd;
 
 namespace client_side
 {
+    // Theme (remembered for next time) and editor syntax colours with a live
+    // preview: every colour change is applied to the sample code immediately;
+    // "Save colours" writes the .xshd file the editor loads (see SyntaxStyles).
     public partial class settingsWindow : Window
     {
-        private Communicator communicator;
-        private bool disconnect = true;
-        private string theame;
-        private CheckBox currentlyCheckedCheckBox;
+        private static readonly string[] Themes =
+            { "Dark", "Light", "Blue", "Green", "Red", "CyberPunk", "Matrix", "Solarized Light", "Solarized Dark", "Vintage", "Neon", "Pastel" };
+        private static readonly XNamespace Xshd = "http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008";
+        private static readonly List<string> ColorNames = typeof(Colors).GetProperties().Select(p => p.Name).OrderBy(n => n).ToList();
 
+        private readonly Communicator communicator;
+        private XDocument styleDocument;
+        private string stylePath;
+        private bool loadingThemes;
+        private bool unsavedColors;
+        private volatile bool isListeningToServer = true;
+        private bool disconnect = true;
 
         public settingsWindow(Communicator communicator)
         {
             InitializeComponent();
-            Style = (Style)FindResource(typeof(System.Windows.Window)); // Specified full namespace for Window
+            MainFrame.Attach(this); // same size and place as the previous screen
+            Style = (Style)FindResource(typeof(Window));
             this.communicator = communicator;
+            languageComboBox.ItemsSource = SyntaxStyles.Languages;
+            previewEditor.SetResourceReference(ForegroundProperty, "Theme.Foreground");
+            previewEditor.SetResourceReference(ICSharpCode.AvalonEdit.TextEditor.LineNumbersForegroundProperty, "Theme.Muted");
             communicator.ApplyTheme(this);
-            theame = communicator.AppTheme.theame;
-            communicator.ThemeChanged += OnThemeChanged;
-        }
-
-        private void OnThemeChanged(object sender, EventArgs e)
-        {
-            communicator.ApplyTheme(this);
-        }
-
-        private void ModifyCodeStyle_Click(object sender, RoutedEventArgs e)
-        {
-            dynamicContentPanel.Children.Clear();
-
-            TextBlock instructionText = new TextBlock
+            LoadThemes();
+            Closing += (_, e) =>
             {
-                Text = "Select Code Language",
-                Margin = new Thickness(5),
-                FontSize = 14,
-                FontWeight = FontWeights.Bold
-            };
-            dynamicContentPanel.Children.Add(instructionText);
-
-            ComboBox codeLanguageComboBox = new ComboBox { Margin = new Thickness(5) };
-            codeLanguageComboBox.Items.Add("C++");
-            codeLanguageComboBox.Items.Add("C#");
-            codeLanguageComboBox.Items.Add("Python");
-            codeLanguageComboBox.Items.Add("Java");
-            codeLanguageComboBox.Items.Add("JavaScript");
-            codeLanguageComboBox.SelectionChanged += CodeLanguageComboBox_SelectionChanged;
-
-            dynamicContentPanel.Children.Add(codeLanguageComboBox);
-        }
-
-        private void CodeLanguageComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            ComboBox comboBox = sender as ComboBox;
-            string selectedLanguage = comboBox.SelectedItem as string;
-            string filePath = $"C:\\githubDemo\\codeStyles\\{selectedLanguage}-Mode.xshd";
-
-            if (System.IO.File.Exists(filePath))
-            {
-                dynamicContentPanel.Children.Clear();
-                dynamicContentPanel.Children.Add(comboBox);
-
-                XDocument xml = XDocument.Load(filePath);
-                XNamespace ns = "http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008"; // Update this if your namespace is different
-
-                // Set WrapPanel orientation to vertical
-                WrapPanel wrapPanel = new WrapPanel
+                if (disconnect && !ConfirmDiscardColors())
                 {
-                    Orientation = Orientation.Vertical,
-                    Margin = new Thickness(5),
-                    VerticalAlignment = VerticalAlignment.Top // Align to top for better layout
-                };
-
-                foreach (var colorElement in xml.Descendants(ns + "Color"))
-                {
-                    StackPanel colorPanel = new StackPanel
-                    {
-                        Orientation = Orientation.Horizontal,
-                        Margin = new Thickness(5),
-                        Width = 400 // Set width to ensure horizontal spacing
-                    };
-
-                    TextBlock colorName = new TextBlock
-                    {
-                        Text = colorElement.Attribute("name")?.Value,
-                        Width = 150, // Fixed width for alignment
-                        TextWrapping = TextWrapping.Wrap
-                    };
-
-                    ComboBox colorPicker = new ComboBox
-                    {
-                        Width = 150, // Match width with TextBlock
-                        Margin = new Thickness(5, 0, 0, 0) // Margin for spacing
-                    };
-                    var colorNames = typeof(Colors).GetProperties().Select(p => p.Name).ToList();
-                    colorPicker.ItemsSource = colorNames;
-
-                    string foregroundValue = colorElement.Attribute("foreground")?.Value;
-                    colorPicker.SelectedItem = colorNames.FirstOrDefault(c => c.Equals(foregroundValue, StringComparison.InvariantCultureIgnoreCase));
-                    colorPicker.Tag = colorElement;
-                    colorPicker.SelectionChanged += ColorPicker_SelectionChanged;
-
-                    TextBlock exampleText = new TextBlock
-                    {
-                        Text = "Example",
-                        Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(foregroundValue)),
-                        Margin = new Thickness(10, 0, 0, 0),
-                        Tag = colorPicker
-                    };
-
-                    colorPicker.Tag = exampleText; // Tag the ComboBox with the exampleText to update its color later
-
-                    colorPanel.Children.Add(colorName);
-                    colorPanel.Children.Add(colorPicker);
-                    colorPanel.Children.Add(exampleText);
-
-                    wrapPanel.Children.Add(colorPanel);
+                    e.Cancel = true;
+                    return;
                 }
-
-                // Add the WrapPanel to a ScrollViewer
-                ScrollViewer scrollViewer = new ScrollViewer
+                isListeningToServer = false;
+                if (disconnect)
                 {
-                    Content = wrapPanel,
-                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, // Disable horizontal scroll if unnecessary
-                    Margin = new Thickness(5) // Margin for ScrollViewer
+                    try { communicator.SendData($"{(int)MessageCodes.MC_DISCONNECT}{communicator.UserId:D5}"); } catch (Exception) { }
+                }
+            };
+            new System.Threading.Thread(ReceiveServerUpdates) { IsBackground = true }.Start();
+        }
+
+        private bool ConfirmDiscardColors() => !unsavedColors ||
+            MessageBox.Show(this, "You changed editor colours without saving. Leave anyway?", "Unsaved colours",
+                MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
+
+        // Only "back to home" (240) matters here; heartbeats are ignored.
+        private void ReceiveServerUpdates()
+        {
+            try
+            {
+                while (isListeningToServer)
+                {
+                    string update = communicator.ReceiveData();
+                    if (update.StartsWith("240"))
+                    {
+                        Dispatcher.Invoke(GoHome);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                if (isListeningToServer) communicator.HandleListenerError(ex);
+            }
+        }
+
+        private void Back_Click(object sender, RoutedEventArgs e)
+        {
+            if (ConfirmDiscardColors())
+            {
+                communicator.SendData($"{(int)MessageCodes.MC_BACK_TO_HOME_PAGE_REQUEST}");
+            }
+        }
+
+        private void GoHome()
+        {
+            disconnect = false;
+            isListeningToServer = false;
+            new HomePage(communicator).Show();
+            Close();
+        }
+
+        private void SetStatus(string text, bool isError = false)
+        {
+            txtStatus.Text = text;
+            txtStatus.SetResourceReference(TextBlock.ForegroundProperty, isError ? "Theme.Danger" : "Theme.Muted");
+        }
+
+        private void Tab_Checked(object sender, RoutedEventArgs e)
+        {
+            if (themePanel == null) return; // during InitializeComponent
+            bool colors = colorsTab.IsChecked == true;
+            themePanel.Visibility = colors ? Visibility.Collapsed : Visibility.Visible;
+            colorsPanel.Visibility = colors ? Visibility.Visible : Visibility.Collapsed;
+            saveColorsBtn.Visibility = colors ? Visibility.Visible : Visibility.Collapsed;
+            if (colors && languageComboBox.SelectedIndex < 0)
+            {
+                languageComboBox.SelectedIndex = 0;
+            }
+        }
+
+        // ---- theme
+
+        private void LoadThemes()
+        {
+            loadingThemes = true;
+            string current = communicator.AppTheme?.theame ?? "Dark";
+            themeList.ItemsSource = Themes.Select(name =>
+            {
+                Theme theme = Communicator.CreateTheme(name); // colours only: nothing applied or saved
+                return new ThemePreview
+                {
+                    Name = name,
+                    Background = theme.Background,
+                    Foreground = theme.TextColor,
+                    Accent = Communicator.AccentBrushFor(name),
+                    IsSelected = string.Equals(name, current, StringComparison.OrdinalIgnoreCase),
                 };
-
-                dynamicContentPanel.Children.Add(scrollViewer);
-            }
+            }).ToList();
+            loadingThemes = false;
         }
 
-        private void ColorPicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void Theme_Checked(object sender, RoutedEventArgs e)
         {
-            ComboBox colorPicker = sender as ComboBox;
-            TextBlock exampleText = colorPicker.Tag as TextBlock;
-            string selectedColor = colorPicker.SelectedItem as string;
-
-            if (exampleText != null && selectedColor != null)
+            if (loadingThemes || (sender as FrameworkElement)?.Tag is not string theme)
             {
-                exampleText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(selectedColor));
-                ApplyButton_Click(colorPicker, null);
-            }
-        }
-
-        private void ApplyButton_Click(object sender, RoutedEventArgs e)
-        {
-            WrapPanel wrapPanel = dynamicContentPanel.Children.OfType<ScrollViewer>().Select(s => s.Content as WrapPanel).FirstOrDefault();
-
-            if (wrapPanel == null)
-            {
-                MessageBox.Show("WrapPanel not found.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
+            communicator.SaveTheme(theme);
+            SetStatus($"Theme set to {theme}.");
+        }
 
-            ComboBox languageSelector = dynamicContentPanel.Children.OfType<ComboBox>().FirstOrDefault();
+        // ---- editor colours
 
-            string selectedLanguage = languageSelector?.SelectedItem as string;
-            string filePath = $"C:\\githubDemo\\codeStyles\\{selectedLanguage}-Mode.xshd";
-
-            if (System.IO.File.Exists(filePath))
+        private void Language_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (languageComboBox.SelectedItem is not string language)
             {
-                XDocument xml = XDocument.Load(filePath);
-                XNamespace ns = "http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008";
+                return;
+            }
+            if (unsavedColors && MessageBox.Show(this, "Discard your unsaved colour changes?", "Unsaved colours",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            {
+                languageComboBox.SelectionChanged -= Language_SelectionChanged;
+                languageComboBox.SelectedItem = e.RemovedItems.Count > 0 ? e.RemovedItems[0] : null;
+                languageComboBox.SelectionChanged += Language_SelectionChanged;
+                return;
+            }
+            unsavedColors = false;
 
-                XElement syntaxDefinition = xml.Root;
-                if (syntaxDefinition != null)
+            var sample = SampleCode.For(language);
+            txtPreviewFile.Text = sample.FileName;
+            previewEditor.Text = sample.Code;
+
+            stylePath = SyntaxStyles.StyleFile(communicator.CodeStylesDir, language);
+            colorList.ItemsSource = null;
+            styleDocument = null;
+            if (!File.Exists(stylePath))
+            {
+                txtColorsHint.Text = $"No colour file is installed for {language}, so the editor uses its built-in colours (shown in the preview).";
+                previewEditor.SyntaxHighlighting = HighlightingManager.Instance.GetDefinitionByExtension(Path.GetExtension(sample.FileName));
+                saveColorsBtn.IsEnabled = false;
+                return;
+            }
+            try
+            {
+                styleDocument = XDocument.Load(stylePath);
+                var entries = styleDocument.Descendants(Xshd + "Color")
+                    .Where(c => c.Attribute("name") != null)
+                    .Select(c => new ColorEntry(c))
+                    .ToList();
+                foreach (var entry in entries)
                 {
-                    IEnumerable<XElement> colorElements = syntaxDefinition.Descendants(ns + "Color");
-                    var colorElementDict = colorElements.ToDictionary(
-                       elem => elem.Attribute("name")?.Value,
-                       elem => elem
-                   );
-
-                    bool anyChangesMade = false;
-
-                    foreach (StackPanel colorPanel in wrapPanel.Children.OfType<StackPanel>())
+                    entry.PropertyChanged += (_, args) =>
                     {
-                        if (colorPanel.Children.Count >= 3 &&
-                            colorPanel.Children[0] is TextBlock colorNameTextBlock &&
-                            colorPanel.Children[1] is ComboBox colorPicker)
+                        if (args.PropertyName == nameof(ColorEntry.ColorName))
                         {
-                            string colorName = colorNameTextBlock.Text;
-                            string selectedColor = colorPicker.SelectedItem as string;
+                            unsavedColors = true;
+                            RefreshPreview();
+                            SetStatus("Unsaved changes - press Save colours to keep them.");
+                        }
+                    };
+                }
+                colorList.ItemsSource = entries;
+                txtColorsHint.Text = "Pick a colour and the preview updates instantly. Files you open after saving use the new colours.";
+                saveColorsBtn.IsEnabled = true;
+                RefreshPreview();
+            }
+            catch (Exception ex)
+            {
+                txtColorsHint.Text = $"Couldn't read {stylePath}: {ex.Message}";
+                saveColorsBtn.IsEnabled = false;
+            }
+        }
 
-                            Debug.WriteLine($"Processing color panel: {colorName}, selected color: {selectedColor}");
+        // Rebuilds the highlighting from the (unsaved) in-memory colour file.
+        private void RefreshPreview()
+        {
+            if (styleDocument == null) return;
+            try
+            {
+                using XmlReader reader = styleDocument.CreateReader();
+                previewEditor.SyntaxHighlighting = HighlightingLoader.Load(reader, HighlightingManager.Instance);
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"Preview unavailable: {ex.Message}", true);
+            }
+        }
 
-                            if (colorElementDict.TryGetValue(colorName, out XElement colorElement))
+        private void SaveColors_Click(object sender, RoutedEventArgs e)
+        {
+            if (styleDocument == null)
+            {
+                return;
+            }
+            try
+            {
+                styleDocument.Save(stylePath);
+                unsavedColors = false;
+                SetStatus("Colours saved. They apply to files you open from now on.");
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"Couldn't save colours: {ex.Message}", true);
+            }
+        }
+
+
+        public class ThemePreview
+        {
+            public string Name { get; set; }
+            public Brush Background { get; set; }
+            public Brush Foreground { get; set; }
+            public Brush Accent { get; set; }
+            public bool IsSelected { get; set; }
+        }
+
+        // One <Color name=... foreground=...> entry of the .xshd file, edited in place.
+        public class ColorEntry : INotifyPropertyChanged
+        {
+            private readonly XElement element;
+
+            public ColorEntry(XElement element)
+            {
+                this.element = element;
+                string current = element.Attribute("foreground")?.Value ?? "";
+                // Keep custom values like "#FF8000" selectable too.
+                Choices = ColorNames.Contains(current, StringComparer.OrdinalIgnoreCase) || current.Length == 0
+                    ? ColorNames
+                    : new List<string> { current }.Concat(ColorNames).ToList();
+            }
+
+            public string Name => element.Attribute("name")?.Value;
+            public List<string> Choices { get; }
+
+            public string ColorName
+            {
+                get
+                {
+                    string value = element.Attribute("foreground")?.Value ?? "";
+                    return Choices.FirstOrDefault(c => string.Equals(c, value, StringComparison.OrdinalIgnoreCase)) ?? value;
+                }
+                set
+                {
+                    if (value == null || string.Equals(value, ColorName, StringComparison.OrdinalIgnoreCase)) return;
+                    element.SetAttributeValue("foreground", value);
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Brush)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ColorName)));
+                }
+            }
+
+            public Brush Brush => ColorNameToBrushConverter.ToBrush(ColorName);
+
+            public event PropertyChangedEventHandler PropertyChanged;
+        }
+    }
+
+    // Sample programs for the colour preview: comments, strings, numbers, keywords...
+    public static class SampleCode
+    {
+        public static (string FileName, string Code) For(string language) => language switch
+        {
+            "C#" => ("Program.cs", """
+                using System;
+
+                namespace Demo
+                {
+                    // Greets everyone in the project
+                    public class Greeter
+                    {
+                        private const int Count = 3;
+
+                        public static void Main(string[] args)
+                        {
+                            string name = args.Length > 0 ? args[0] : "world";
+                            for (int i = 0; i < Count; i++)
                             {
-                                colorElement.SetAttributeValue("foreground", selectedColor);
-                                anyChangesMade = true;
-                            }
-                            else
-                            {
-                                Debug.WriteLine($"Color element '{colorName}' not found in XML.");
+                                Console.WriteLine($"Hello, {name}! #{i + 1}");
                             }
                         }
-                        else
-                        {
-                            Debug.WriteLine("Expected children not found in colorPanel.");
+                    }
+                }
+                """),
+            "Python" => ("main.py", """
+                import math
+
+                # Greets everyone in the project
+                class Greeter:
+                    def __init__(self, name="world"):
+                        self.name = name
+
+                    def greet(self, times=3):
+                        for i in range(times):
+                            print(f"Hello, {self.name}! #{i + 1}")
+                        return math.pi * 2
+
+
+                if __name__ == "__main__":
+                    Greeter("team").greet()
+                """),
+            "Java" => ("Main.java", """
+                import java.util.List;
+
+                // Greets everyone in the project
+                public class Main {
+                    private static final int COUNT = 3;
+
+                    public static void main(String[] args) {
+                        String name = args.length > 0 ? args[0] : "world";
+                        for (int i = 0; i < COUNT; i++) {
+                            System.out.println("Hello, " + name + "! #" + (i + 1));
                         }
+                        List<Character> letters = List.of('a', 'b');
+                    }
+                }
+                """),
+            "JavaScript" => ("app.js", """
+                // Greets everyone in the project
+                const COUNT = 3;
+
+                class Greeter {
+                    constructor(name = "world") {
+                        this.name = name;
                     }
 
-                    if (anyChangesMade)
-                    {
-                        try
-                        {
-                            xml.Save(filePath);
+                    greet() {
+                        for (let i = 0; i < COUNT; i++) {
+                            console.log(`Hello, ${this.name}! #${i + 1}`);
                         }
-                        catch (Exception ex)
-                        {
-                            MessageBox.Show($"Error saving XML file: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return this.name.length * 2.5;
+                    }
+                }
+
+                new Greeter("team").greet();
+                """),
+            _ => ("main.cpp", """
+                #include <iostream>
+                #include <string>
+
+                // Greets everyone in the project
+                namespace demo {
+                    const int COUNT = 3;
+
+                    class Greeter {
+                    public:
+                        explicit Greeter(std::string name) : name_(std::move(name)) {}
+
+                        void greet() const {
+                            for (int i = 0; i < COUNT; ++i) {
+                                std::cout << "Hello, " << name_ << "! #" << i + 1 << '\n';
+                            }
                         }
-                    }
-                    else
-                    {
-                        MessageBox.Show("No changes were made.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
-                    }
-                }
-            }
-        }
 
-        private void ModifyTheme_Click(object sender, RoutedEventArgs e)
-        {
-            dynamicContentPanel.Children.Clear();
-
-            List<string> themes = new List<string> { "Light", "Dark", "Blue", "Green", "Red", "CyberPunk", "Matrix", "Solarized Light", "Solarized Dark", "Vintage", "Neon", "Pastel" };
-
-            foreach (var theme in themes)
-            {
-                CheckBox themeCheckBox = new CheckBox
-                {
-                    Content = new TextBlock
-                    {
-                        Text = theme,
-                        Foreground = communicator.AppTheme.TextColor
-                    },
-                    Margin = new Thickness(5)
-                };
-
-                if (theme == GetCurrentTheme())
-                {
-                    themeCheckBox.IsChecked = true;
-                    currentlyCheckedCheckBox = themeCheckBox;
+                    private:
+                        std::string name_;
+                    };
                 }
 
-                themeCheckBox.Checked += ThemeCheckBox_Checked;
-                themeCheckBox.Unchecked += ThemeCheckBox_Unchecked;
-
-                dynamicContentPanel.Children.Add(themeCheckBox);
-            }
-
-        }
-
-        private void ThemeCheckBox_Checked(object sender, RoutedEventArgs e)
-        {
-            CheckBox selectedCheckBox = sender as CheckBox;
-            string selectedTheme = null;
-
-            if (selectedCheckBox.Content is TextBlock textBlock)
-            {
-                selectedTheme = textBlock.Text;
-            }
-
-            if (currentlyCheckedCheckBox != null && currentlyCheckedCheckBox != selectedCheckBox)
-            {
-                currentlyCheckedCheckBox.IsChecked = false;
-            }
-
-            currentlyCheckedCheckBox = selectedCheckBox;
-
-            // Apply the theme for the newly selected CheckBox
-            SetTheme(selectedTheme);
-        }
-
-        private void ThemeCheckBox_Unchecked(object sender, RoutedEventArgs e)
-        {
-            CheckBox selectedCheckBox = sender as CheckBox;
-            bool isThereChecked = false;
-
-            foreach (var child in dynamicContentPanel.Children)
-            {
-                if (child is CheckBox checkBox)
-                {
-                    if (checkBox.IsChecked == true)
-                    {
-                        isThereChecked = true;
-                    }
+                int main() {
+                    demo::Greeter("team").greet();
+                    return 0;
                 }
-            }
-
-            if (selectedCheckBox == currentlyCheckedCheckBox && !isThereChecked)
-            {
-                selectedCheckBox.IsChecked = true;
-            }
-        }
-
-        private string GetCurrentTheme()
-        {
-            return communicator.AppTheme.theame;
-        }
-
-        private void SetTheme(string theme)
-        {
-            communicator.ModifyTheme(theme);
-            communicator.ApplyTheme(this);
-
-            foreach (var child in dynamicContentPanel.Children)
-            {
-                if (child is CheckBox checkBox )
-                {
-                    if (checkBox.Content is TextBlock textBlock)
-                    {
-                        textBlock.Foreground = communicator.AppTheme.TextColor;
-                    }
-                }
-            }
-
-            theame = communicator.AppTheme.theame;
-        }
-
+                """),
+        };
     }
 }

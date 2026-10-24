@@ -20,4 +20,8 @@
     </COMReference>
   </ItemGroup>
 
+  <ItemGroup>
+    <Resource Include="logo.jpg" />
+  </ItemGroup>
+
 </Project>

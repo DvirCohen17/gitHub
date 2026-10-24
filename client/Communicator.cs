@@ -89,6 +89,7 @@ namespace client_side
         MC_BACK_TO_TO_DO_LIST_PAGE_REQUEST = 170,
         MC_MODIFY_ISSUE_REQUEST = 171,
         MC_MARK_ALL_AS_READ_REQUEST = 172,
+        MC_FILE_OP_REQUEST = 173,      // live edit: "<fileId>|<revision>|<operation>"
 
         MC_ERROR_RESP = 200, //responses
         MC_INITIAL_RESP = 201,
@@ -163,6 +164,9 @@ namespace client_side
         MC_BACK_TO_TO_DO_LIST_PAGE_RESP = 270,
         MC_MODIFY_ISSUE_RESP = 271,
         MC_MARK_ALL_AS_READ_RESP = 272,
+        MC_FILE_OP_RESP = 273,         // someone else's edit
+        MC_FILE_OP_ACK = 274,          // our edit was applied
+        MC_FILE_RESYNC = 275,          // reload the file from this snapshot
 
         MC_DISCONNECT = 300, //user
         MC_LOGIN_REQUEST = 301,
@@ -236,16 +240,44 @@ namespace client_side
         public event EventHandler ThemeChanged;
 
         public AppSettings settings { get; set; }
+        private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(5);
+        private static readonly TimeSpan ResponseTimeout = TimeSpan.FromSeconds(15);
+
+        // Only opens the connection, so it is safe to call from a background thread.
+        // Call Initialize() on the UI thread afterwards.
         public Communicator(string ip, int port)
         {
             m_socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
-            if (m_socket == null)
+            try
             {
-                throw new ExternalException("Socket failed to initialize");
+                if (!m_socket.ConnectAsync(ip, port).Wait(ConnectTimeout))
+                {
+                    throw new TimeoutException("the server did not answer.");
+                }
             }
+            catch (AggregateException ex) when (ex.InnerException != null)
+            {
+                m_socket.Close();
+                throw ex.InnerException;
+            }
+            catch
+            {
+                m_socket.Close();
+                throw;
+            }
+        }
 
-            m_socket.Connect(ip, port);
+        // While a window is waiting for a direct reply (login, sign-up, ...), a dead
+        // server shouldn't freeze it forever. Background listeners wait indefinitely.
+        public void UseResponseTimeout(bool enabled)
+        {
+            m_socket.ReceiveTimeout = enabled ? (int)ResponseTimeout.TotalMilliseconds : 0;
+        }
 
+        // Loads settings, checks the client version and applies the theme. UI thread only.
+        public void Initialize()
+        {
+            UseResponseTimeout(true);
             LoadSettings();
         }
 
@@ -301,6 +333,7 @@ namespace client_side
                         {
                             FileName = installerPath,
                             WorkingDirectory = "C:\\githubDemo\\installer", // Set the working directory
+                            Arguments = "--update", // installer starts right away instead of waiting for a click
                             UseShellExecute = true
                         };
                         Process.Start(startInfo);
@@ -355,30 +388,32 @@ namespace client_side
             m_socket.Close();
         }
 
-        public void ModifyTheme(string theme)
+        // The colours of a theme, without applying or saving anything.
+        public static Theme CreateTheme(string theme)
         {
+            Theme result = null;
             switch (theme.ToLower())
             {
                 case "light":
-                    AppTheme = new Theme(
-                        Brushes.White,
-                        Brushes.Black,
-                        Brushes.White,
-                        Brushes.Black,
-                        Brushes.Black,
-                        Brushes.Black, "Light");
+                    result = new Theme(
+                        Hex("#F6F7F9"),
+                        Hex("#1F2328"),
+                        Hex("#FFFFFF"),
+                        Hex("#1F2328"),
+                        Hex("#D0D7DE"),
+                        Hex("#1F2328"), "Light");
                     break;
                 case "dark":
-                    AppTheme = new Theme(
-                        Brushes.Black,
-                        Brushes.White,
-                        Brushes.Black,
-                        Brushes.White,
-                        Brushes.White,
-                        Brushes.White, "Dark");
+                    result = new Theme(
+                        Hex("#16181D"),
+                        Hex("#E6E8EB"),
+                        Hex("#22252B"),
+                        Hex("#E6E8EB"),
+                        Hex("#3A3F47"),
+                        Hex("#E6E8EB"), "Dark");
                     break;
                 case "blue":
-                    AppTheme = new Theme(
+                    result = new Theme(
                         Brushes.LightBlue,
                         Brushes.DarkBlue,
                         Brushes.LightBlue,
@@ -387,7 +422,7 @@ namespace client_side
                         Brushes.DarkBlue, "Blue");
                     break;
                 case "green":
-                    AppTheme = new Theme(
+                    result = new Theme(
                         Brushes.LightGreen,
                         Brushes.DarkGreen,
                         Brushes.LightGreen,
@@ -396,7 +431,7 @@ namespace client_side
                         Brushes.DarkGreen, "Green");
                     break;
                 case "red":
-                    AppTheme = new Theme(
+                    result = new Theme(
                         Brushes.LightCoral,
                         Brushes.DarkRed,
                         Brushes.LightCoral,
@@ -405,7 +440,7 @@ namespace client_side
                         Brushes.DarkRed, "Red");
                     break;
                 case "cyberpunk":
-                    AppTheme = new Theme(
+                    result = new Theme(
                         new SolidColorBrush(Color.FromRgb(10, 0, 50)),
                         new SolidColorBrush(Color.FromRgb(0, 255, 255)),
                         new SolidColorBrush(Color.FromRgb(255, 20, 147)),
@@ -414,7 +449,7 @@ namespace client_side
                         new SolidColorBrush(Color.FromRgb(0, 255, 255)), "CyberPunk");
                     break;
                 case "matrix":
-                    AppTheme = new Theme(
+                    result = new Theme(
                         Brushes.Black,
                         new SolidColorBrush(Color.FromRgb(0, 255, 0)),
                         Brushes.Black,
@@ -423,7 +458,7 @@ namespace client_side
                         new SolidColorBrush(Color.FromRgb(0, 255, 0)), "Matrix");
                     break;
                 case "solarized light":
-                    AppTheme = new Theme(
+                    result = new Theme(
                         new SolidColorBrush(Color.FromRgb(253, 246, 227)),
                         new SolidColorBrush(Color.FromRgb(101, 123, 131)),
                         new SolidColorBrush(Color.FromRgb(238, 232, 213)),
@@ -432,7 +467,7 @@ namespace client_side
                         new SolidColorBrush(Color.FromRgb(101, 123, 131)), "Solarized Light");
                     break;
                 case "solarized dark":
-                    AppTheme = new Theme(
+                    result = new Theme(
                         new SolidColorBrush(Color.FromRgb(0, 43, 54)),
                         new SolidColorBrush(Color.FromRgb(131, 148, 153)),
                         new SolidColorBrush(Color.FromRgb(7, 54, 33)),
@@ -441,7 +476,7 @@ namespace client_side
                         new SolidColorBrush(Color.FromRgb(131, 148, 153)), "Solarized Dark");
                     break;
                 case "vintage":
-                    AppTheme = new Theme(
+                    result = new Theme(
                         new SolidColorBrush(Color.FromRgb(244, 227, 227)),
                         new SolidColorBrush(Color.FromRgb(108, 79, 79)),
                         new SolidColorBrush(Color.FromRgb(208, 182, 182)),
@@ -450,7 +485,7 @@ namespace client_side
                         new SolidColorBrush(Color.FromRgb(108, 79, 79)), "Vintage");
                     break;
                 case "neon":
-                    AppTheme = new Theme(
+                    result = new Theme(
                         Brushes.Black,
                         new SolidColorBrush(Color.FromRgb(57, 255, 20)),
                         new SolidColorBrush(Color.FromRgb(255, 0, 127)),
@@ -459,7 +494,7 @@ namespace client_side
                         new SolidColorBrush(Color.FromRgb(57, 255, 20)), "Neon");
                     break;
                 case "pastel":
-                    AppTheme = new Theme(
+                    result = new Theme(
                         new SolidColorBrush(Color.FromRgb(251, 232, 235)),
                         new SolidColorBrush(Color.FromRgb(195, 162, 176)),
                         new SolidColorBrush(Color.FromRgb(245, 227, 230)),
@@ -468,7 +503,7 @@ namespace client_side
                         new SolidColorBrush(Color.FromRgb(195, 162, 176)), "Pastel");
                     break;
                 default:
-                    AppTheme = new Theme(
+                    result = new Theme(
                         Brushes.White,
                         Brushes.Black,
                         Brushes.White,
@@ -478,144 +513,99 @@ namespace client_side
                         "Light");
                     break;
             }
-            SaveSettings(theme);
-            ThemeChanged?.Invoke(this, EventArgs.Empty);
-
-            settings.Theme = theme;
-
-            SaveSettings(settingsFilePath, settings);
+            return result ?? CreateTheme("dark");
         }
 
+        // Applies a theme everywhere and remembers it for next time.
+        public void ModifyTheme(string theme)
+        {
+            AppTheme = CreateTheme(theme);
+            UpdateThemeResources();
+            SaveSettings(theme);
+            ThemeChanged?.Invoke(this, EventArgs.Empty);
+            if (settings != null)
+            {
+                settings.Theme = theme;
+                SaveSettings(settingsFilePath, settings);
+            }
+        }
+
+        // App.xaml styles read these, so every button and input (also inside lists
+        // and dialogs, which ApplyTheme doesn't reach) follows the theme.
+        private static SolidColorBrush Hex(string color)
+        {
+            var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(color));
+            brush.Freeze();
+            return brush;
+        }
+
+        // Accent colour (primary buttons, focus, selection) for each theme.
+        public static Brush AccentBrushFor(string theme) => Solid(AccentFor(theme));
+
+        private static Color AccentFor(string theme) => (Color)ColorConverter.ConvertFromString(theme.ToLower() switch
+        {
+            "light" => "#2563EB",
+            "blue" => "#1D4ED8",
+            "green" => "#15803D",
+            "red" => "#B91C1C",
+            "cyberpunk" => "#FF1493",
+            "matrix" => "#00B140",
+            "solarized light" => "#268BD2",
+            "solarized dark" => "#2AA198",
+            "vintage" => "#8B5E3C",
+            "neon" => "#39FF14",
+            "pastel" => "#B57EDC",
+            _ => "#3B82F6",
+        });
+
+        // App.xaml styles read these (DynamicResource), so every control in every
+        // window - including inside lists and dialogs - follows the theme.
+        private void UpdateThemeResources()
+        {
+            var resources = Application.Current?.Resources;
+            if (resources == null || AppTheme == null) return;
+            Color background = (AppTheme.Background as SolidColorBrush)?.Color ?? Colors.Black;
+            Color text = (AppTheme.TextColor as SolidColorBrush)?.Color ?? Colors.White;
+            Color accent = AccentFor(AppTheme.theame ?? "dark");
+            bool lightAccent = (accent.R * 0.299 + accent.G * 0.587 + accent.B * 0.114) > 160;
+
+            resources["Theme.WindowBackground"] = AppTheme.Background;
+            resources["Theme.Foreground"] = AppTheme.TextColor;
+            resources["Theme.Muted"] = Solid(Blend(text, background, 0.38));
+            resources["Theme.Surface"] = Solid(Blend(background, text, 0.04));
+            resources["Theme.SurfaceHover"] = Solid(Blend(background, text, 0.09));
+            resources["Theme.Border"] = Solid(Blend(background, text, 0.16));
+            resources["Theme.ButtonBackground"] = Solid(Blend(background, text, 0.06));
+            resources["Theme.ButtonForeground"] = AppTheme.TextColor;
+            resources["Theme.ButtonBorder"] = Solid(Blend(background, text, 0.22));
+            resources["Theme.ButtonHover"] = Solid(Blend(background, text, 0.13));
+            resources["Theme.InputBackground"] = Solid(Blend(background, text, 0.04));
+            resources["Theme.InputForeground"] = AppTheme.TextColor;
+            resources["Theme.InputBorder"] = Solid(Blend(background, text, 0.22));
+            resources["Theme.Accent"] = Solid(accent);
+            resources["Theme.AccentHover"] = Solid(Blend(accent, lightAccent ? Colors.Black : Colors.White, 0.12));
+            resources["Theme.AccentForeground"] = lightAccent ? Brushes.Black : Brushes.White;
+            resources["Theme.AccentSoft"] = Solid(Blend(background, accent, 0.22));
+        }
+
+        private static SolidColorBrush Solid(Color color)
+        {
+            var brush = new SolidColorBrush(color);
+            brush.Freeze();
+            return brush;
+        }
+
+        private static Color Blend(Color a, Color b, double amount) => Color.FromRgb(
+            (byte)(a.R + (b.R - a.R) * amount), (byte)(a.G + (b.G - a.G) * amount), (byte)(a.B + (b.B - a.B) * amount));
+
+
+        // Styles in App.xaml follow the theme through dynamic resources; this just
+        // makes sure they're up to date (kept so windows can call it as before).
         public void ApplyTheme(Window window)
         {
             if (AppTheme != null)
             {
-                var resourceDictionary = new ResourceDictionary();
-
-                window.Background = AppTheme.Background;
-                window.Foreground = AppTheme.Foreground;
-
-                if (window.Content is Panel panel)
-                {
-                    ApplyThemeToControls(panel);
-                }
-            }
-        }
-
-        private void ApplyThemeToControls(Panel panel)
-        {
-            if (panel == null)
-                return;
-
-            foreach (var control in panel.Children)
-            {
-                ApplyThemeToControl(control as DependencyObject); // Cast to DependencyObject
-            }
-        }
-
-        private void ApplyThemeToControl(DependencyObject control)
-        {
-            if (control == null)
-                return;
-
-            if (control is Button button)
-            {
-                // Apply the background and foreground colors
-                button.Background = AppTheme.ButtonBackground;
-                button.Foreground = AppTheme.ButtonForeground;
-
-                // Apply the border color for buttons
-                button.BorderBrush = AppTheme.ButtonBorder;
-            }
-            else if (control is TextBlock textBlock)
-            {
-                textBlock.Foreground = AppTheme.TextColor; // Apply text color
-
-            }
-            else if (control is TextBox textBox)
-            {
-                textBox.Foreground = AppTheme.TextColor; // Apply text color
-                textBox.BorderBrush = AppTheme.TextColor; 
-            }
-            else if (control is Border border)
-            {
-                border.BorderBrush = AppTheme.TextColor; // Apply text color
-            }
-            else if (control is CheckBox checkBox)
-            {
-                checkBox.Foreground = AppTheme.TextColor; // Apply text color
-                if (checkBox.Content is string contentString)
-                {
-                    checkBox.Content = new TextBlock
-                    {
-                        Text = contentString,
-                        Foreground = AppTheme.TextColor
-                    };
-                }
-                else if (checkBox.Content is TextBlock contentTextBlock)
-                {
-                    contentTextBlock.Foreground = AppTheme.TextColor;
-                }
-            }
-            else if (control is ListBox listBox)
-            {
-                listBox.Foreground = AppTheme.TextColor; // Apply text color
-                foreach (var item in listBox.Items)
-                {
-                    // Find the ListBoxItem and apply theme to it
-                    ListBoxItem listBoxItem = listBox.ItemContainerGenerator.ContainerFromItem(item) as ListBoxItem;
-                    if (listBoxItem != null)
-                    {
-                        ApplyThemeToControl(listBoxItem);
-                    }
-                }
-            }
-            else if (control is ListView listView)
-            {
-                listView.Foreground = AppTheme.TextColor;
-                foreach (var item in listView.Items)
-                {
-                    ListViewItem listViewItem = listView.ItemContainerGenerator.ContainerFromItem(item) as ListViewItem;
-                    if (listViewItem != null)
-                    {
-                        ApplyThemeToControl(listViewItem);
-                    }
-                }
-            }
-            else if (control is Panel childPanel)
-            {
-                foreach (var child in childPanel.Children)
-                {
-                    ApplyThemeToControl(child as DependencyObject); // Cast to DependencyObject
-                }
-            }
-            else if (control is ListBoxItem listBoxItem)
-            {
-                for (int i = 0; i < VisualTreeHelper.GetChildrenCount(listBoxItem); i++)
-                {
-                    DependencyObject child = VisualTreeHelper.GetChild(listBoxItem, i);
-                    ApplyThemeToControl(child);
-                }
-            }
-            else if (control is ListViewItem listViewItem)
-            {
-                for (int i = 0; i < VisualTreeHelper.GetChildrenCount(listViewItem); i++)
-                {
-                    DependencyObject child = VisualTreeHelper.GetChild(listViewItem, i);
-                    ApplyThemeToControl(child);
-                }
-            }
-        }
-
-        private void ApplyThemeToControl(ListBoxItem listBoxItem)
-        {
-            if (listBoxItem == null)
-                return;
-
-            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(listBoxItem); i++)
-            {
-                DependencyObject child = VisualTreeHelper.GetChild(listBoxItem, i);
-                ApplyThemeToControl(child);
+                UpdateThemeResources();
             }
         }
 
@@ -626,10 +616,12 @@ namespace client_side
             Properties.Settings.Default.Save();
         }
 
+        public void SaveTheme(string theme) => ModifyTheme(theme);
+
         public void SaveCredentials(string username, string hashedPassword)
         {
             Properties.Settings.Default.Username = username;
-            Properties.Settings.Default.HashedPassword = hashedPassword;
+            Properties.Settings.Default.HashedPassword = ProtectSecret(hashedPassword);
             Properties.Settings.Default.Save();
         }
 
@@ -643,6 +635,37 @@ namespace client_side
             settings.Pass = "";
 
             SaveSettings(settingsFilePath, settings);
+        }
+
+        // "Remember me" stores the password hash, which is what the server checks, so it is
+        // as sensitive as the password itself. Encrypt it with DPAPI so only this Windows user
+        // on this machine can read it back.
+        public static string ProtectSecret(string secret)
+        {
+            if (string.IsNullOrEmpty(secret))
+            {
+                return secret;
+            }
+            byte[] encrypted = ProtectedData.Protect(Encoding.UTF8.GetBytes(secret), null, DataProtectionScope.CurrentUser);
+            return Convert.ToBase64String(encrypted);
+        }
+
+        public static string UnprotectSecret(string stored)
+        {
+            if (string.IsNullOrEmpty(stored))
+            {
+                return stored;
+            }
+            try
+            {
+                byte[] decrypted = ProtectedData.Unprotect(Convert.FromBase64String(stored), null, DataProtectionScope.CurrentUser);
+                return Encoding.UTF8.GetString(decrypted);
+            }
+            catch (Exception)
+            {
+                // Saved before encryption was added (or by another user): treat as no saved login.
+                return string.Empty;
+            }
         }
 
         public string HashPassword(string password)
@@ -659,120 +682,122 @@ namespace client_side
             }
         }
 
+        // ---- Message framing -------------------------------------------------
+        // Every message is '#' + 8-digit payload length (bytes) + payload, matching
+        // Helper::frame on the server. TCP doesn't keep message boundaries, so
+        // without this, replies over 512 bytes were cut off and replies that
+        // arrived together were glued into one and misread.
+        private const byte FrameMarker = (byte)'#';
+        private const int FrameLengthDigits = 8;
+        private const int MaxMessageSize = 16 * 1024 * 1024;
+        private readonly object sendLock = new object();
+        private readonly object receiveLock = new object();
+
         public void SendData(string message)
         {
-            //LogAction(message);
-           byte[] data = Encoding.UTF8.GetBytes(message);
-           m_socket.Send(data); 
+            SendFrame(Encoding.UTF8.GetBytes(message));
         }
 
         public void SendImage(byte[] message)
         {
-            //LogAction(message);
-            m_socket.Send(message);
+            SendFrame(message);
+        }
+
+        private void SendFrame(byte[] payload)
+        {
+            byte[] header = Encoding.ASCII.GetBytes("#" + payload.Length.ToString("D" + FrameLengthDigits));
+            byte[] frame = new byte[header.Length + payload.Length];
+            Buffer.BlockCopy(header, 0, frame, 0, header.Length);
+            Buffer.BlockCopy(payload, 0, frame, header.Length, payload.Length);
+            lock (sendLock)
+            {
+                int sent = 0;
+                while (sent < frame.Length)
+                {
+                    sent += m_socket.Send(frame, sent, frame.Length - sent, SocketFlags.None);
+                }
+            }
+        }
+
+        // Blocks until one whole message has arrived and returns its payload.
+        public byte[] ReceiveFrame()
+        {
+            lock (receiveLock)
+            {
+                byte[] header = ReceiveExactly(1 + FrameLengthDigits);
+                if (header[0] != FrameMarker)
+                {
+                    throw new IOException("Protocol error: unexpected data from server.");
+                }
+                if (!int.TryParse(Encoding.ASCII.GetString(header, 1, FrameLengthDigits), out int length)
+                    || length < 0 || length > MaxMessageSize)
+                {
+                    throw new IOException("Protocol error: bad message length from server.");
+                }
+                return ReceiveExactly(length);
+            }
+        }
+
+        private byte[] ReceiveExactly(int count)
+        {
+            byte[] buffer = new byte[count];
+            int received = 0;
+            while (received < count)
+            {
+                int bytes = m_socket.Receive(buffer, received, count - received, SocketFlags.None);
+                if (bytes == 0)
+                {
+                    throw new IOException("The connection to the server was closed.");
+                }
+                received += bytes;
+            }
+            return buffer;
+        }
+
+        public static bool IsConnectionLost(Exception ex)
+        {
+            return ex is IOException || ex is SocketException || ex is ObjectDisposedException
+                || ex.InnerException is SocketException || ex.InnerException is IOException;
+        }
+
+        private int connectionLostReported;
+
+        // Called by the windows' background listeners when their receive loop fails.
+        // A dropped connection is reported once and closes the app, instead of every
+        // open window showing its own error (or silently stopping).
+        public void HandleListenerError(Exception ex)
+        {
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                if (IsConnectionLost(ex))
+                {
+                    if (Interlocked.Exchange(ref connectionLostReported, 1) == 0)
+                    {
+                        MessageBox.Show("Lost the connection to the server. gitHub Demo will now close.",
+                            "Connection lost", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        Application.Current.Shutdown();
+                    }
+                    return;
+                }
+                MessageBox.Show($"Error receiving server updates: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            });
         }
 
         public string ReceiveData()
         {
-            byte[] buffer = new byte[512];  // Adjust the buffer size as needed
-            int bytesRead = m_socket.Receive(buffer);
-            string rep = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-            //LogAction(rep);
-            return rep;
+            return Encoding.UTF8.GetString(ReceiveFrame());
         }
 
         public string ReceiveFileData()
         {
-            byte[] buffer = new byte[30000];  // Adjust the buffer size as needed
-            int bytesRead = m_socket.Receive(buffer);
-            string rep = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-            //LogAction(rep);
-            return rep;
+            return ReceiveData();
         }
 
         public string ReceiveImage(int imageSize)
         {
-            byte[] buffer = new byte[imageSize];
-            int received = 0;
-
-            while (received < imageSize)
-            {
-                int bytes = m_socket.Receive(buffer, received, imageSize - received, SocketFlags.None);
-                if (bytes == 0) throw new Exception("Connection closed prematurely.");
-                received += bytes;
-            }
-
-            return Convert.ToBase64String(buffer);
+            return Convert.ToBase64String(ReceiveFrame());
         }
 
-        /*
-        public string ReceiveData(CancellationToken cancellationToken)
-        {
-            // Adjust the timeout value as needed
-            TimeSpan timeout = TimeSpan.FromSeconds(1);
-
-            // Use CancellationTokenSource to apply timeout
-            using (var timeoutCts = new CancellationTokenSource(timeout))
-            using (var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token))
-            {
-                try
-                {
-                    byte[] buffer = new byte[1024];  // Adjust the buffer size as needed
-                    int bytesRead = m_socket.Receive(buffer);
-                    string rep = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                    LogAction(rep);
-                    return rep;
-                }
-                catch (OperationCanceledException)
-                {
-                    // Handle the case where the operation is canceled due to timeout
-                    throw new TimeoutException("Receive operation timed out.");
-                }
-                catch (Exception ex)
-                {
-                    // Handle other exceptions
-                    throw new Exception($"Error receiving data: {ex.Message}");
-                }
-            }
-        }
-
-        public string ReceiveDataWithTimeout(TimeSpan timeout)
-        {
-            try
-            {
-                using (var cts = new CancellationTokenSource(timeout))
-                {
-                    var token = cts.Token;
-
-                    Task<string> receiveTask = Task.Run(() =>
-                    {
-                        // Replace the following line with your actual ReceiveData logic
-                        // Here, I'm assuming ReceiveData returns a string
-                        return ReceiveData();
-                    }, token);
-
-                    // Wait for the task to complete within the specified timeout
-                    if (receiveTask.Wait(timeout))
-                    {
-                        // Task completed within the timeout
-                        return receiveTask.Result;
-                    }
-                    else
-                    {
-                        // Timeout occurred
-                        return null;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                // Handle exceptions as needed
-                Console.WriteLine($"Error in ReceiveDataWithTimeout: {ex.Message}");
-                return null;
-            }
-        }
-
-        */
         public void LogAction(string action)
         {
             try
@@ -788,22 +813,6 @@ namespace client_side
                 // Handle the exception or log it to another source
                 MessageBox.Show($"Error logging action: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
-        }
-        public bool ContainsSqlInjection(string input)
-        {
-            // Define a list of special characters commonly used in SQL injection
-            string[] sqlSpecialCharacters = { "'", ";", "--", "/*", "*/", "xp_", "exec", "sp_"};
-
-            // Check if the input contains any of the special characters
-            foreach (var specialCharacter in sqlSpecialCharacters)
-            {
-                if (input.Contains(specialCharacter, StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
     }
 }
