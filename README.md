@@ -1,61 +1,114 @@
-# gitHub
+# gitHub Demo
 
-A multi-user client/server code editor. Create projects, invite friends, and edit the same files together in real time — with project chat, a to-do/issue list per project, friend requests and in-app messages.
+A multi-user code editor. Create projects, invite friends, and edit the same files together in real time:
+live cursors, presence ("dana is editing main.cpp"), version history, project chat with @mentions and code
+blocks, tasks, running code on the server, and an admin panel.
 
 Website: https://dvircohen17.github.io/gitHub/
 
 ## Architecture
 
 ```
-┌──────────────────────┐      TCP :12345       ┌───────────────────────────┐
-│ client/  (WPF, C#)   │ ◄───────────────────► │ server/  (C++, Winsock)   │
-│ AvalonEdit editor    │   length-prefixed     │ one thread per client     │
-│ shared window frame  │   text protocol       │ SQLite (syncDBTemp.sqlite)│
-└──────────────────────┘                       └───────────────────────────┘
-          ▲
-          │ installs / updates
-┌──────────────────────┐
-│ installer/ (WPF, C#) │
-└──────────────────────┘
+┌───────────────────────────┐   TCP :12345, JSON messages   ┌──────────────────────────────┐
+│ client/  WPF, .NET 8, MVVM│ ◄───────────────────────────► │ server/  C++17, Winsock       │
+│ one window, pages inside  │   docs/PROTOCOL.md            │ poll thread + worker pool     │
+│ AvalonEdit live editor    │                               │ SQLite (prepared statements)  │
+└───────────────────────────┘                               │ Docker for "Run"              │
+            ▲ MSIX package (packaging/)                     └──────────────────────────────┘
 ```
 
-* **server/** — `Communicator` accepts connections and runs one thread per client (shared state is guarded by one lock). Each message starts with a 3-digit code (see `MessageCodes` in `server/Helper.h` / `client/Communicator.cs`) followed by length-prefixed fields. Request handlers are split by feature (`CommunicatorAuth/Files/Projects/Social/Issues/Navigation/LiveEdit.cpp`). Files are flushed to the database every 60 s.
-* **client/** — WPF app (.NET 6). Screens: sign-in → Home → Project (files, live editor, members, chat) → To-do list, plus Messages and Settings. All screens share one window frame (`MainFrame` in `App.xaml.cs`), so navigating looks like one window changing pages; only *New / Edit project* opens as a dialog. Look and theming live in `App.xaml` (styles read `Theme.*` brushes that `Communicator.ModifyTheme` updates).
-* **installer/** — WPF app (.NET 8) that installs the client under `C:\githubDemo\`.
+* **server/** — `Net.cpp`: one thread polls every socket and hands complete messages to a worker pool;
+  each connection's requests are handled in order. `App*.cpp`: the request handlers (auth, people, projects,
+  files, chat, tasks, admin, run). Each open project is a *room* with its own lock, so projects never wait for
+  each other. `Schema.cpp`: tables and the one-time import of a version 1 database. `CodeRunner.cpp`: runs code
+  in throw-away Docker containers.
+* **client/** — `Core/`: connection (with automatic reconnect), session, live documents (OT), settings,
+  notifications, themes. `ViewModels/` + `Views/`: one page per screen, shown inside the single `MainWindow`
+  with a short transition. Only *New / Edit project* is a separate dialog. Look and theming: `Themes/Design.xaml`.
+* **docs/PROTOCOL.md** — every request, reply and event.
+* **packaging/** — builds the signed MSIX installer.
+* **tests/** — end-to-end server tests (Python) and client text-operation tests (C#).
+* **installer/** — the version 1 installer, kept only so existing version 1 installs can update.
 
 ## Building
 
-Requirements: Windows, Visual Studio 2022 with the **Desktop development with C++** and **.NET desktop development** workloads.
+Requirements: Windows 10/11, Visual Studio 2022 (*Desktop development with C++* and *.NET desktop development*),
+the .NET 8 SDK (or newer), Python 3 for the tests.
 
-| Project | How to build |
+| What | How |
 |---|---|
-| Server | Open `server/server.vcxproj` → build **x64**. Or: `msbuild server\server.vcxproj /p:Configuration=Release /p:Platform=x64` |
+| Server | `msbuild server\server.vcxproj /p:Configuration=Release /p:Platform=x64` (or open it in Visual Studio) |
 | Client | `dotnet build client\client_side.csproj` |
-| Installer | Build in Visual Studio (it uses a COM reference, so `dotnet build` can't build it; VS's `msbuild -restore` can) |
+| Installer (MSIX) | `powershell -ExecutionPolicy Bypass -File packaging\build-msix.ps1` → `packaging\out\` |
 
-## Running
+## Running the server
 
-1. **Server** — run the server executable. It listens on port `12345` and creates `syncDBTemp.sqlite` (with all tables) in its working directory on first start. Type `EXIT` to stop it.
-   Optional files next to the server: `gitHubDemo.zip` (served to the installer) and a `ClientVersion` row in the database (clients with a different version are told to update).
-2. **Installer** — put the client package as `gitHubDemo.zip` next to the server executable, then run the installer, enter the server address and click **Install**. It downloads the package, installs it to `C:\githubDemo\data` (the previous install is only replaced once the new one is complete), creates a desktop shortcut and starts the client. When the server reports a newer version, the client runs the installer with `--update` automatically.
-3. **Client** — reads the server address (`IP,PORT`, e.g. `127.0.0.1,12345`) from `config.txt` next to the executable, or from `C:\githubDemo\data\config.txt`. If there is none, or the server can't be reached, it asks for the address and saves it.
-   The client stores its settings in `C:\githubDemo\settings\appsettings.json` and reads syntax-highlighting files from `C:\githubDemo\data\codeStyles\`.
+Run `server.exe`. On first start it writes `server.json` with defaults:
+
+| Setting | Meaning |
+|---|---|
+| `port` | TCP port (default 12345). Also `--port N` on the command line. |
+| `database` | SQLite file (default `githubdemo.sqlite`, `--db`). |
+| `legacyDatabase` | A version 1 `syncDBTemp.sqlite` to import once when `database` doesn't exist yet (the old file is only read). |
+| `logFile`, `logLevel` | Log file (rotated at 5 MB) and `debug`/`info`/`warn`/`error` (`--log-level`). |
+| `admins` | User names that are server admins (the admin page, the console commands). |
+| `saveIntervalSeconds` | How often edited files are written to the database (default 3). |
+| `versionIntervalMinutes`, `maxVersionsPerFile` | Automatic version snapshots. Named versions are kept forever. |
+| `installerPackage` | The file offered to clients that must update (put the `.msix` here). |
+| `clientVersion` | The lowest client version allowed (older clients are asked to update). |
+| `rateLimits` | Failed logins before a lockout, sign-ups per hour per address, requests per second, chat messages. |
+| `run` | Running code: `enabled`, `docker` command, time/memory/CPU limits, and the image + command per file type. |
+
+**Admin console** (type in the server window): `status`, `sessions`, `users [text]`, `kick <user>`,
+`ban <user> [reason]`, `unban <user>`, `admin <user> on|off`, `version [x.y]`, `save`, `exit`.
+
+**Running code** needs [Docker Desktop](https://www.docker.com/products/docker-desktop/) on the server machine.
+Each run gets a fresh container with no network, 256 MB of memory, one CPU, a process limit and a 10-second time
+limit (all configurable). The first run of each language downloads its image. Supported out of the box: `.py`,
+`.js`, `.c`, `.cpp`, `.java`.
+
+## Installing the client
+
+Give people `packaging\out\gitHubDemo-<version>.msix`, `gitHubDemo.cer` and `install.ps1`. Running `install.ps1`
+trusts the gitHub Demo certificate once (asks for administrator approval) and installs the app for the current
+user. It then appears in the Start menu, opens `githubdemo://` links, shows Windows notifications, and uninstalls
+from *Settings > Apps*. The package is self-contained, so no .NET install is needed.
+
+The certificate is self-signed (`packaging\signing.pfx`, created on the first build and never committed). Keep that
+file and use it for every release; a purchased code-signing certificate can replace it later.
+
+The client keeps its settings, remembered sign-in (encrypted with Windows DPAPI), editor colours and cached
+pictures in `%LOCALAPPDATA%\gitHubDemo`. On first start it reads the server address, theme and colours of a
+version 1 install (`C:\githubDemo`) without changing it.
 
 ## Live editing
 
-Each open file has one authoritative copy on the server with a revision number (`server/CommunicatorLiveEdit.cpp`). The client turns every editor change into an operation (`TextOperation` — retain / insert / delete, same algorithm as ot.js) and sends it with the last revision it has seen; one edit is in flight at a time. If others edited in between, the server *transforms* the incoming edit past theirs, applies it, acknowledges it and broadcasts it; clients transform their own unconfirmed edits the same way, so every copy ends up identical. Positions are UTF-16 code units on both sides, so any language/keyboard works.
+Each open file has one authoritative copy on the server with a revision number. The client turns every editor
+change into an operation (retain / insert / delete, the ot.js algorithm) sent with the last revision it has seen,
+one at a time. The server *transforms* an edit past the ones it hadn't seen, applies it, acknowledges it and sends
+it to everyone else in the file, always in the same order; clients do the mirror-image transform for their own
+unconfirmed edits, so every copy ends up identical. Positions are UTF-16 units on both sides, so any language
+works. Undo only undoes your own edits (the undo history is transformed past other people's). Cursors and
+selections are sent the same way, and edits are saved every few seconds with automatic version snapshots.
 
-## Protocol
+## Tests
 
-Every message, in both directions, is framed as `#` + 8-digit payload length in bytes + payload. The payload starts with the 3-digit message code. The server still answers unframed `501` (version) and `500` (download) requests from older clients and installers, so they can update themselves; any other unframed request is refused.
+```
+python tests\protocol_test.py server\x64\Release\server.exe [old syncDBTemp.sqlite to import]
+dotnet run --project tests\ClientOtTests
+```
 
-Fields inside a payload are length-prefixed with their **UTF-8 byte count** (`Wire` / `WireReader` in the client), so Hebrew and other non-ASCII text works in project names, files, chat and tasks. Usernames are limited to ASCII letters, digits and `. _ -`.
+`protocol_test.py` starts a server on a free port in a temporary folder and runs 17 end-to-end tests: the
+version 1 import, accounts and lockouts, friends and presence, roles/invites/invite codes, public projects,
+folders, three users and four real OT clients editing at once, cursors, versions, autosave, chat, tasks,
+avatars, import/export, run code (with a stand-in for Docker), admin, a 24-user stress test, malformed input and
+rate limits. `ClientOtTests` checks the client's compose/transform/undo logic on thousands of random edits.
 
 ## Security notes
 
-* Every SQL query escapes user input (`sqlStr()` in `server/SqliteDataBase.cpp`). Any new query that includes a string **must** use it.
-* Passwords: the client sends SHA-256(password); the server stores that value as salted **PBKDF2-HMAC-SHA256** (`server/PasswordHasher.cpp`). Accounts created before this change are upgraded automatically on their next successful login.
-* "Remember me" is encrypted with Windows DPAPI (current user only).
+* Every SQL statement uses bound parameters (`server/Db.h`); no SQL is built from user input.
+* Passwords: the client sends SHA-256(password); the server stores it as salted PBKDF2-HMAC-SHA256.
+* Failed logins lock the account and the address for a while; sign-ups, requests and chat are rate limited.
+* The server checks every action against the user's role (owner / admin / member / viewer).
 * Traffic is **not encrypted** (plain TCP). Only run the server on a trusted network until TLS is added.
-* The server checks permissions for every project, file, task, friend and message action (creator/admin/participant roles); it never trusts a user name sent by the client.
-* Never commit the `.sqlite` database — it contains user accounts (it is in `.gitignore`).
+* Never commit the `.sqlite` database (accounts) or `packaging\signing.pfx` (signing key); both are in `.gitignore`.
