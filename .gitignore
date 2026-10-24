@@ -29,3 +29,11 @@ Release/
 
 # Client config (server address is machine-specific)
 config.txt
+
+# server runtime files
+server/x64/
+server/logs/
+server/server.json
+*.sqlite-wal
+*.sqlite-shm
+__pycache__/

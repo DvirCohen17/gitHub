@@ -1,6 +1,7 @@
 #include "TextOperation.h"
 #include <windows.h>
 #include <stdexcept>
+#include <algorithm>
 
 TextOperation& TextOperation::retain(size_t n)
 {
@@ -72,62 +73,59 @@ std::wstring TextOperation::apply(const std::wstring& document) const
 	return result;
 }
 
-std::string TextOperation::encode() const
+Json TextOperation::toJson() const
 {
-	std::string out;
+	Json out = Json::array();
 	for (const Component& c : _ops)
 	{
 		switch (c.kind)
 		{
-		case Component::Retain: out += "r" + std::to_string(c.count) + ","; break;
-		case Component::Delete: out += "d" + std::to_string(c.count) + ","; break;
-		case Component::Insert:
-		{
-			std::string utf8 = wideToUtf8(c.text);
-			out += "i" + std::to_string(utf8.size()) + ":" + utf8;
-			break;
-		}
+		case Component::Retain: out.push((long long)c.count); break;
+		case Component::Delete: out.push(-(long long)c.count); break;
+		case Component::Insert: out.push(wideToUtf8(c.text)); break;
 		}
 	}
 	return out;
 }
 
-static size_t parseCount(const std::string& wire, size_t& i, char terminator)
+TextOperation TextOperation::fromJson(const Json& json)
 {
-	size_t end = wire.find(terminator, i);
-	if (end == std::string::npos || end == i || end - i > 9)
+	if (!json.isArray())
 		throw std::invalid_argument("malformed operation");
-	for (size_t k = i; k < end; k++)
-		if (wire[k] < '0' || wire[k] > '9')
-			throw std::invalid_argument("malformed operation");
-	size_t n = std::stoul(wire.substr(i, end - i));
-	i = end + 1;
-	return n;
-}
-
-TextOperation TextOperation::decode(const std::string& wire)
-{
 	TextOperation op;
-	size_t i = 0;
-	while (i < wire.size())
+	for (const Json& c : json.items())
 	{
-		char kind = wire[i++];
-		if (kind == 'i')
-		{
-			size_t n = parseCount(wire, i, ':');
-			if (i + n > wire.size())
-				throw std::invalid_argument("malformed operation");
-			op.insert(utf8ToWide(wire.substr(i, n)));
-			i += n;
-		}
-		else if (kind == 'r')
-			op.retain(parseCount(wire, i, ','));
-		else if (kind == 'd')
-			op.remove(parseCount(wire, i, ','));
+		if (c.isString())
+			op.insert(utf8ToWide(c.asString()));
+		else if (c.isInt() && c.asInt() > 0 && c.asInt() < (1LL << 31))
+			op.retain((size_t)c.asInt());
+		else if (c.isInt() && c.asInt() < 0 && c.asInt() > -(1LL << 31))
+			op.remove((size_t)-c.asInt());
 		else
 			throw std::invalid_argument("malformed operation");
 	}
 	return op;
+}
+
+size_t TextOperation::transformIndex(size_t index) const
+{
+	// Where a cursor at `index` ends up after this operation.
+	size_t newIndex = index;
+	size_t pos = 0;
+	for (const Component& c : _ops)
+	{
+		if (pos > index) break;
+		switch (c.kind)
+		{
+		case Component::Retain: pos += c.count; break;
+		case Component::Insert: newIndex += c.text.size(); break;
+		case Component::Delete:
+			newIndex -= std::min(c.count, index - pos);
+			pos += c.count;
+			break;
+		}
+	}
+	return newIndex;
 }
 
 std::pair<TextOperation, TextOperation> TextOperation::transform(const TextOperation& a, const TextOperation& b)
